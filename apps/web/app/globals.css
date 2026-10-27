@@ -1,0 +1,66 @@
+@import 'tailwindcss';
+
+/*
+ * Système de design IvoireCovoit : jetons de couleur.
+ * Les couleurs de marque rappellent le drapeau ivoirien (orange, blanc, vert), assombries
+ * là où elles portent du texte pour respecter un contraste WCAG AA (≥ 4,5:1).
+ * Le mode sombre est préparé : il suffit de compléter le bloc [data-theme='dark'].
+ */
+:root {
+  --color-brand: #b85400;          /* boutons principaux, texte blanc dessus : 5,0:1 */
+  --color-brand-strong: #8f4100;   /* survol / pression */
+  --color-brand-soft: #fff1e5;     /* fonds d'accent */
+  --color-accent: #f77f00;         /* éléments décoratifs uniquement, jamais du texte */
+  --color-success: #00704a;        /* vert, texte sur blanc : 6,3:1 */
+  --color-success-soft: #e6f4ee;
+  --color-danger: #b42318;
+  --color-danger-soft: #fdecea;
+  --color-warning-soft: #fff7d6;
+  --color-text: #1b1f24;
+  --color-text-muted: #545c66;     /* 6,9:1 sur blanc */
+  --color-surface: #ffffff;
+  --color-surface-muted: #f5f6f8;
+  --color-border: #d5d9de;
+  --color-focus: #1d5fd6;
+  --radius-card: 14px;
+  --radius-control: 10px;
+}
+
+[data-theme='dark'] {
+  /* Prévu pour un incrément ultérieur. */
+}
+
+@theme inline {
+  --color-brand: var(--color-brand);
+  --color-brand-strong: var(--color-brand-strong);
+  --color-brand-soft: var(--color-brand-soft);
+  --color-accent: var(--color-accent);
+  --color-success: var(--color-success);
+  --color-success-soft: var(--color-success-soft);
+  --color-danger: var(--color-danger);
+  --color-danger-soft: var(--color-danger-soft);
+  --color-warning-soft: var(--color-warning-soft);
+  --color-ink: var(--color-text);
+  --color-ink-muted: var(--color-text-muted);
+  --color-surface: var(--color-surface);
+  --color-surface-muted: var(--color-surface-muted);
+  --color-line: var(--color-border);
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+html {
+  color: var(--color-text);
+  background: var(--color-surface-muted);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 16px; /* jamais en dessous de 16px dans les champs : évite le zoom automatique sur mobile */
+  line-height: 1.5;
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}

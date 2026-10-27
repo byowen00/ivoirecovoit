@@ -1,0 +1,19 @@
+{
+  "name": "ivoirecovoit",
+  "private": true,
+  "version": "0.1.0",
+  "description": "IvoireCovoit : plateforme de covoiturage pour la Côte d'Ivoire (monorepo)",
+  "packageManager": "pnpm@10.0.0",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "dev:backend": "pnpm --filter @ivoirecovoit/backend start:dev",
+    "dev:web": "pnpm --filter @ivoirecovoit/web dev",
+    "db:migrate": "pnpm --filter @ivoirecovoit/backend db:migrate",
+    "db:seed": "pnpm --filter @ivoirecovoit/backend db:seed",
+    "db:seed:demo": "pnpm --filter @ivoirecovoit/backend db:seed:demo",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "build": "pnpm -r build"
+  }
+}

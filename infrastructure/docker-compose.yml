@@ -1,0 +1,76 @@
+# Environnement de développement IvoireCovoit.
+#   docker compose -f infrastructure/docker-compose.yml --env-file .env up -d
+# Services de base : PostgreSQL + PostGIS, Redis. Profils facultatifs :
+#   --profile app      : API et site web conteneurisés (sinon lancés avec pnpm en local)
+#   --profile storage  : MinIO (stockage privé des documents, utilisé à partir de l'étape 6)
+#   --profile routing  : OSRM (routage, après préparation : infrastructure/osrm/prepare.sh)
+name: ivoirecovoit
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ivoirecovoit}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Définir POSTGRES_PASSWORD dans .env}
+      POSTGRES_DB: ${POSTGRES_DB:-ivoirecovoit}
+    ports: ["127.0.0.1:5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ivoirecovoit}"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports: ["127.0.0.1:6379:6379"]
+    volumes: [redisdata:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
+
+  backend:
+    profiles: [app]
+    build: { context: .., dockerfile: apps/backend/Dockerfile }
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgres://${POSTGRES_USER:-ivoirecovoit}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ivoirecovoit}
+      REDIS_URL: redis://redis:6379
+      CORS_ORIGINS: http://localhost:3001
+      SWAGGER_ENABLED: "true"
+    ports: ["127.0.0.1:3000:3000"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  web:
+    profiles: [app]
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+      args: { API_INTERNAL_URL: "http://backend:3000" }
+    ports: ["127.0.0.1:3001:3001"]
+    depends_on: [backend]
+
+  minio:
+    profiles: [storage]
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-ivoirecovoit}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?Définir S3_SECRET_KEY dans .env}
+    ports: ["127.0.0.1:9000:9000", "127.0.0.1:9001:9001"]
+    volumes: [miniodata:/data]
+
+  osrm:
+    profiles: [routing]
+    image: ghcr.io/project-osrm/osrm-backend:v5.27.1
+    command: ["osrm-routed", "--algorithm", "mld", "/data/ivory-coast-latest.osrm"]
+    ports: ["127.0.0.1:5000:5000"]
+    volumes: ["./osrm/data:/data"]
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:
