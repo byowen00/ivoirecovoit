@@ -7,11 +7,19 @@ const segment = {
   seats: z.number().int().min(1, 'Une place au minimum.').max(8),
 };
 
-export const quoteSchema = z.object(segment);
+const promoCode = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .regex(/^[A-Z0-9-]{3,30}$/, 'Code promo invalide.')
+  .optional();
+
+export const quoteSchema = z.object({ ...segment, promoCode });
 export type QuoteInput = z.infer<typeof quoteSchema>;
 
 export const createBookingSchema = z.object({
   ...segment,
+  promoCode,
   // Espèces seulement si la plateforme et le conducteur l'acceptent ; sinon paiement mobile (étape 8).
   paymentMethod: z.literal('CASH').optional(),
   acceptCancellationPolicy: z.literal(true, { error: 'Acceptez les conditions d’annulation pour réserver.' }),

@@ -88,20 +88,30 @@ export interface RefundSplit {
 }
 
 /**
- * Ventilation d'un remboursement entre la part du conducteur, la commission et les frais de service, d'après
- * ce qui a été figé à l'annulation : remboursement total, frais rendus et part laissée au conducteur.
+ * Ventilation d'un remboursement entre la part du conducteur, la commission, les frais de service et la réduction,
+ * d'après ce qui a été figé à l'annulation : remboursement total, frais rendus et part laissée au conducteur.
  * Conducteur : il garde `compensation` au lieu de `driver_net`. Commission : la plateforme garde la commission
- * au prorata de la part trajet conservée. Frais : ceux qui sont rendus. Réduction : annulée seulement si tout
- * est rendu (les codes promotionnels arrivent à l'étape 9 ; un remboursement partiel avec réduction est refusé).
+ * au prorata de la part trajet conservée. Frais : ceux qui sont rendus. Réduction (code promo) : la plateforme
+ * récupère la part de réduction correspondant à ce qui n'est plus dû au conducteur ; tout rembourser l'annule.
  */
 export function refundSplit(m: BookingMoney, refundXof: number, serviceFeeRefundXof: number, compensationXof: number): RefundSplit {
-  const full = refundXof === m.totalXof;
-  const promoXof = full ? m.discountXof : 0;
-  if (!full && m.discountXof > 0) throw new Error('Remboursement partiel d’une réservation avec réduction : à traiter manuellement');
-  const tripRefund = refundXof - serviceFeeRefundXof + promoXof;
   const driverXof = m.driverNetXof - compensationXof;
-  const commissionXof = tripRefund - driverXof;
-  if (tripRefund < 0 || driverXof < 0 || commissionXof < 0 || commissionXof > m.commissionXof || serviceFeeRefundXof > m.serviceFeeXof) {
+  const tripRefund = refundXof - serviceFeeRefundXof;
+  let commissionXof: number;
+  let promoXof: number;
+  if (m.discountXof === 0) {
+    commissionXof = tripRefund - driverXof;
+    promoXof = 0;
+  } else if (refundXof === m.totalXof) {
+    commissionXof = m.commissionXof;
+    promoXof = m.discountXof;
+  } else {
+    // Le conducteur garde la même fraction de son net que la plateforme de sa commission.
+    commissionXof = m.driverNetXof > 0 ? m.commissionXof - Math.round((m.commissionXof * compensationXof) / m.driverNetXof) : m.commissionXof;
+    promoXof = Math.min(Math.max(driverXof + commissionXof - tripRefund, 0), m.discountXof);
+    commissionXof = tripRefund + promoXof - driverXof; // équilibre exact après arrondis
+  }
+  if (tripRefund < 0 || driverXof < 0 || commissionXof < 0 || commissionXof > m.commissionXof || serviceFeeRefundXof > m.serviceFeeXof || promoXof > m.discountXof) {
     throw new Error(`Ventilation de remboursement incohérente (remboursement ${refundXof}, frais ${serviceFeeRefundXof}, part conducteur ${compensationXof})`);
   }
   return { driverXof, commissionXof, feesXof: serviceFeeRefundXof, promoXof };

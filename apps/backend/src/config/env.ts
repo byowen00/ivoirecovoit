@@ -55,6 +55,12 @@ export const envSchema = z
     STAFF_TOTP_ENCRYPTION_KEY: z.string().min(32).default(DEV_ONLY_SECRET),
     // Aucun fournisseur SMS n'est encore intégré (contrat et identifiant d'expéditeur à obtenir).
     SMS_PROVIDER: z.enum(['none']).default('none'),
+    // Notifications sur le téléphone. « none » : notifications dans l'application seulement.
+    // « fcm » : Firebase Cloud Messaging (API HTTP v1) ; exige un projet Firebase et un compte de service (non fournis).
+    PUSH_PROVIDER: z.enum(['none', 'fcm']).default('none'),
+    FCM_PROJECT_ID: z.string().optional(),
+    // Fichier JSON du compte de service Firebase, encodé en base64. Ne jamais le mettre dans le dépôt.
+    FCM_SERVICE_ACCOUNT_B64: z.string().optional(),
     // Chiffrement applicatif des données personnelles sensibles (numéro de permis).
     PII_ENCRYPTION_KEY: z.string().min(32).default(DEV_ONLY_SECRET),
     // Stockage privé des documents (API S3 : RustFS en local, tout service compatible S3 en production).
@@ -81,6 +87,13 @@ export const envSchema = z
         code: 'custom',
         path: ['PAYMENT_PROVIDER'],
         message: "L'adaptateur agrégateur n'est qu'un squelette : aucun agrégateur n'est encore intégré (contrat et accès à obtenir).",
+      });
+    }
+    if (env.PUSH_PROVIDER === 'fcm' && (!env.FCM_PROJECT_ID || !env.FCM_SERVICE_ACCOUNT_B64)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['FCM_PROJECT_ID'],
+        message: 'PUSH_PROVIDER=fcm exige FCM_PROJECT_ID et FCM_SERVICE_ACCOUNT_B64 (compte de service Firebase).',
       });
     }
     if (env.NODE_ENV !== 'production') return;

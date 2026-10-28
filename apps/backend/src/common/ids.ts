@@ -31,3 +31,8 @@ export function bookingReference(): string {
 export function tripReference(): string {
   return `T-${randomCode(6)}`;
 }
+
+/** Référence de réclamation, par exemple « R-4H7K2M ». */
+export function disputeReference(): string {
+  return `R-${randomCode(6)}`;
+}

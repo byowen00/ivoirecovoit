@@ -18,6 +18,7 @@ import {
 } from './amounts';
 import type { CreateBookingInput, MineBookingsQuery, QuoteInput } from './bookings.schemas';
 import { BLOCKING_STATUSES, outbox, PENDING_STATUSES, setActor, syncTripFullStatus } from './lifecycle';
+import { findPromotion, reservePromotion } from './promotions';
 
 const notFound = () => new ApiError(HttpStatus.NOT_FOUND, 'NOT_FOUND', 'Réservation introuvable.');
 const tripNotFound = () => new ApiError(HttpStatus.NOT_FOUND, 'NOT_FOUND', 'Trajet introuvable.');
@@ -201,6 +202,14 @@ export class BookingsService {
     };
   }
 
+  /** Montants avec, le cas échéant, la réduction du code promo (vérifié mais pas réservé). */
+  private async amountsWithPromo(trx: Db | Transaction<Database>, userId: string, seg: Segment, seats: number, fee: FeeRule, code?: string) {
+    const base = computeAmounts(seg.dropoff.price - seg.pickup.price, seats, fee);
+    if (!code) return { amounts: base, promotion: null };
+    const promotion = await findPromotion(trx, userId, code, base.subtotalXof + base.serviceFeeXof);
+    return { amounts: computeAmounts(seg.dropoff.price - seg.pickup.price, seats, fee, promotion), promotion };
+  }
+
   // ------------------------------------------------------------------ devis et création
 
   async quote(userId: string, input: QuoteInput) {
@@ -212,10 +221,11 @@ export class BookingsService {
       this.feeRule(this.db, seg.trip.kind),
       this.policy(this.db, seg.trip.cancellation_policy_code),
     ]);
-    const amounts = computeAmounts(seg.dropoff.price - seg.pickup.price, input.seats, fee);
+    const { amounts, promotion } = await this.amountsWithPromo(this.db, userId, seg, input.seats, fee, input.promoCode);
     const acceptance = this.acceptance(seg, rules, Date.now());
     return {
       tripId: seg.trip.id,
+      promoCode: promotion?.code ?? null,
       pickup: { stopId: seg.pickup.id, label: seg.pickup.label, plannedAt: seg.pickup.planned_at },
       dropoff: { stopId: seg.dropoff.id, label: seg.dropoff.label, plannedAt: seg.dropoff.planned_at },
       ...this.amountsView(amounts),
@@ -266,7 +276,8 @@ export class BookingsService {
           });
         }
         const fee = await this.feeRule(trx, seg.trip.kind);
-        const amounts = computeAmounts(seg.dropoff.price - seg.pickup.price, input.seats, fee);
+        const { amounts, promotion } = await this.amountsWithPromo(trx, userId, seg, input.seats, fee, input.promoCode);
+        if (promotion && amounts.discountXof > 0) await reservePromotion(trx, promotion.id);
         const now = Date.now();
         const acceptance = this.acceptance(seg, rules, now);
         const status: BookingStatus = acceptance.mode === 'MANUAL' ? 'PENDING_ACCEPTANCE' : cash ? 'CONFIRMED' : 'PENDING_PAYMENT';
@@ -294,6 +305,7 @@ export class BookingsService {
             commission_xof: amounts.commissionXof,
             driver_net_xof: amounts.driverNetXof,
             fee_rule_id: fee.id,
+            promotion_id: promotion && amounts.discountXof > 0 ? promotion.id : null,
             cancellation_policy_code: seg.trip.cancellation_policy_code,
             acceptance_deadline: acceptance.deadline,
             // En attente d'acceptation, le blocage dure jusqu'à l'échéance d'acceptation.
@@ -301,6 +313,12 @@ export class BookingsService {
             confirmed_at: status === 'CONFIRMED' ? new Date(now) : null,
           })
           .execute();
+        if (promotion && amounts.discountXof > 0) {
+          await trx
+            .insertInto('promotion_redemptions')
+            .values({ id: uuidv7(), promotion_id: promotion.id, user_id: userId, booking_id: id, amount_xof: amounts.discountXof, status: status === 'CONFIRMED' ? 'USED' : 'RESERVED' })
+            .execute();
+        }
         await syncTripFullStatus(trx, seg.trip.id);
         await outbox(trx, 'booking', id, 'booking.created', { status, tripId: seg.trip.id, driverId: seg.trip.driver_id });
         await this.audit.log({ actorId: userId, action: 'booking.create', targetType: 'booking', targetId: id, changes: { status, seats: input.seats }, ctx }, trx);
@@ -343,7 +361,7 @@ export class BookingsService {
         .selectFrom('trips')
         .innerJoin('vehicles', 'vehicles.id', 'trips.vehicle_id')
         .innerJoin('users', 'users.id', 'trips.driver_id')
-        .select(['trips.id', 'trips.public_ref', 'trips.status', 'trips.departure_at', 'trips.estimated_arrival_at', 'trips.started_at',
+        .select(['trips.id', 'trips.public_ref', 'trips.status', 'trips.departure_at', 'trips.estimated_arrival_at', 'trips.started_at', 'trips.completed_at',
                  'vehicles.make', 'vehicles.model', 'vehicles.color', 'vehicles.plate_number', 'users.display_name', 'trips.is_demo',
                  sql<string>`(SELECT label FROM trip_stops s WHERE s.trip_id = trips.id ORDER BY seq LIMIT 1)`.as('origin'),
                  sql<string>`(SELECT label FROM trip_stops s WHERE s.trip_id = trips.id ORDER BY seq DESC LIMIT 1)`.as('destination')])
@@ -363,6 +381,12 @@ export class BookingsService {
         .orderBy('created_at', 'desc')
         .orderBy('id', 'desc')
         .executeTakeFirst(),
+    ]);
+    const [myReview, openDispute, reviewDays] = await Promise.all([
+      this.db.selectFrom('reviews').select('id').where('booking_id', '=', bookingId).where('author_id', '=', userId).executeTakeFirst(),
+      this.db.selectFrom('disputes').select(['id', 'reference', 'status']).where('booking_id', '=', bookingId)
+        .where('status', 'in', ['OPEN', 'AWAITING_RESPONSE', 'IN_REVIEW']).executeTakeFirst(),
+      this.settings.get<number>('reviews.window_days'),
     ]);
     const pickup = stops.find((s) => s.id === b.pickup_stop_id)!;
     const dropoff = stops.find((s) => s.id === b.dropoff_stop_id)!;
@@ -431,7 +455,13 @@ export class BookingsService {
         canMarkNoShow: isDriver && confirmed && trip.status === 'IN_PROGRESS' && now >= pickup.planned_at.getTime() + rules.noShowDelayMinutes * MINUTE,
         // Paiement mobile possible tant que le blocage court et qu'aucun paiement n'est en cours chez le prestataire.
         canPay: !isDriver && b.status === 'PENDING_PAYMENT' && holdOpen && b.hold_expires_at !== null && b.payment_status === 'UNPAID' && tripOpen,
+        canMessage: active && ['PUBLISHED', 'FULL', 'IN_PROGRESS'].includes(trip.status),
+        canShare: confirmed && ['PUBLISHED', 'FULL', 'IN_PROGRESS'].includes(trip.status),
+        canReview:
+          b.status === 'COMPLETED' && ['PAID', 'PARTIALLY_REFUNDED', 'CASH_DUE'].includes(b.payment_status) && !myReview &&
+          now <= (trip.completed_at ?? trip.estimated_arrival_at).getTime() + (reviewDays ?? 14) * 86_400_000,
       },
+      openDispute: openDispute ? { id: openDispute.id, reference: openDispute.reference, status: openDispute.status } : null,
     };
   }
 
@@ -561,7 +591,7 @@ export class BookingsService {
   // ------------------------------------------------------------------ annulation
 
   private async outcome(trx: Db | Transaction<Database>, b: NonNullable<Awaited<ReturnType<BookingsService['load']>>>, role: 'PASSENGER' | 'DRIVER', rules: BookingRules) {
-    const amounts = { subtotalXof: b.subtotal_xof, serviceFeeXof: b.service_fee_xof, totalXof: b.total_xof, commissionXof: b.commission_xof };
+    const amounts = { subtotalXof: b.subtotal_xof, serviceFeeXof: b.service_fee_xof, totalXof: b.total_xof, commissionXof: b.commission_xof, discountXof: b.discount_xof };
     if (role === 'DRIVER') return { outcome: driverCancellation({ amounts, paymentStatus: b.payment_status }), lateDriver: false };
     const policy = await this.policy(trx, b.cancellation_policy_code);
     const pickup = await trx.selectFrom('trip_stops').select('planned_at').where('id', '=', b.pickup_stop_id).executeTakeFirstOrThrow();

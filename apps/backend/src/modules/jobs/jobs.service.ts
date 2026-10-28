@@ -3,10 +3,13 @@ import { type Job, Queue, Worker } from 'bullmq';
 import { Redis } from 'ioredis';
 import { ENV, type Env } from '../../config/env';
 import { BookingsMaintenanceService } from '../bookings/maintenance.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { SettingsService } from '../users/settings.service';
 import { PaymentsService } from '../payments/payments.service';
 import { ReconciliationService } from '../payments/reconciliation.service';
 import { RefundsService } from '../payments/refunds.service';
+import { DisputesService } from '../trust/disputes.service';
+import { ReviewsService } from '../trust/reviews.service';
 
 const QUEUE = 'maintenance';
 
@@ -30,6 +33,9 @@ export class JobsService implements OnApplicationBootstrap, OnApplicationShutdow
     private readonly refunds: RefundsService,
     private readonly reconciliation: ReconciliationService,
     private readonly settings: SettingsService,
+    private readonly notifications: NotificationsService,
+    private readonly reviews: ReviewsService,
+    private readonly disputes: DisputesService,
   ) {}
 
   /** Tâche de la minute ; appelée directement par les tests. */
@@ -39,12 +45,27 @@ export class JobsService implements OnApplicationBootstrap, OnApplicationShutdow
     const refunded = await this.refunds.processPending(now);
     const hours = (await this.settings.get<number>('finance.driver_payable_after_hours')) ?? 48;
     const payable = await this.refunds.releasePayable(hours, now);
-    if (polled || refunded || payable) this.logger.log(JSON.stringify({ polled, refunded, payable }));
-    return { ...bookings, polled, refunded, payable };
+    const reviewsPublished = await this.reviews.publishDue(now);
+    const disputesEscalated = await this.disputes.escalateOverdue(now);
+    const reminders = await this.notifications.sendReminders(now);
+    const notified = await this.notifications.dispatchOutbox();
+    if (polled || refunded || payable || reviewsPublished || disputesEscalated) {
+      this.logger.log(JSON.stringify({ polled, refunded, payable, reviewsPublished, disputesEscalated }));
+    }
+    return { ...bookings, polled, refunded, payable, reviewsPublished, disputesEscalated, reminders, notified };
+  }
+
+  /** Toutes les 10 s : événements -> notifications, puis envoi sur les téléphones. */
+  async notificationsTick() {
+    const notified = await this.notifications.dispatchOutbox();
+    const push = await this.notifications.deliverPush();
+    return { notified, ...push };
   }
 
   private run(job: Job) {
-    return job.name === 'reconciliation' ? this.reconciliation.runDaily() : this.everyMinute();
+    if (job.name === 'reconciliation') return this.reconciliation.runDaily();
+    if (job.name === 'notifications') return this.notificationsTick();
+    return this.everyMinute();
   }
 
   async onApplicationBootstrap(): Promise<void> {
@@ -54,6 +75,7 @@ export class JobsService implements OnApplicationBootstrap, OnApplicationShutdow
     this.queue = new Queue(QUEUE, { connection: this.connection });
     const opts = { removeOnComplete: 100, removeOnFail: 500 };
     await this.queue.upsertJobScheduler('deadlines-every-minute', { every: 60_000 }, { name: 'deadlines', opts });
+    await this.queue.upsertJobScheduler('notifications-every-10s', { every: 10_000 }, { name: 'notifications', opts });
     await this.queue.upsertJobScheduler('reconciliation-daily', { pattern: '0 1 * * *', tz: 'UTC' }, { name: 'reconciliation', opts });
     this.worker = new Worker(QUEUE, (job) => this.run(job), { connection: this.connection, concurrency: 1 });
     this.worker.on('failed', (job, err) => this.logger.error(`${job?.name ?? 'tâche'} : ${err.message}`));

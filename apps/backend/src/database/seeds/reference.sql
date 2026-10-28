@@ -51,6 +51,15 @@ INSERT INTO settings (key, value, version) VALUES
   -- Part conducteur payable N heures après la fin du trajet, sans litige ouvert (doc 05 §4).
   ('finance.driver_payable_after_hours', '48', 1),
   ('reviews.window_days', '14', 1),
+  -- Étape 9. Plafonds de remboursement : valeurs de DÉMONSTRATION, à fixer par la direction.
+  -- Un agent de support ne peut pas proposer plus que ce plafond ; au-delà du seuil, un second membre du personnel valide.
+  ('refunds.support_cap_xof', '5000', 1),
+  ('refunds.double_validation_above_xof', '10000', 1),
+  ('disputes.response_hours', '48', 1),
+  ('messages.max_per_10_minutes', '20', 1),
+  ('reports.max_per_day', '10', 1),
+  ('share.expiry_hours_after_arrival', '24', 1),
+  ('notifications.reminder_hours', '[24, 2]', 1),
   ('disputes.window_days', '7', 1),
   -- Versions des textes juridiques à accepter. Textes NON RÉDIGÉS : à faire valider par un juriste avant lancement.
   ('legal.terms_version', '"0.1-brouillon"', 1),

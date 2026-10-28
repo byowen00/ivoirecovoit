@@ -49,7 +49,10 @@ export class AuthGuard implements CanActivate {
 
     const staffPermissions = this.reflector.getAllAndOverride<string[] | undefined>(STAFF_PERMISSIONS, targets);
     const expectedKind = staffPermissions ? 'STAFF' : 'USER';
-    if (claims.kind !== expectedKind) throw forbidden();
+    if (claims.kind !== expectedKind) {
+      if (staffPermissions) await this.logDenied(claims.userId, req, 'WRONG_ACCOUNT_KIND', staffPermissions);
+      throw forbidden();
+    }
 
     const row = await this.db
       .selectFrom('sessions')
@@ -83,8 +86,14 @@ export class AuthGuard implements CanActivate {
     };
 
     if (staffPermissions) {
-      if (!row.staff_active) throw forbidden();
-      if (staffPermissions.length > 0 && !staffPermissions.some((p) => hasPermission(auth, p))) throw forbidden();
+      if (!row.staff_active) {
+        await this.logDenied(claims.userId, req, 'STAFF_INACTIVE', staffPermissions);
+        throw forbidden();
+      }
+      if (staffPermissions.length > 0 && !staffPermissions.some((p) => hasPermission(auth, p))) {
+        await this.logDenied(claims.userId, req, 'MISSING_PERMISSION', staffPermissions);
+        throw forbidden();
+      }
     } else if (
       auth.status !== 'ACTIVE' &&
       !this.reflector.getAllAndOverride<boolean>(ALLOW_INCOMPLETE_PROFILE, targets)
@@ -93,5 +102,23 @@ export class AuthGuard implements CanActivate {
     }
 
     req.auth = auth;
+  }
+
+  /** Chaque refus d'accès à l'administration est journalisé (doc 06, T6). */
+  private async logDenied(actorId: string, req: AppRequest, why: string, required: string[]): Promise<void> {
+    await this.db
+      .insertInto('audit_logs')
+      .values({
+        actor_id: actorId,
+        action: 'access.denied',
+        target_type: 'route',
+        reason: why,
+        changes: JSON.stringify({ method: req.method, path: req.path.slice(0, 200), required }),
+        ip: req.ip ?? null,
+        user_agent: req.header('user-agent')?.slice(0, 300) ?? null,
+        request_id: req.id ?? null,
+      })
+      .execute()
+      .catch(() => undefined);
   }
 }

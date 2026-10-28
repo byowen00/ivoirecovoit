@@ -82,6 +82,12 @@ export class StorageService {
     return { url, expiresAt: new Date(Date.now() + ttlS * 1000) };
   }
 
+  /** Dépôt par le serveur lui-même (exports CSV) ; jamais exposé directement. */
+  async put(key: string, body: Buffer, contentType: string): Promise<void> {
+    if (!this.client) throw unavailable();
+    await this.client.send(new PutObjectCommand({ Bucket: this.bucket, Key: key, Body: body, ContentType: contentType, ContentLength: body.length }));
+  }
+
   /** Contenu d'un objet (null s'il n'existe pas ou dépasse maxBytes). */
   async read(key: string, maxBytes: number): Promise<Buffer | null> {
     if (!this.client) throw unavailable();

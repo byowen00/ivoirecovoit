@@ -45,6 +45,8 @@ export interface UsersTable {
   is_demo: Generated<boolean>;
   suspended_until: Date | null;
   deleted_at: Date | null;
+  rating_avg_passenger: ColumnType<number | null, never, never>;
+  rating_count_passenger: ColumnType<number, never, never>;
   created_at: CreatedAt;
   updated_at: ColumnType<Date, never, never>;
 }
@@ -225,6 +227,10 @@ export interface VehicleDocumentsTable extends DocumentColumns {
 export interface DeviceTokensTable {
   id: string;
   user_id: string;
+  platform: 'ANDROID' | 'IOS' | 'WEB';
+  fcm_token: string;
+  last_seen_at: Generated<Date>;
+  created_at: CreatedAt;
 }
 
 export interface CancellationPoliciesTable {
@@ -347,6 +353,8 @@ export interface BookingStatusHistoryTable {
 
 export interface FeeRulesTable {
   id: string;
+  created_by: string | null;
+  created_at: CreatedAt;
   effective_from: Date;
   effective_to: Date | null;
   trip_kind: TripKind | null;
@@ -384,6 +392,7 @@ export interface OutboxEventsTable {
 
 export interface ReviewsTable {
   id: string;
+  booking_id: string;
   subject_id: string;
   author_id: string;
   direction: 'PASSENGER_TO_DRIVER' | 'DRIVER_TO_PASSENGER';
@@ -391,6 +400,174 @@ export interface ReviewsTable {
   comment: string | null;
   published_at: Date | null;
   hidden_at: Date | null;
+  hidden_reason: string | null;
+  hidden_by: string | null;
+  created_at: CreatedAt;
+}
+
+// ------------------------------------------------------------------ étape 9 : confiance, notifications, administration
+
+export type NotificationChannel = 'IN_APP' | 'PUSH' | 'SMS' | 'WHATSAPP' | 'EMAIL';
+
+export interface NotificationsTable {
+  id: string;
+  user_id: string;
+  type: string;
+  title: string;
+  body: string;
+  data: ColumnType<Record<string, unknown>, string | undefined, string>;
+  channels: NotificationChannel[];
+  dedupe_key: string | null;
+  read_at: Date | null;
+  created_at: CreatedAt;
+}
+
+export interface NotificationDeliveriesTable {
+  id: Generated<number>;
+  notification_id: string;
+  channel: NotificationChannel;
+  status: 'QUEUED' | 'SENT' | 'FAILED' | 'SKIPPED';
+  provider_message_id: string | null;
+  error: string | null;
+  attempts: Generated<number>;
+  updated_at: Generated<Date>;
+}
+
+export interface ConversationsTable {
+  id: string;
+  booking_id: string;
+  created_at: CreatedAt;
+  closed_at: Date | null;
+}
+
+export interface MessagesTable {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  body: string;
+  was_redacted: Generated<boolean>;
+  read_at: Date | null;
+  hidden_at: Date | null;
+  hidden_by: string | null;
+  created_at: CreatedAt;
+}
+
+export type ReportStatus = 'OPEN' | 'IN_REVIEW' | 'ACTION_TAKEN' | 'DISMISSED';
+export type ReportSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+export type ReportTarget = 'USER' | 'TRIP' | 'MESSAGE' | 'REVIEW' | 'VEHICLE';
+export type ReportCategory = 'DANGEROUS_DRIVING' | 'HARASSMENT' | 'FRAUD' | 'NO_SHOW' | 'INAPPROPRIATE' | 'OTHER';
+
+export interface ReportsTable {
+  id: string;
+  reporter_id: string;
+  target_type: ReportTarget;
+  target_id: string;
+  booking_id: string | null;
+  category: ReportCategory;
+  severity: ReportSeverity;
+  description: string;
+  status: Generated<ReportStatus>;
+  assigned_to: string | null;
+  resolution: string | null;
+  created_at: CreatedAt;
+  updated_at: UpdatedAt;
+}
+
+export type DisputeStatus = 'OPEN' | 'AWAITING_RESPONSE' | 'IN_REVIEW' | 'RESOLVED' | 'REJECTED' | 'CLOSED';
+export type DisputeReason = 'DRIVER_NO_SHOW' | 'PASSENGER_NO_SHOW' | 'TRIP_NOT_DONE' | 'LATE' | 'AMOUNT' | 'OTHER';
+export type DisputeDecision = 'NO_REFUND' | 'PARTIAL_REFUND' | 'FULL_REFUND' | 'DRIVER_PENALTY';
+
+export interface DisputeMessagesTable {
+  id: string;
+  dispute_id: string;
+  author_id: string;
+  body: string;
+  is_internal: Generated<boolean>;
+  created_at: CreatedAt;
+}
+
+export interface TripSharesTable {
+  id: string;
+  booking_id: string | null;
+  trip_id: string;
+  created_by: string;
+  token_hash: Buffer;
+  expires_at: Date;
+  revoked_at: Date | null;
+  created_at: CreatedAt;
+}
+
+export interface PromotionsTable {
+  id: string;
+  code: string;
+  description: string | null;
+  discount_type: 'FIXED' | 'PERCENT';
+  discount_value: number;
+  max_discount_xof: number | null;
+  min_total_xof: Generated<number>;
+  starts_at: Date;
+  ends_at: Date;
+  max_redemptions: number | null;
+  max_per_user: Generated<number>;
+  redemptions_count: Generated<number>;
+  first_trip_only: Generated<boolean>;
+  is_active: Generated<boolean>;
+  is_demo: Generated<boolean>;
+  created_by: string | null;
+  deactivated_by: string | null;
+  created_at: CreatedAt;
+  updated_at: UpdatedAt;
+}
+
+export interface PromotionRedemptionsTable {
+  id: string;
+  promotion_id: string;
+  user_id: string;
+  booking_id: string;
+  amount_xof: number;
+  status: Generated<'RESERVED' | 'USED' | 'RELEASED'>;
+  created_at: CreatedAt;
+}
+
+export interface PayoutsTable {
+  id: string;
+  driver_id: string;
+  period_start: SqlDate;
+  period_end: SqlDate;
+  amount_xof: number;
+  method: PaymentMethod | null;
+  destination_masked: string | null;
+  status: Generated<'DRAFT' | 'APPROVED' | 'PROCESSING' | 'PAID' | 'FAILED' | 'CANCELLED'>;
+  external_reference: string | null;
+  approved_by: string | null;
+  paid_at: Date | null;
+  created_at: CreatedAt;
+}
+
+export interface PayoutItemsTable {
+  payout_id: string;
+  commission_id: string;
+  amount_xof: number;
+}
+
+export interface StaffNotesTable {
+  id: string;
+  target_type: 'USER' | 'TRIP' | 'BOOKING';
+  target_id: string;
+  author_id: string;
+  body: string;
+  created_at: CreatedAt;
+}
+
+export interface ExportsTable {
+  id: string;
+  type: 'TRANSACTIONS' | 'BOOKINGS' | 'REFUNDS' | 'COMMISSIONS';
+  period_from: Date;
+  period_to: Date;
+  row_count: number;
+  object_key: string;
+  created_by: string;
+  created_at: CreatedAt;
 }
 
 // ------------------------------------------------------------------ paiements (étape 8)
@@ -452,6 +629,9 @@ export interface RefundsTable {
   idempotency_key: string;
   failure_message: string | null;
   succeeded_at: Date | null;
+  note: string | null;
+  rejected_by: string | null;
+  decided_at: Date | null;
   created_at: CreatedAt;
   updated_at: UpdatedAt;
 }
@@ -521,8 +701,23 @@ export interface SandboxTransactionsTable {
 
 export interface DisputesTable {
   id: string;
+  reference: string;
   booking_id: string;
-  status: 'OPEN' | 'AWAITING_RESPONSE' | 'IN_REVIEW' | 'RESOLVED' | 'REJECTED' | 'CLOSED';
+  opened_by: string;
+  respondent_id: string | null;
+  reason_code: DisputeReason;
+  description: string;
+  status: Generated<DisputeStatus>;
+  assigned_to: string | null;
+  decision: DisputeDecision | null;
+  decision_note: string | null;
+  decided_by: string | null;
+  decided_refund_xof: number | null;
+  refund_id: string | null;
+  response_deadline: Date | null;
+  resolved_at: Date | null;
+  created_at: CreatedAt;
+  updated_at: UpdatedAt;
 }
 
 export interface Database {
@@ -561,4 +756,17 @@ export interface Database {
   reconciliation_items: ReconciliationItemsTable;
   sandbox_transactions: SandboxTransactionsTable;
   disputes: DisputesTable;
+  dispute_messages: DisputeMessagesTable;
+  notifications: NotificationsTable;
+  notification_deliveries: NotificationDeliveriesTable;
+  conversations: ConversationsTable;
+  messages: MessagesTable;
+  reports: ReportsTable;
+  trip_shares: TripSharesTable;
+  promotions: PromotionsTable;
+  promotion_redemptions: PromotionRedemptionsTable;
+  payouts: PayoutsTable;
+  payout_items: PayoutItemsTable;
+  staff_notes: StaffNotesTable;
+  exports: ExportsTable;
 }

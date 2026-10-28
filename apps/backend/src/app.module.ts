@@ -8,16 +8,18 @@ import { BookingsModule } from './modules/bookings/bookings.module';
 import { DriversModule } from './modules/drivers/drivers.module';
 import { HealthModule } from './modules/health/health.module';
 import { JobsModule } from './modules/jobs/jobs.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { PlacesModule } from './modules/places/places.module';
 import { RoutingModule } from './modules/routing/routing.module';
 import { TripsModule } from './modules/trips/trips.module';
+import { TrustModule } from './modules/trust/trust.module';
 import { UsersModule } from './modules/users/users.module';
 
 @Module({
   imports: [
     ConfigModule, DatabaseModule, InfraModule, AuthModule, UsersModule, AdminModule, HealthModule, PlacesModule,
-    RoutingModule, DriversModule, TripsModule, BookingsModule, PaymentsModule, JobsModule,
+    RoutingModule, DriversModule, TripsModule, BookingsModule, PaymentsModule, NotificationsModule, TrustModule, JobsModule,
   ],
 })
 export class AppModule {}

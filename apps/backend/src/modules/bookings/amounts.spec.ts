@@ -1,4 +1,4 @@
-import { applicableRule, computeAmounts, driverCancellation, type FeeRule, passengerCancellation, type PolicyRules } from './amounts';
+import { applicableRule, computeAmounts, driverCancellation, type FeeRule, passengerCancellation, type PolicyRules, promotionDiscount, type PromotionTerms } from './amounts';
 
 const rule = (o: Partial<FeeRule> = {}): FeeRule => ({
   id: 'r',
@@ -97,5 +97,32 @@ describe('Annulation (doc 05 §7)', () => {
   it('conducteur : remboursement intégral, frais de service compris', () => {
     expect(driverCancellation({ amounts, paymentStatus: 'PAID' })).toMatchObject({ refundXof: 5300, driverCompensationXof: 0 });
     expect(driverCancellation({ amounts, paymentStatus: 'UNPAID' }).refundXof).toBe(0);
+  });
+});
+
+describe('Codes promo (doc 05 §8)', () => {
+  const promo = (o: Partial<PromotionTerms>): PromotionTerms => ({ discount_type: 'FIXED', discount_value: 1000, max_discount_xof: null, ...o });
+
+  it('réduction sur la part trajet seulement, plafonnée, jamais négative', () => {
+    expect(promotionDiscount(5000, promo({}))).toBe(1000);
+    expect(promotionDiscount(5000, promo({ discount_value: 9000 }))).toBe(5000);
+    expect(promotionDiscount(5000, promo({ discount_type: 'PERCENT', discount_value: 1500 }))).toBe(750);
+    expect(promotionDiscount(3333, promo({ discount_type: 'PERCENT', discount_value: 1000 }))).toBe(333);
+    expect(promotionDiscount(5000, promo({ discount_type: 'PERCENT', discount_value: 5000, max_discount_xof: 1000 }))).toBe(1000);
+  });
+
+  it('frais de service et commission calculés sur le prix plein : le conducteur ne paie pas la promotion', () => {
+    expect(computeAmounts(5000, 1, rule(), promo({}))).toEqual({
+      unitPriceXof: 5000, seats: 1, subtotalXof: 5000, serviceFeeXof: 300, discountXof: 1000, totalXof: 4300, commissionXof: 500, driverNetXof: 4500,
+    });
+  });
+
+  it('annulation à 50 % : remboursement sur ce qui a été payé, part du conducteur sur le prix plein', () => {
+    const r = passengerCancellation({
+      amounts: { subtotalXof: 5000, serviceFeeXof: 300, totalXof: 4300, commissionXof: 500, discountXof: 1000 },
+      paymentStatus: 'PAID', departureAt: new Date('2026-11-02T08:00:00Z'), confirmedAt: null, now: new Date('2026-11-01T22:00:00Z'),
+      policy: STANDARD, freeCancellation: false,
+    });
+    expect(r).toMatchObject({ refundXof: 2000, tripRefundXof: 2000, driverCompensationXof: 2250, refundPercent: 50 });
   });
 });

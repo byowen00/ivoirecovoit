@@ -41,7 +41,23 @@ export function roundBps(a: number, bps: number): number {
   return Math.floor((a * bps + 5000) / 10000);
 }
 
-export function computeAmounts(unitPriceXof: number, seats: number, rule: FeeRule): BookingAmounts {
+export interface PromotionTerms {
+  discount_type: 'FIXED' | 'PERCENT';
+  /** FIXED : montant en XOF ; PERCENT : points de base (1 000 = 10 %). */
+  discount_value: number;
+  max_discount_xof: number | null;
+}
+
+/**
+ * Réduction d'un code promo (doc 05 §8), financée par la plateforme. Elle ne porte que sur la part trajet :
+ * plafonnée au sous-total, jamais sur les frais de service. Pourcentage arrondi au franc inférieur.
+ */
+export function promotionDiscount(subtotalXof: number, p: PromotionTerms): number {
+  const raw = p.discount_type === 'FIXED' ? p.discount_value : Math.floor((subtotalXof * p.discount_value) / 10000);
+  return Math.max(0, Math.min(raw, p.max_discount_xof ?? Number.POSITIVE_INFINITY, subtotalXof));
+}
+
+export function computeAmounts(unitPriceXof: number, seats: number, rule: FeeRule, promotion?: PromotionTerms | null): BookingAmounts {
   if (!Number.isSafeInteger(unitPriceXof) || unitPriceXof < 0 || !Number.isInteger(seats) || seats < 1) {
     throw new RangeError('Montant ou nombre de places invalide');
   }
@@ -51,7 +67,7 @@ export function computeAmounts(unitPriceXof: number, seats: number, rule: FeeRul
     clamp(roundBps(subtotalXof, rule.commission_bps) + rule.commission_fixed_xof, rule.commission_min_xof, rule.commission_max_xof),
     subtotalXof,
   );
-  const discountXof = 0; // codes promo : étape 9 (administration des promotions)
+  const discountXof = promotion ? promotionDiscount(subtotalXof, promotion) : 0;
   return {
     unitPriceXof,
     seats,
@@ -84,7 +100,7 @@ export interface CancellationOutcome {
 }
 
 interface CancelContext {
-  amounts: Pick<BookingAmounts, 'subtotalXof' | 'serviceFeeXof' | 'totalXof' | 'commissionXof'>;
+  amounts: Pick<BookingAmounts, 'subtotalXof' | 'serviceFeeXof' | 'totalXof' | 'commissionXof'> & { discountXof?: number };
   paymentStatus: string;
   departureAt: Date;
   confirmedAt: Date | null;
@@ -112,22 +128,25 @@ export function passengerCancellation(c: CancelContext & { policy: PolicyRules; 
   if (c.paymentStatus !== 'PAID') return none('NOTHING_PAID');
   const { subtotalXof, serviceFeeXof, totalXof, commissionXof } = c.amounts;
   if (c.freeCancellation) {
-    return { refundXof: totalXof, tripRefundXof: subtotalXof, serviceFeeRefundXof: serviceFeeXof, driverCompensationXof: 0, refundPercent: 100, reason: 'FREE_CANCELLATION' };
+    return { refundXof: totalXof, tripRefundXof: totalXof - serviceFeeXof, serviceFeeRefundXof: serviceFeeXof, driverCompensationXof: 0, refundPercent: 100, reason: 'FREE_CANCELLATION' };
   }
   const hoursBefore = (c.departureAt.getTime() - c.now.getTime()) / 3_600_000;
   const rule = applicableRule(c.policy.passenger, hoursBefore);
-  const tripRefundXof = Math.floor((subtotalXof * rule.refundPercent) / 100);
+  // Le pourcentage s'applique à ce que le passager a réellement payé pour le trajet (réduction déduite) : une
+  // réduction n'est jamais rendue en argent. Le conducteur, lui, garde sa part calculée sur le prix plein.
+  const paidTripXof = subtotalXof - (c.amounts.discountXof ?? 0);
+  const tripRefundXof = Math.floor((paidTripXof * rule.refundPercent) / 100);
+  const keptGross = subtotalXof - Math.floor((subtotalXof * rule.refundPercent) / 100);
   const window = c.policy.serviceFeeRefundableWithinMinutes ?? 0;
   const withinWindow =
     c.confirmedAt !== null && c.now.getTime() - c.confirmedAt.getTime() <= window * 60_000 && hoursBefore > 24;
   const serviceFeeRefundXof = withinWindow ? serviceFeeXof : 0;
-  const kept = subtotalXof - tripRefundXof;
-  const commissionOnKept = subtotalXof > 0 ? Math.round((commissionXof * kept) / subtotalXof) : 0;
+  const commissionOnKept = subtotalXof > 0 ? Math.round((commissionXof * keptGross) / subtotalXof) : 0;
   return {
     refundXof: Math.min(totalXof, tripRefundXof + serviceFeeRefundXof),
     tripRefundXof,
     serviceFeeRefundXof,
-    driverCompensationXof: kept - commissionOnKept,
+    driverCompensationXof: keptGross - commissionOnKept,
     refundPercent: rule.refundPercent,
     reason: 'POLICY',
   };
@@ -136,6 +155,6 @@ export function passengerCancellation(c: CancelContext & { policy: PolicyRules; 
 /** Annulation par le conducteur (doc 05 §7.2) : remboursement intégral, rien n'est dû au conducteur. */
 export function driverCancellation(c: Pick<CancelContext, 'amounts' | 'paymentStatus'>): CancellationOutcome {
   if (c.paymentStatus !== 'PAID') return none(c.paymentStatus === 'CASH_DUE' ? 'CASH_NOT_COLLECTED' : 'NOTHING_PAID');
-  const { subtotalXof, serviceFeeXof, totalXof } = c.amounts;
-  return { refundXof: totalXof, tripRefundXof: subtotalXof, serviceFeeRefundXof: serviceFeeXof, driverCompensationXof: 0, refundPercent: 100, reason: 'DRIVER_CANCELLED' };
+  const { serviceFeeXof, totalXof } = c.amounts;
+  return { refundXof: totalXof, tripRefundXof: totalXof - serviceFeeXof, serviceFeeRefundXof: serviceFeeXof, driverCompensationXof: 0, refundPercent: 100, reason: 'DRIVER_CANCELLED' };
 }

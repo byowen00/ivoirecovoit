@@ -38,7 +38,20 @@ describe('grand livre (doc 05 §9)', () => {
     for (const account of ['DRIVER_PAYABLE', 'PLATFORM_REVENUE_COMMISSION', 'PLATFORM_REVENUE_FEES', 'PROMO_EXPENSE', 'PROVIDER_CLEARING']) {
       expect(sum(net.filter((l) => l.account === account))).toBe(0);
     }
-    expect(() => refundSplit(promo, 2000, 0, 2250)).toThrow();
+  });
+
+  it('remboursement partiel avec réduction : 50 % de ce qui a été payé, conducteur payé sur le prix plein', () => {
+    // Part trajet 5 000, réduction 1 000 : payé 4 000 pour le trajet. Annulation à 50 % : 2 000 rendus.
+    // Le conducteur garde 2 250 (50 % de son net de 4 500), la plateforme garde 250 de commission et 300 de frais ;
+    // elle ne supporte plus que 500 de réduction (la moitié de 1 000).
+    const promo = { ...demo, discountXof: 1000, totalXof: 4300 };
+    const split = refundSplit(promo, 2000, 0, 2250);
+    expect(split).toEqual({ driverXof: 2250, commissionXof: 250, feesXof: 0, promoXof: 500 });
+    const net = [...paymentLines(promo), ...refundLines(split, 2000)];
+    expect(sum(net)).toBe(0);
+    expect(sum(net.filter((l) => l.account === 'DRIVER_PAYABLE'))).toBe(-2250);
+    expect(sum(net.filter((l) => l.account === 'PROMO_EXPENSE'))).toBe(500);
+    expect(sum(net.filter((l) => l.account === 'PROVIDER_CLEARING'))).toBe(2300);
   });
 
   it('refuse une ventilation incohérente', () => {

@@ -52,10 +52,11 @@ export class RefundsService {
         .selectAll()
         .where('booking_id', '=', bookingId)
         .where('reason_code', '=', b.refund_reason)
-        .where('status', 'not in', ['REJECTED', 'FAILED'])
+        .where('status', 'not in', ['REJECTED', 'FAILED', 'SUCCEEDED'])
         .executeTakeFirst();
       if (existing) {
-        if (existing.status === 'SUCCEEDED' || existing.status === 'MANUAL_REQUIRED') return null;
+        // Décidé par le personnel au-delà du seuil : en attente de la seconde validation.
+        if (existing.status === 'REQUESTED' || existing.status === 'MANUAL_REQUIRED') return null;
         // Un autre traitement vient de l'envoyer : on le laisse finir.
         if (existing.status === 'PROCESSING' && now.getTime() - existing.updated_at.getTime() < STUCK_AFTER_MS) return null;
         await trx.updateTable('refunds').set({ status: 'PROCESSING' }).where('id', '=', existing.id).execute();
@@ -165,7 +166,7 @@ export class RefundsService {
           .updateTable('commissions')
           .set(compensation === 0 ? { status: 'VOID', adjusted_xof: -b.driver_net_xof } : { adjusted_xof: compensation - b.driver_net_xof })
           .where('booking_id', '=', b.id)
-          .where('status', '=', 'PENDING')
+          .where('status', 'in', ['PENDING', 'PAYABLE'])
           .execute();
       }
 
@@ -190,6 +191,10 @@ export class RefundsService {
       .selectFrom('bookings')
       .select('id')
       .where('payment_status', '=', 'REFUND_PENDING')
+      // Remboursements en attente d'une seconde validation : rien à faire tant qu'elle n'est pas donnée.
+      .where(({ not, exists, selectFrom }) =>
+        not(exists(selectFrom('refunds').select('refunds.id').whereRef('refunds.booking_id', '=', 'bookings.id').where('refunds.status', '=', 'REQUESTED'))),
+      )
       .orderBy('updated_at')
       .limit(100)
       .execute();
