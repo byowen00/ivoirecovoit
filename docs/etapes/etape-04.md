@@ -25,10 +25,10 @@ Date : 27 octobre 2026. Statut : **terminée**, à valider.
 | Bouton « Rechercher » | Désactivé et signalé : la recherche de trajets est l'étape 6 |
 | Coordonnées des lieux | **Approximatives**, saisies à la main (l'accès à OpenStreetMap/Nominatim est bloqué dans cet environnement). Marquées `APPROX` en base, à vérifier avant production |
 | Distances et durées des trajets de démo | Estimation de repli (vol d'oiseau × 1,3, 70 km/h interurbain, 25 km/h urbain), marquée `HAVERSINE_FALLBACK`. OSRM sera branché à l'étape 6 |
-| Build APK Android | **Non exécuté ici** (téléchargement du SDK Android bloqué). Prévu dans la CI GitHub, à vérifier au premier passage |
+| Build APK Android | Réussi dans la CI GitHub le 28/10/2026 (APK de debug téléchargeable 7 jours dans l'onglet Actions). Non testé sur un téléphone réel |
 | Build iOS | Non exécuté (nécessite un Mac) |
 | MinIO et OSRM | Déclarés dans `docker compose` (profils `storage` et `routing`) mais **non démarrés ici** (images non téléchargeables dans cet environnement). Utilisés à partir de l'étape 6 |
-| Workflow CI | Écrit et validé syntaxiquement, **pas encore exécuté** (pas encore de dépôt GitHub) |
+| Workflow CI | Première exécution le 28/10/2026 : les 5 tâches réussies (backend, web, mobile + APK, images Docker, recherche de secrets) |
 | Maquettes | Jetons de couleur, typographie, champs, boutons et deux écrans réels. Les autres écrans seront construits directement, fonctionnels, à chaque étape plutôt qu'en maquettes statiques |
 
 ## 3. Écarts par rapport aux documents validés
@@ -71,9 +71,8 @@ Une anomalie a été trouvée et corrigée grâce à une capture d'écran : apr�
 
 ## 6. Problèmes encore présents
 
-- Le dépôt GitHub n'existe pas encore : le code est conservé dans le projet sous forme d'archive Git (`ivoirecovoit-etape-04.bundle`) en attendant.
 - Les coordonnées des lieux doivent être vérifiées.
-- Le build Android et la CI n'ont pas encore tourné.
+- L'APK n'a pas encore été essayé sur un téléphone réel.
 
 ## 7. Prochaine étape
 
