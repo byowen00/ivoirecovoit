@@ -191,12 +191,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             const SizedBox(height: 16),
             Card(
               child: ListTile(
-                title: const Text('Mes prochains trajets'),
+                leading: const Icon(Icons.event_seat_outlined),
+                title: const Text('Mes réservations'),
                 subtitle: Text(
                   ref.watch(authControllerProvider).value != null
-                      ? 'Aucune réservation à venir. La réservation arrive à la prochaine étape du développement.'
+                      ? 'Vos demandes et réservations à venir ou passées.'
                       : 'Connectez-vous pour retrouver vos réservations ici.',
                 ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push('/reservations'),
               ),
             ),
             Card(

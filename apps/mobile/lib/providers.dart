@@ -6,6 +6,7 @@ import 'core/config.dart';
 import 'core/token_store.dart';
 import 'features/auth/auth_repository.dart';
 import 'features/auth/auth_session.dart';
+import 'features/bookings/bookings_repository.dart';
 import 'features/driver/driver_repository.dart';
 import 'features/places/places_repository.dart';
 import 'features/trips/trips_repository.dart';
@@ -35,3 +36,7 @@ final apiTripsRepositoryProvider = Provider<ApiTripsRepository>(
 final tripsRepositoryProvider = Provider<TripsRepository>((ref) => ref.watch(apiTripsRepositoryProvider));
 
 final driverRepositoryProvider = Provider<DriverRepository>((ref) => DriverRepository(ref.watch(authSessionProvider)));
+
+final bookingsRepositoryProvider = Provider<BookingsRepository>(
+  (ref) => ApiBookingsRepository(ref.watch(authSessionProvider)),
+);

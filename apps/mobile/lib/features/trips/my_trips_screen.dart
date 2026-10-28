@@ -6,6 +6,8 @@ import '../../core/api_client.dart';
 import '../../core/format.dart';
 import '../../core/theme.dart';
 import '../../providers.dart';
+import '../bookings/models.dart';
+import '../bookings/widgets.dart';
 import 'models.dart';
 import 'trip_map.dart';
 import 'trips_repository.dart';
@@ -161,7 +163,10 @@ class _ManageTripScreenState extends ConsumerState<ManageTripScreen> {
   }
 
   Future<void> _cancel() async {
-    final reason = await _ask('Motif de l’annulation (visible des passagers)', minLength: 5);
+    final reason = await _ask(
+      'Motif de l’annulation (visible des passagers, qui seront remboursés intégralement)',
+      minLength: 5,
+    );
     if (reason != null) await _act(() => _repo.cancel(_trip!.id, reason, newIdempotencyKey()), 'Trajet annulé.');
   }
 
@@ -220,6 +225,86 @@ class _ManageTripScreenState extends ConsumerState<ManageTripScreen> {
     }
   }
 
+  /// Action sur une réservation, puis rechargement du trajet (places, statut).
+  Future<void> _bookingAct(Future<Object?> Function() fn, String done) => _act(() async {
+    await fn();
+    return _repo.manage(widget.tripId);
+  }, done);
+
+  Future<void> _noShow(ManagedTrip t, ManagedBooking b) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        content: const Text('Confirmer que ce passager ne s’est pas présenté au point de montée ?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Retour')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Confirmer')),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await _bookingAct(() => ref.read(bookingsRepositoryProvider).noShow(t.id, b.id), 'Absence enregistrée.');
+    }
+  }
+
+  Widget _bookingCard(ManagedTrip t, ManagedBooking b) {
+    final bookings = ref.read(bookingsRepositoryProvider);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(b.passengerName ?? 'Passager', style: const TextStyle(fontWeight: FontWeight.w600)),
+                ),
+                BookingStatusChip(status: b.status, driver: true),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${b.seats} place${b.seats > 1 ? 's' : ''} · ${b.pickup} → ${b.dropoff}'
+              '${b.pickupAt != null ? ' · montée à ${formatTime(b.pickupAt!)}' : ''} · vous recevrez ${formatXof(b.driverNetXof)}',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (b.can('canAccept'))
+                  FilledButton(
+                    onPressed: _busy ? null : () => _bookingAct(() => bookings.accept(b.id), 'Demande acceptée.'),
+                    child: const Text('Accepter'),
+                  ),
+                if (b.can('canReject'))
+                  OutlinedButton(
+                    onPressed: _busy ? null : () => _bookingAct(() => bookings.reject(b.id), 'Demande refusée.'),
+                    child: const Text('Refuser'),
+                  ),
+                if (b.can('canMarkNoShow'))
+                  OutlinedButton(
+                    style: OutlinedButton.styleFrom(foregroundColor: AppColors.danger),
+                    onPressed: _busy ? null : () => _noShow(t, b),
+                    child: const Text('Passager absent'),
+                  ),
+                OutlinedButton(
+                  onPressed: () async {
+                    await context.push('/reservations/${b.id}');
+                    if (mounted) _load();
+                  },
+                  child: Text(b.can('canCancel') ? 'Détail et annulation' : 'Détail'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<String?> _ask(String label, {int minLength = 1}) {
     final c = TextEditingController();
     return showDialog<String>(
@@ -258,6 +343,14 @@ class _ManageTripScreenState extends ConsumerState<ManageTripScreen> {
       );
     }
     final muted = Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textMuted);
+    final active = [
+      for (final b in t.bookings)
+        if (!inactiveBookingStatuses.contains(b.status)) b,
+    ];
+    final closed = [
+      for (final b in t.bookings)
+        if (inactiveBookingStatuses.contains(b.status)) b,
+    ];
     return Scaffold(
       appBar: AppBar(title: Text('${t.stops.first.label} → ${t.stops.last.label}', overflow: TextOverflow.ellipsis)),
       body: ListView(
@@ -334,11 +427,23 @@ class _ManageTripScreenState extends ConsumerState<ManageTripScreen> {
           Card(
             child: ListTile(
               title: Text(t.vehicle),
-              subtitle: Text(
-                '${t.seatsOccupied} place(s) réservée(s) sur ${t.seatsOffered} · ${t.bookingsCount} réservation(s)',
-              ),
+              subtitle: Text('${t.seatsOccupied} place(s) réservée(s) sur ${t.seatsOffered}'),
             ),
           ),
+          const SizedBox(height: 8),
+          Text('Passagers', style: Theme.of(context).textTheme.titleMedium),
+          if (active.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(t.bookings.isEmpty ? 'Aucune réservation pour l’instant.' : 'Aucune réservation en cours.'),
+            ),
+          for (final b in active) _bookingCard(t, b),
+          if (closed.isNotEmpty)
+            ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              title: Text('Demandes expirées, refusées ou annulées (${closed.length})', style: muted),
+              children: [for (final b in closed) _bookingCard(t, b)],
+            ),
         ],
       ),
     );

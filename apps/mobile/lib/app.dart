@@ -10,6 +10,9 @@ import 'features/auth/models.dart';
 import 'features/auth/otp_screen.dart';
 import 'features/auth/phone_screen.dart';
 import 'features/auth/profile_setup_screen.dart';
+import 'features/bookings/booking_detail_screen.dart';
+import 'features/bookings/booking_screen.dart';
+import 'features/bookings/my_bookings_screen.dart';
 import 'features/driver/driver_screen.dart';
 import 'features/trips/driver_profile_screen.dart';
 import 'features/trips/my_trips_screen.dart';
@@ -61,6 +64,30 @@ final routerProvider = Provider<GoRouter>((ref) {
           dropoffStopId: state.uri.queryParameters['dropoff'],
           seats: (int.tryParse(state.uri.queryParameters['seats'] ?? '') ?? 1).clamp(1, 8),
         ),
+      ),
+      GoRoute(
+        path: '/trajets/:id/reserver',
+        redirect: (_, state) {
+          final q = state.uri.queryParameters;
+          // Lien incomplet : le segment se choisit sur la page du trajet.
+          return q['pickup'] == null || q['dropoff'] == null ? '/trajets/${state.pathParameters['id']}' : null;
+        },
+        builder: (_, state) => _RequireMe(
+          builder: (_) => BookingScreen(
+            tripId: state.pathParameters['id']!,
+            pickupStopId: state.uri.queryParameters['pickup']!,
+            dropoffStopId: state.uri.queryParameters['dropoff']!,
+            seats: (int.tryParse(state.uri.queryParameters['seats'] ?? '') ?? 1).clamp(1, 4),
+          ),
+        ),
+      ),
+      GoRoute(
+        path: '/reservations',
+        builder: (_, _) => _RequireMe(builder: (_) => const MyBookingsScreen()),
+      ),
+      GoRoute(
+        path: '/reservations/:id',
+        builder: (_, state) => _RequireMe(builder: (_) => BookingDetailScreen(bookingId: state.pathParameters['id']!)),
       ),
       GoRoute(
         path: '/conducteurs/:id',

@@ -1,5 +1,7 @@
 import 'package:latlong2/latlong.dart';
 
+import '../bookings/models.dart';
+
 DateTime _date(Object? v) => DateTime.parse(v! as String);
 double _d(Object? v) => (v! as num).toDouble();
 int _i(Object? v) => (v! as num).toInt();
@@ -285,7 +287,7 @@ class ManagedTrip {
       vehicle =
           '${(j['vehicle'] as Map)['make']} ${(j['vehicle'] as Map)['model']} · ${(j['vehicle'] as Map)['plateNumber']}',
       stops = [for (final s in j['stops'] as List) TripStop.fromJson(s as Map<String, dynamic>)],
-      bookingsCount = (j['bookings'] as List).length,
+      bookings = [for (final b in j['bookings'] as List) ManagedBooking.fromJson(b as Map<String, dynamic>)],
       cancellationReason = j['cancellationReason'] as String?,
       isDemo = (j['isDemo'] as bool?) ?? false,
       actions = Map<String, bool>.from(j['actions'] as Map);
@@ -303,7 +305,7 @@ class ManagedTrip {
   final int seatsCapacity;
   final String vehicle;
   final List<TripStop> stops;
-  final int bookingsCount;
+  final List<ManagedBooking> bookings;
   final String? cancellationReason;
   final bool isDemo;
   final Map<String, bool> actions;

@@ -126,9 +126,19 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
                   ],
                 ),
               ),
-              Tooltip(
-                message: 'La réservation et le paiement arrivent à l’étape 7 du développement.',
-                child: const FilledButton(onPressed: null, child: Text('Réserver')),
+              FilledButton(
+                onPressed: t.bookable && _validSegment && a != null && a.seatsAvailable >= widget.seats
+                    ? () => context.push(
+                        '/trajets/${t.id}/reserver?pickup=$_pickup&dropoff=$_dropoff&seats=${widget.seats}',
+                      )
+                    : null,
+                child: Text(
+                  !t.bookable
+                      ? 'Réservation fermée'
+                      : a != null && a.seatsAvailable < widget.seats
+                      ? 'Plus assez de places'
+                      : 'Réserver',
+                ),
               ),
             ],
           ),
