@@ -63,6 +63,7 @@ node flow.js                                           # parcours web dans Chrom
 | Mobile (flutter test) | **18 / 18** réussis |
 | Lint et types | backend, web : aucune erreur ; `flutter analyze` : aucun problème |
 | Builds | backend, web (`next build`), images Docker backend et web : réussis |
+| CI GitHub (28/10/2026, commit 7ad747c) | Les 5 tâches réussies : recherche de secrets, backend (avec PostGIS et Redis), web, mobile + APK Android de debug, images Docker |
 
 Tests d'authentification couverts : inscription puis activation, réponse identique compte existant ou non, numéros refusés (fixe, étranger, préfixe inconnu), code faux puis blocage au 5e essai, code expiré, code d'un autre numéro refusé, usage unique, délai de 60 s et 3 envois par 15 min, limites par IP et par appareil, code jamais stocké, jeton absent, modifié ou expiré, rotation et rejeu (famille révoquée), déconnexion immédiate, session d'un autre compte (404), déconnexion de tous les appareils, jeton utilisateur refusé sur l'administration et inversement, validation du profil, e-mail déjà pris, versions de CGU, consentement de géolocalisation daté, contact d'urgence, suppression avec code, code de connexion refusé pour la suppression, production refusée sans secrets ni fournisseur SMS.
 
