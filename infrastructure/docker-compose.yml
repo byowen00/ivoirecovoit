@@ -39,6 +39,8 @@ services:
       REDIS_URL: redis://redis:6379
       CORS_ORIGINS: http://localhost:3001
       SWAGGER_ENABLED: "true"
+      # Développement local uniquement : aucun SMS envoyé, code visible dans les logs et l'interface.
+      OTP_TEST_MODE: "true"
     ports: ["127.0.0.1:3000:3000"]
     depends_on:
       postgres: { condition: service_healthy }
@@ -50,6 +52,8 @@ services:
       context: ..
       dockerfile: apps/web/Dockerfile
       args: { API_INTERNAL_URL: "http://backend:3000" }
+    environment:
+      API_INTERNAL_URL: http://backend:3000 # lu à l'exécution par le relais de session (/bff)
     ports: ["127.0.0.1:3001:3001"]
     depends_on: [backend]
 

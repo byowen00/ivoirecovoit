@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { cookies } from 'next/headers';
 import Link from 'next/link';
 import './globals.css';
 
@@ -11,7 +12,9 @@ export const viewport: Viewport = { width: 'device-width', initialScale: 1, them
 
 const isSandbox = process.env.NEXT_PUBLIC_ENVIRONMENT !== 'production';
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Simple indicateur de présence d'une session (aucun secret) pour choisir le lien du menu.
+  const signedIn = (await cookies()).has('ic_signed_in');
   return (
     <html lang="fr-CI" data-theme="light">
       <body className="min-h-dvh">
@@ -25,9 +28,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Link href="/" className="text-lg font-bold text-brand">
               IvoireCovoit
             </Link>
-            <Link href="/statut" className="text-sm text-ink-muted underline-offset-4 hover:underline">
-              État du service
-            </Link>
+            <div className="flex items-center gap-4">
+              <Link href="/statut" className="text-sm text-ink-muted underline-offset-4 hover:underline">
+                État du service
+              </Link>
+              <Link href={signedIn ? '/compte' : '/connexion'} className="text-sm font-semibold text-brand underline-offset-4 hover:underline">
+                {signedIn ? 'Mon compte' : 'Se connecter'}
+              </Link>
+            </div>
           </nav>
         </header>
         <main className="mx-auto max-w-5xl px-4 py-6">{children}</main>

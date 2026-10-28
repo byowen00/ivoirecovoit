@@ -46,6 +46,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         title: const Text('IvoireCovoit', style: TextStyle(color: AppColors.brand, fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
+            tooltip: 'Mon compte',
+            icon: const Icon(Icons.account_circle_outlined),
+            onPressed: () => context.push('/compte'),
+          ),
+          IconButton(
             tooltip: 'État du service',
             icon: const Icon(Icons.monitor_heart_outlined),
             onPressed: () => context.push('/statut'),

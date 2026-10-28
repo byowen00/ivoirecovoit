@@ -64,3 +64,62 @@ body {
   outline: 3px solid var(--color-focus);
   outline-offset: 2px;
 }
+
+/* Composants partagés des formulaires (étape 5). */
+.btn-primary,
+.btn-secondary,
+.btn-danger {
+  display: inline-flex;
+  min-height: 3rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: var(--radius-control);
+  padding: 0 1rem;
+  font-weight: 600;
+}
+.btn-primary {
+  background: var(--color-brand);
+  color: #fff;
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-brand-strong);
+}
+.btn-secondary {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+.btn-danger {
+  border: 1px solid var(--color-danger);
+  background: var(--color-surface);
+  color: var(--color-danger);
+}
+.btn-primary:disabled,
+.btn-secondary:disabled,
+.btn-danger:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.field {
+  height: 3rem;
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  padding: 0 0.75rem;
+}
+.field[aria-invalid='true'] {
+  border-color: var(--color-danger);
+}
+.card {
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  padding: 1rem;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.06);
+}
+@media (min-width: 640px) {
+  .card {
+    padding: 1.5rem;
+  }
+}

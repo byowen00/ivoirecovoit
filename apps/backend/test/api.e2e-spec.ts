@@ -1,29 +1,21 @@
 import type { INestApplication } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
 import request from 'supertest';
-import { AppModule } from '../src/app.module';
-import { setupApp } from '../src/app.setup';
-import { TEST_DATABASE_URL } from './test-db';
+import { createTestApp } from './test-app';
 
 describe('API (HTTP)', () => {
   let app: INestApplication;
 
   beforeAll(async () => {
-    process.env.DATABASE_URL = TEST_DATABASE_URL;
-    process.env.NODE_ENV = 'test';
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
-    app = moduleRef.createNestApplication();
-    setupApp(app);
-    await app.init();
+    ({ app } = await createTestApp());
   });
 
   afterAll(async () => {
     await app.close();
   });
 
-  it('GET /api/v1/health répond ok avec la version PostGIS', async () => {
+  it('GET /api/v1/health répond ok avec la version PostGIS et Redis', async () => {
     const res = await request(app.getHttpServer()).get('/api/v1/health').expect(200);
-    expect(res.body).toMatchObject({ status: 'ok', database: 'ok' });
+    expect(res.body).toMatchObject({ status: 'ok', database: 'ok', redis: 'ok' });
     expect(res.headers['x-request-id']).toMatch(/^req_/);
   });
 

@@ -49,6 +49,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
     if (status >= 500) {
       this.logger.error(`${req.method} ${req.url} [${requestId}]`, (exception as Error)?.stack);
     }
+    const retryAfterS = details?.retryAfterS;
+    if (status === HttpStatus.TOO_MANY_REQUESTS && typeof retryAfterS === 'number') {
+      res.setHeader('Retry-After', String(retryAfterS));
+    }
     res.status(status).json({ error: { code, message, details, requestId } });
   }
 }

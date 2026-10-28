@@ -2,6 +2,7 @@ import { Controller, Get, Query } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { z } from 'zod';
 import { ZodValidationPipe } from '../../common/zod-validation.pipe';
+import { Public } from '../auth/decorators';
 import { type PlaceSuggestion, PlacesService } from './places.service';
 
 const autocompleteQuery = z.object({
@@ -11,6 +12,7 @@ const autocompleteQuery = z.object({
 type AutocompleteQuery = z.infer<typeof autocompleteQuery>;
 
 @ApiTags('lieux')
+@Public()
 @Controller('places')
 export class PlacesController {
   constructor(private readonly places: PlacesService) {}

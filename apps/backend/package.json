@@ -13,14 +13,20 @@
     "db:seed": "tsx --env-file-if-exists=../../.env src/database/seeds/run-seed.ts reference",
     "db:seed:demo": "tsx --env-file-if-exists=../../.env src/database/seeds/run-seed.ts demo",
     "db:migrate:prod": "node dist/database/migrate.js",
-    "db:seed:prod": "node dist/database/seeds/run-seed.js reference"
+    "db:seed:prod": "node dist/database/seeds/run-seed.js reference",
+    "staff:create": "tsx --env-file-if-exists=../../.env src/scripts/create-staff.ts",
+    "staff:create:prod": "node dist/scripts/create-staff.js",
+    "keys:generate": "tsx src/scripts/generate-jwt-keys.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.2.8",
     "@nestjs/core": "^11.2.8",
     "@nestjs/platform-express": "^11.2.8",
     "@nestjs/swagger": "^11.4.7",
+    "@node-rs/argon2": "^2.2.2",
     "helmet": "^8.3.0",
+    "ioredis": "^5.11.1",
+    "jose": "^5.10.0",
     "kysely": "^0.28.18",
     "pg": "^8.23.1",
     "reflect-metadata": "^0.2.2",

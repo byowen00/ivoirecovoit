@@ -8,6 +8,9 @@ import { ENV, type Env } from './config/env';
 /** Configuration HTTP partagée entre main.ts et les tests d'intégration. */
 export function setupApp(app: INestApplication): void {
   const env = app.get<Env>(ENV);
+  if (env.TRUST_PROXY > 0) {
+    (app.getHttpAdapter().getInstance() as { set(k: string, v: unknown): void }).set('trust proxy', env.TRUST_PROXY);
+  }
   app.use(requestId);
   app.use(helmet());
   app.enableCors({ origin: env.CORS_ORIGINS, credentials: true });

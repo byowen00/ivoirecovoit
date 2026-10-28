@@ -2,7 +2,7 @@
 
 Plateforme de covoiturage pour la Côte d'Ivoire : application mobile (Flutter, Android en priorité), site web et administration (Next.js), API (NestJS), PostgreSQL + PostGIS. Nom provisoire.
 
-> **État : étape 4 sur 10** (structure du projet et environnements). Voir [docs/etapes/etape-04.md](docs/etapes/etape-04.md) pour ce qui fonctionne, ce qui est simulé et ce qui reste à faire.
+> **État : étape 5 sur 10** (connexion, rôles et profils). Voir [docs/etapes/etape-05.md](docs/etapes/etape-05.md) pour ce qui fonctionne, ce qui est simulé et ce qui reste à faire.
 > Aucune clé d'API, aucun compte marchand et aucune intégration de paiement réelle ne sont inclus.
 
 ## Structure
@@ -50,6 +50,20 @@ pnpm dev:backend
 pnpm dev:web
 ```
 
+### Connexion en développement
+
+Avec `OTP_TEST_MODE=true` (valeur de `.env.example`), aucun SMS n'est envoyé : le code s'affiche dans les logs de l'API
+et sur l'écran de saisie du code (encadré « Mode test »). Les numéros `[DEMO]` (+225 00 00 00 00 01 à 13) sont acceptés
+dans ce mode uniquement. Aucun fournisseur SMS n'est intégré : la production refuse de démarrer tant qu'il n'y en a pas.
+
+Compte du personnel (mot de passe + code TOTP d'une application d'authentification) :
+
+```bash
+pnpm --filter @ivoirecovoit/backend staff:create -- --email vous@exemple.ci --first Prénom --last Nom --role SUPER_ADMIN
+# Le mot de passe (12 caractères min.) est demandé ; le lien otpauth:// à scanner n'est affiché qu'une fois.
+pnpm --filter @ivoirecovoit/backend keys:generate   # paire Ed25519 pour JWT_PRIVATE_KEY / JWT_PUBLIC_KEY
+```
+
 Application mobile :
 
 ```bash
@@ -63,17 +77,18 @@ flutter run --dart-define=API_BASE_URL=http://10.0.2.2:3000
 ## Tests
 
 ```bash
-pnpm --filter @ivoirecovoit/backend test   # unitaires + intégration sur une vraie base PostGIS (TEST_DATABASE_URL)
+pnpm --filter @ivoirecovoit/backend test   # unitaires + intégration sur PostGIS (TEST_DATABASE_URL) et Redis (TEST_REDIS_URL, base 15)
 pnpm --filter @ivoirecovoit/web test       # Vitest + Testing Library
 cd apps/mobile && flutter analyze && flutter test
 ```
 
-La base de test (`ivoirecovoit_test`) est supprimée et recréée à chaque exécution.
+La base de test (`ivoirecovoit_test`) est supprimée et recréée à chaque exécution ; la base Redis 15 est vidée par les tests.
 
 ## Sécurité
 
 - Ne jamais commiter `.env` ni aucune clé. La CI recherche les secrets (gitleaks).
-- Le serveur refuse de démarrer en production avec le paiement sandbox, l'OTP de test ou une API non HTTPS.
+- Le serveur refuse de démarrer en production avec le paiement sandbox, l'OTP de test, une API non HTTPS, des secrets de développement, sans clés JWT ou sans fournisseur SMS.
+- Le site web ne manipule jamais les jetons : ils restent dans des cookies HttpOnly gérés par le serveur Next.js (`/bff`). L'application mobile garde le refresh token dans le stockage sécurisé d'Android.
 - Les données `[DEMO]` utilisent des numéros fictifs (+225 00 00 00 00 xx) et ne peuvent pas être chargées en production.
 
 ## Données cartographiques

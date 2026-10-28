@@ -21,3 +21,14 @@ export function formatDistance(meters: number): string {
   if (meters < 1000) return `env. ${Math.round(meters / 50) * 50} m`;
   return `env. ${Math.round(meters / 1000)} km`;
 }
+
+const dateTime = new Intl.DateTimeFormat('fr-CI', {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+  timeZone: 'Africa/Abidjan',
+});
+
+/** Date et heure à l'heure d'Abidjan : « 28 oct. 2026, 14:05 ». */
+export function formatDateTime(iso: string | Date): string {
+  return dateTime.format(typeof iso === 'string' ? new Date(iso) : iso);
+}

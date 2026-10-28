@@ -13,3 +13,5 @@ next-env.d.ts
 apps/mobile/.dart_tool/
 apps/mobile/build/
 apps/mobile/.flutter-plugins-dependencies
+dump.rdb
+apps/web/AGENTS.md

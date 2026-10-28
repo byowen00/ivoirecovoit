@@ -35,6 +35,9 @@ INSERT INTO settings (key, value, version) VALUES
   ('payments.enabled_methods', '["WAVE","ORANGE_MONEY","MTN_MOMO","MOOV_MONEY"]', 1),
   ('reviews.window_days', '14', 1),
   ('disputes.window_days', '7', 1),
+  -- Versions des textes juridiques à accepter. Textes NON RÉDIGÉS : à faire valider par un juriste avant lancement.
+  ('legal.terms_version', '"0.1-brouillon"', 1),
+  ('legal.privacy_version', '"0.1-brouillon"', 1),
   ('safety.emergency_numbers',
    '{"_status":"À VALIDER avant production","numbers":[{"label":"Police secours","phone":"110"},{"label":"Police secours","phone":"111"},{"label":"Gendarmerie","phone":"170"},{"label":"Sapeurs-pompiers","phone":"180"},{"label":"SAMU","phone":"185"}]}', 1)
 ON CONFLICT (key, version) DO NOTHING;
