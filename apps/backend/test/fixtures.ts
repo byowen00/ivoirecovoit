@@ -49,7 +49,15 @@ export interface TripFixture {
 /** Trajet publié à 3 arrêts (Abidjan -> Toumodi -> Yamoussoukro, coordonnées approximatives). */
 export async function createTrip(
   db: Client,
-  opts: { vehicle?: { driverId: string; vehicleId: string }; departure?: Date; hours?: number; status?: string } = {},
+  opts: {
+    vehicle?: { driverId: string; vehicleId: string };
+    departure?: Date;
+    hours?: number;
+    status?: string;
+    seats?: number;
+    acceptanceMode?: 'AUTO' | 'MANUAL';
+    allowsCash?: boolean;
+  } = {},
 ): Promise<TripFixture> {
   const { driverId, vehicleId } = opts.vehicle ?? (await createDriverWithVehicle(db));
   const departure = opts.departure ?? new Date(Date.now() + 2 * 86_400_000);
@@ -57,9 +65,10 @@ export async function createTrip(
   const tripId = uuidv7();
   await db.query(
     `INSERT INTO trips (id, public_ref, driver_id, vehicle_id, kind, status, departure_at, estimated_arrival_at,
-                        seats_offered, cancellation_policy_code)
-     VALUES ($1, $2, $3, $4, 'INTERCITY', $5, $6, $7, 3, 'STANDARD')`,
-    [tripId, tripReference(), driverId, vehicleId, opts.status ?? 'PUBLISHED', departure, arrival],
+                        seats_offered, cancellation_policy_code, acceptance_mode, allows_cash)
+     VALUES ($1, $2, $3, $4, 'INTERCITY', $5, $6, $7, $8, 'STANDARD', $9, $10)`,
+    [tripId, tripReference(), driverId, vehicleId, opts.status ?? 'PUBLISHED', departure, arrival, opts.seats ?? 3,
+     opts.acceptanceMode ?? 'AUTO', opts.allowsCash ?? false],
   );
   const stops: [number, number, number][] = [
     [5.36, -3.96, 0],

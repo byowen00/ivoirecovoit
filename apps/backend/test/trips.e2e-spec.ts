@@ -257,14 +257,17 @@ describe('Trajets : publication, modification, cycle de vie', () => {
     await patch(reopened.body.version, { departureAt: at(3, 8, 15) }).expect(200);
     const events = await db.query(`SELECT payload FROM outbox_events WHERE aggregate_id = $1 AND event_type = 'trip.updated' ORDER BY id`, [trip.id]);
     expect(events.rows.at(-1).payload).toMatchObject({ departureShiftMin: 45, freeCancellation: true });
+    const free = await db.query(`SELECT bool_and(free_cancellation) AS all FROM bookings WHERE trip_id = $1`, [trip.id]);
+    expect(free.rows[0].all).toBe(true);
+    // Annulation du trajet : les réservations sont annulées avec lui (détail dans bookings.e2e-spec.ts, T4).
     const cancel = await t
       .http()
       .post(`/api/v1/trips/${trip.id}/cancel`)
       .set(bearer(d.token))
       .set('Idempotency-Key', randomUUID())
       .send({ reason: 'Voiture en panne' })
-      .expect(409);
-    expect(cancel.body.error.code).toBe('TRIP_HAS_BOOKINGS');
+      .expect(200);
+    expect(cancel.body.bookings.map((b: { status: string }) => b.status)).toEqual(['CANCELLED_BY_DRIVER', 'CANCELLED_BY_DRIVER']);
   });
 
   it('cloisonnement : le trajet d’un autre conducteur est introuvable (404)', async () => {

@@ -35,6 +35,8 @@ export async function createTestApp(extraControllers: Type[] = []): Promise<Test
   Object.assign(process.env, TEST_S3);
   // Pas d'OSRM dans les tests d'API : estimation de repli (les tests du client OSRM utilisent un faux serveur).
   delete process.env.OSRM_URL;
+  // Les échéances sont déclenchées explicitement par les tests (BookingsMaintenanceService).
+  process.env.JOBS_ENABLED = 'false';
   const moduleRef = await Test.createTestingModule({
     imports: [AppModule],
     controllers: [ActiveOnlyController, ...extraControllers],

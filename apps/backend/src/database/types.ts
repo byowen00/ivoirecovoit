@@ -261,6 +261,7 @@ export interface TripsTable {
   completed_at: Date | null;
   cancelled_at: Date | null;
   cancellation_reason: string | null;
+  auto_closed: Generated<boolean>;
   version: Generated<number>;
   created_at: CreatedAt;
   updated_at: UpdatedAt;
@@ -281,6 +282,13 @@ export interface TripStopsTable {
   is_dropoff: Generated<boolean>;
 }
 
+export type BookingStatus =
+  | 'PENDING_ACCEPTANCE' | 'PENDING_PAYMENT' | 'CONFIRMED' | 'REJECTED' | 'EXPIRED'
+  | 'CANCELLED_BY_PASSENGER' | 'CANCELLED_BY_DRIVER' | 'CANCELLED_BY_ADMIN' | 'NO_SHOW' | 'COMPLETED';
+export type BookingPaymentStatus =
+  | 'NOT_REQUIRED' | 'UNPAID' | 'PROCESSING' | 'PAID' | 'PARTIALLY_REFUNDED' | 'REFUND_PENDING' | 'REFUNDED' | 'CASH_DUE';
+export type PaymentMethod = 'WAVE' | 'ORANGE_MONEY' | 'MTN_MOMO' | 'MOOV_MONEY' | 'CASH';
+
 export interface BookingsTable {
   id: string;
   reference: string;
@@ -288,12 +296,66 @@ export interface BookingsTable {
   passenger_id: string;
   pickup_stop_id: string;
   dropoff_stop_id: string;
-  pickup_seq: number;
+  pickup_seq: number; // recopié depuis l'arrêt par trigger
   dropoff_seq: number;
   seats: number;
-  status: string;
+  status: BookingStatus;
+  payment_status: Generated<BookingPaymentStatus>;
+  payment_method: PaymentMethod | null;
+  unit_price_xof: number;
+  subtotal_xof: number;
+  service_fee_xof: number;
+  discount_xof: Generated<number>;
+  total_xof: number;
+  commission_xof: number;
+  driver_net_xof: number;
+  fee_rule_id: string;
+  promotion_id: string | null;
+  cancellation_policy_code: string;
   hold_expires_at: Date | null;
+  acceptance_deadline: Date | null;
+  accepted_at: Date | null;
+  confirmed_at: Date | null;
+  cancelled_at: Date | null;
+  cancelled_by: string | null;
+  cancellation_reason: string | null;
+  completed_at: Date | null;
+  refund_due_xof: number | null;
+  driver_compensation_xof: number | null;
+  free_cancellation: Generated<boolean>;
+  expired_at: Date | null;
+  rejected_at: Date | null;
+  no_show_at: Date | null;
+  is_demo: Generated<boolean>;
+  version: Generated<number>;
   created_at: CreatedAt;
+  updated_at: UpdatedAt;
+}
+
+export interface BookingStatusHistoryTable {
+  id: Generated<number>;
+  booking_id: string;
+  from_status: BookingStatus | null;
+  to_status: BookingStatus;
+  actor_id: string | null;
+  reason: string | null;
+  created_at: CreatedAt;
+}
+
+export interface FeeRulesTable {
+  id: string;
+  effective_from: Date;
+  effective_to: Date | null;
+  trip_kind: TripKind | null;
+  commission_bps: number;
+  commission_fixed_xof: Generated<number>;
+  commission_min_xof: Generated<number>;
+  commission_max_xof: number | null;
+  service_fee_bps: Generated<number>;
+  service_fee_fixed_xof: Generated<number>;
+  service_fee_min_xof: Generated<number>;
+  service_fee_max_xof: number | null;
+  is_demo: Generated<boolean>;
 }
 
 export interface IdempotencyKeysTable {
@@ -350,6 +412,8 @@ export interface Database {
   trips: TripsTable;
   trip_stops: TripStopsTable;
   bookings: BookingsTable;
+  booking_status_history: BookingStatusHistoryTable;
+  fee_rules: FeeRulesTable;
   idempotency_keys: IdempotencyKeysTable;
   outbox_events: OutboxEventsTable;
   reviews: ReviewsTable;

@@ -39,7 +39,7 @@ export interface MeView {
   createdAt: Date;
 }
 
-const ACTIVE_BOOKING_STATUSES = ['PENDING_ACCEPTANCE', 'PENDING_PAYMENT', 'CONFIRMED'];
+const ACTIVE_BOOKING_STATUSES = ['PENDING_ACCEPTANCE', 'PENDING_PAYMENT', 'CONFIRMED'] as const;
 const ACTIVE_TRIP_STATUSES = ['PUBLISHED', 'FULL', 'IN_PROGRESS'] as const;
 
 @Injectable()

@@ -4,6 +4,7 @@ import { DatabaseModule } from './database/database.module';
 import { InfraModule } from './infra/infra.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { BookingsModule } from './modules/bookings/bookings.module';
 import { DriversModule } from './modules/drivers/drivers.module';
 import { HealthModule } from './modules/health/health.module';
 import { PlacesModule } from './modules/places/places.module';
@@ -14,7 +15,7 @@ import { UsersModule } from './modules/users/users.module';
 @Module({
   imports: [
     ConfigModule, DatabaseModule, InfraModule, AuthModule, UsersModule, AdminModule, HealthModule, PlacesModule,
-    RoutingModule, DriversModule, TripsModule,
+    RoutingModule, DriversModule, TripsModule, BookingsModule,
   ],
 })
 export class AppModule {}

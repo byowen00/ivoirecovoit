@@ -10,6 +10,7 @@ import { PlacesService } from '../places/places.service';
 import { haversineMeters } from '../routing/haversine';
 import { type RouteEstimate, RoutingService } from '../routing/routing.service';
 import { SettingsService } from '../users/settings.service';
+import { cancelTripBookings, outbox, PENDING_STATUSES, setActor, syncTripFullStatus } from '../bookings/lifecycle';
 import { checkStopPrices, type PriceBounds, suggestFullPrice, suggestStopPrices } from './pricing';
 import { assertTransition, START_WINDOW } from './trip-state';
 import {
@@ -388,12 +389,7 @@ export class TripsService {
 
   /** PUBLISHED <-> FULL selon l'occupation du segment le plus chargé (doc 05 §1). */
   async syncFullStatus(trx: Transaction<Database>, tripId: string): Promise<void> {
-    await sql`
-      UPDATE trips t SET status = s.target::trip_status
-        FROM (SELECT CASE WHEN trip_max_occupancy(x.id, 0, (SELECT max(st.seq) FROM trip_stops st WHERE st.trip_id = x.id)) >= x.seats_offered
-                          THEN 'FULL' ELSE 'PUBLISHED' END AS target
-                FROM trips x WHERE x.id = ${tripId}::uuid) s
-       WHERE t.id = ${tripId}::uuid AND t.status IN ('PUBLISHED','FULL') AND t.status::text <> s.target`.execute(trx);
+    await syncTripFullStatus(trx, tripId);
   }
 
   async publish(userId: string, tripId: string, ctx: RequestContext) {
@@ -543,6 +539,10 @@ export class TripsService {
         await this.syncFullStatus(trx, tripId);
 
         const shiftMin = timeChanged ? Math.round((input.departureAt!.getTime() - trip.departure_at.getTime()) / 60_000) : 0;
+        if (booked > 0 && Math.abs(shiftMin) > 30) {
+          // Horaire décalé de plus de 30 min : chaque passager peut annuler sans frais jusqu'au départ (doc 05 §6).
+          await trx.updateTable('bookings').set({ free_cancellation: true }).where('trip_id', '=', tripId).where('status', 'in', BLOCKING).execute();
+        }
         if (booked > 0) {
           // Événement pour les notifications (étape 9) ; > 30 min ouvre l'annulation sans frais (doc 05 §6).
           await trx
@@ -635,16 +635,24 @@ export class TripsService {
     await this.db.transaction().execute(async (trx) => {
       const trip = await this.owned(trx, userId, tripId, true);
       assertTransition(trip.status, 'CANCELLED');
-      if ((await this.activeBookings(trx, tripId)) > 0) {
-        // Annulation avec réservations = remboursement intégral des passagers (doc 05 §7.2) : étapes 7 et 8.
-        throw new ApiError(HttpStatus.CONFLICT, 'TRIP_HAS_BOOKINGS', 'Ce trajet a des réservations : leur annulation et leur remboursement arrivent à l’étape suivante.');
-      }
+      // Réservations annulées, remboursement intégral de ce qui a été payé (doc 05 §7.2).
+      const { cancelled } = await cancelTripBookings(trx, tripId, userId, input.reason, 'CANCELLED_BY_DRIVER');
       await trx
         .updateTable('trips')
         .set({ status: 'CANCELLED', cancelled_at: new Date(), cancellation_reason: input.reason })
         .where('id', '=', tripId)
         .execute();
-      await this.audit.log({ actorId: userId, action: 'trip.cancel', targetType: 'trip', targetId: tripId, reason: input.reason, ctx }, trx);
+      if (cancelled > 0) {
+        await trx
+          .updateTable('driver_profiles')
+          .set({ cancellation_count_90d: sql<number>`cancellation_count_90d + 1` })
+          .where('user_id', '=', userId)
+          .execute();
+      }
+      await this.audit.log(
+        { actorId: userId, action: 'trip.cancel', targetType: 'trip', targetId: tripId, reason: input.reason, changes: { bookingsCancelled: cancelled }, ctx },
+        trx,
+      );
     });
     return this.manageView(userId, tripId);
   }
@@ -663,12 +671,14 @@ export class TripsService {
       }
       await trx.updateTable('trips').set({ status: 'IN_PROGRESS', started_at: new Date() }).where('id', '=', tripId).execute();
       // Les réservations non confirmées au départ expirent (doc 05 §1).
+      await setActor(trx, userId, 'Trajet démarré');
       await trx
         .updateTable('bookings')
-        .set({ status: 'EXPIRED' })
+        .set({ status: 'EXPIRED', expired_at: new Date() })
         .where('trip_id', '=', tripId)
-        .where('status', 'in', ['PENDING_ACCEPTANCE', 'PENDING_PAYMENT'])
+        .where('status', 'in', PENDING_STATUSES)
         .execute();
+      await outbox(trx, 'trip', tripId, 'trip.started', {});
       await this.audit.log({ actorId: userId, action: 'trip.start', targetType: 'trip', targetId: tripId, ctx }, trx);
     });
     return this.manageView(userId, tripId);
@@ -679,7 +689,14 @@ export class TripsService {
       const trip = await this.owned(trx, userId, tripId, true);
       assertTransition(trip.status, 'COMPLETED');
       await trx.updateTable('trips').set({ status: 'COMPLETED', completed_at: new Date() }).where('id', '=', tripId).execute();
-      await trx.updateTable('bookings').set({ status: 'COMPLETED' }).where('trip_id', '=', tripId).where('status', '=', 'CONFIRMED').execute();
+      await setActor(trx, userId, 'Trajet terminé');
+      await trx
+        .updateTable('bookings')
+        .set({ status: 'COMPLETED', completed_at: new Date() })
+        .where('trip_id', '=', tripId)
+        .where('status', '=', 'CONFIRMED')
+        .execute();
+      await outbox(trx, 'trip', tripId, 'trip.completed', { auto: false });
       await trx
         .updateTable('driver_profiles')
         .set({ completed_trips_count: sql<number>`completed_trips_count + 1` })
@@ -748,7 +765,7 @@ export class TripsService {
   /** Détail complet pour le conducteur : coordonnées exactes, réservations, actions possibles. */
   async manageView(userId: string, tripId: string) {
     const trip = await this.owned(this.db, userId, tripId);
-    const [stops, vehicle, bookings, occupied, geometry] = await Promise.all([
+    const [stops, vehicle, bookings, occupied, geometry, noShowDelay] = await Promise.all([
       this.db
         .selectFrom('trip_stops')
         .select(['id', 'seq', 'place_id', 'label', 'meeting_point', 'location_precision', 'planned_at', 'price_from_origin_xof',
@@ -758,14 +775,17 @@ export class TripsService {
         .execute(),
       this.db.selectFrom('vehicles').select(['id', 'make', 'model', 'color', 'plate_number', 'seats_capacity', 'verification_status'])
         .where('id', '=', trip.vehicle_id).executeTakeFirstOrThrow(),
-      sql<{ id: string; reference: string; status: string; seats: number; pickup_seq: number; dropoff_seq: number; display_name: string | null; rating: number | null }>`
-        SELECT b.id, b.reference, b.status, b.seats, b.pickup_seq, b.dropoff_seq, u.display_name, u.rating_avg_passenger AS rating
+      sql<{ id: string; reference: string; status: string; payment_status: string; seats: number; pickup_seq: number; dropoff_seq: number;
+            display_name: string | null; rating: number | null; hold_expires_at: Date | null; subtotal_xof: number; driver_net_xof: number }>`
+        SELECT b.id, b.reference, b.status, b.payment_status, b.seats, b.pickup_seq, b.dropoff_seq, u.display_name,
+               u.rating_avg_passenger AS rating, b.hold_expires_at, b.subtotal_xof, b.driver_net_xof
           FROM bookings b JOIN users u ON u.id = b.passenger_id
          WHERE b.trip_id = ${tripId}::uuid ORDER BY b.created_at`.execute(this.db),
       this.maxOccupancy(this.db, tripId),
       sql<{ coords: [number, number][] | null }>`
         SELECT (SELECT json_agg(json_build_array(ST_Y(geom), ST_X(geom))) FROM ST_DumpPoints(route_geometry::geometry) AS dp(path, geom)) AS coords
           FROM trips WHERE id = ${tripId}::uuid`.execute(this.db),
+      this.settings.get<number>('booking.no_show_delay_minutes'),
     ]);
     const now = Date.now();
     const dep = trip.departure_at.getTime();
@@ -805,10 +825,23 @@ export class TripsService {
         locationPrecision: s.location_precision, plannedAt: s.planned_at, priceFromOriginXof: s.price_from_origin_xof,
         isPickup: s.is_pickup, isDropoff: s.is_dropoff,
       })),
-      bookings: bookings.rows.map((b) => ({
-        id: b.id, reference: b.reference, status: b.status, seats: b.seats, passenger: { displayName: b.display_name, ratingAvg: b.rating },
-        pickup: stops[b.pickup_seq]?.label ?? null, dropoff: stops[b.dropoff_seq]?.label ?? null,
-      })),
+      bookings: bookings.rows.map((b) => {
+        const pickupAt = stops[b.pickup_seq]?.planned_at.getTime() ?? Infinity;
+        const holdOpen = b.hold_expires_at === null || b.hold_expires_at.getTime() > now;
+        return {
+          id: b.id, reference: b.reference, status: b.status, paymentStatus: b.payment_status, seats: b.seats,
+          passenger: { displayName: b.display_name, ratingAvg: b.rating },
+          pickup: stops[b.pickup_seq]?.label ?? null, dropoff: stops[b.dropoff_seq]?.label ?? null,
+          pickupAt: stops[b.pickup_seq]?.planned_at ?? null, holdExpiresAt: b.hold_expires_at,
+          subtotalXof: b.subtotal_xof, driverNetXof: b.driver_net_xof,
+          actions: {
+            canAccept: b.status === 'PENDING_ACCEPTANCE' && holdOpen && ['PUBLISHED', 'FULL'].includes(trip.status),
+            canReject: b.status === 'PENDING_ACCEPTANCE' && ['PUBLISHED', 'FULL'].includes(trip.status),
+            canCancel: ['PENDING_ACCEPTANCE', 'PENDING_PAYMENT', 'CONFIRMED'].includes(b.status) && ['PUBLISHED', 'FULL'].includes(trip.status),
+            canMarkNoShow: b.status === 'CONFIRMED' && trip.status === 'IN_PROGRESS' && now >= pickupAt + (noShowDelay ?? 15) * 60_000,
+          },
+        };
+      }),
       actions: {
         canEdit: ['DRAFT', 'PUBLISHED', 'FULL'].includes(trip.status),
         canPublish: trip.status === 'DRAFT',
