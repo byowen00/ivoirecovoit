@@ -23,6 +23,10 @@ import 'features/trips/search_results_screen.dart';
 import 'features/trips/trip_detail_screen.dart';
 import 'features/home/home_screen.dart';
 import 'features/status/status_screen.dart';
+import 'features/trust/chat_screen.dart';
+import 'features/trust/dispute_screens.dart';
+import 'features/trust/help_screen.dart';
+import 'features/trust/notifications_screen.dart';
 import 'features/welcome/welcome_screen.dart';
 import 'providers.dart';
 
@@ -94,6 +98,25 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/reservations/:id/payer',
         builder: (_, state) => _RequireMe(builder: (_) => PaymentScreen(bookingId: state.pathParameters['id']!)),
+      ),
+      GoRoute(
+        path: '/reservations/:id/messages',
+        builder: (_, state) => _RequireMe(builder: (_) => ChatScreen(bookingId: state.pathParameters['id']!)),
+      ),
+      GoRoute(
+        path: '/notifications',
+        builder: (_, _) => _RequireMe(builder: (_) => const NotificationsScreen()),
+      ),
+      GoRoute(path: '/aide', builder: (_, _) => const HelpScreen()),
+      GoRoute(
+        path: '/aide/reclamations/nouvelle',
+        redirect: (_, state) => state.uri.queryParameters['reservation'] == null ? '/aide' : null,
+        builder: (_, state) =>
+            _RequireMe(builder: (_) => NewDisputeScreen(bookingId: state.uri.queryParameters['reservation']!)),
+      ),
+      GoRoute(
+        path: '/aide/reclamations/:id',
+        builder: (_, state) => _RequireMe(builder: (_) => DisputeScreen(disputeId: state.pathParameters['id']!)),
       ),
       GoRoute(
         path: '/paiements',

@@ -11,6 +11,8 @@ import 'package:ivoirecovoit/features/bookings/models.dart';
 import 'package:ivoirecovoit/features/bookings/my_bookings_screen.dart';
 import 'package:ivoirecovoit/providers.dart';
 
+import 'trust_fakes.dart';
+
 const _policy = {
   'code': 'STANDARD',
   'label': 'Standard',
@@ -103,9 +105,19 @@ class FakeBookings implements BookingsRepository {
   final created = <String>[];
   final cancelled = <String>[];
   final accepted = <String>[];
+  final quotedPromos = <String?>[];
+  final createdPromos = <String?>[];
 
   @override
-  Future<BookingQuote> quote(String tripId, String p, String d, int seats) async => BookingQuote.fromJson(quoteData!);
+  Future<BookingQuote> quote(String tripId, String p, String d, int seats, {String? promoCode}) async {
+    quotedPromos.add(promoCode);
+    if (promoCode == 'NUL') throw ApiException('PROMO_INVALID', 'Ce code promo n’existe pas.', status: 400);
+    return BookingQuote.fromJson({
+      ...quoteData!,
+      'promoCode': ?promoCode,
+      if (promoCode != null) 'discountXof': 500,
+    });
+  }
 
   @override
   Future<Booking> create(
@@ -115,8 +127,10 @@ class FakeBookings implements BookingsRepository {
     int seats, {
     required String idempotencyKey,
     bool cash = false,
+    String? promoCode,
   }) async {
     created.add(idempotencyKey);
+    createdPromos.add(promoCode);
     if (created.length > 1) throw ApiException('ALREADY_BOOKED', 'Déjà réservé', status: 409);
     return Booking.fromJson(booking!);
   }
@@ -180,8 +194,11 @@ class FakeBookings implements BookingsRepository {
   Future<void> noShow(String tripId, String bookingId) => throw UnimplementedError();
 }
 
-Widget app(FakeBookings fake, String initial, Widget Function(GoRouterState) screen) => ProviderScope(
-  overrides: [bookingsRepositoryProvider.overrideWithValue(fake)],
+Widget app(FakeBookings fake, String initial, Widget Function(GoRouterState) screen, {FakeTrust? trust}) => ProviderScope(
+  overrides: [
+    bookingsRepositoryProvider.overrideWithValue(fake),
+    trustRepositoryProvider.overrideWithValue(trust ?? FakeTrust()),
+  ],
   child: MaterialApp.router(
     routerConfig: GoRouter(
       initialLocation: initial,
@@ -189,10 +206,18 @@ Widget app(FakeBookings fake, String initial, Widget Function(GoRouterState) scr
         GoRoute(path: '/r', builder: (_, s) => screen(s)),
         GoRoute(path: '/reservations/:id', builder: (_, s) => Text('détail ${s.pathParameters['id']}')),
         GoRoute(path: '/', builder: (_, _) => const Text('accueil')),
+        GoRoute(path: '/aide/reclamations/nouvelle', builder: (_, s) => Text('réclamation ${s.uri.queryParameters['reservation']}')),
       ],
     ),
   ),
 );
+
+/// Fait défiler jusqu'à l'élément puis le centre (la barre du bas peut masquer le bord de la liste).
+Future<void> reveal(WidgetTester tester, Finder finder) async {
+  await tester.scrollUntilVisible(finder, 200, scrollable: find.byType(Scrollable).first);
+  await tester.ensureVisible(finder);
+  await tester.pumpAndSettle();
+}
 
 void main() {
   setUpAll(() => initializeDateFormatting('fr'));
@@ -236,7 +261,7 @@ void main() {
     expect(find.textContaining('Vous payez ensuite par Mobile Money'), findsOneWidget);
     final button = find.widgetWithText(FilledButton, 'Réserver');
     expect(tester.widget<FilledButton>(button).onPressed, isNull);
-    await tester.scrollUntilVisible(find.text('J’accepte les conditions d’annulation'), 200);
+    await reveal(tester, find.text('J’accepte les conditions d’annulation'));
     await tester.tap(find.text('J’accepte les conditions d’annulation'));
     await tester.pump();
     expect(tester.widget<FilledButton>(button).onPressed, isNotNull);
@@ -275,7 +300,7 @@ void main() {
     await tester.pumpWidget(app(fake, '/r', (_) => const BookingDetailScreen(bookingId: 'b1')));
     await tester.pumpAndSettle();
     expect(find.text('En attente de paiement'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('Annuler ma réservation'), 200);
+    await reveal(tester, find.text('Annuler ma réservation'));
     await tester.tap(find.text('Annuler ma réservation'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Rien n’a été payé'), findsOneWidget);
@@ -286,6 +311,8 @@ void main() {
     await tester.tap(confirm);
     await tester.pumpAndSettle();
     expect(fake.cancelled, ['Changement de programme']);
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, 2000));
+    await tester.pumpAndSettle();
     expect(find.text('Annulée par vous'), findsOneWidget);
   });
 
@@ -301,5 +328,53 @@ void main() {
     await tester.pumpAndSettle();
     expect(fake.accepted, ['b1']);
     expect(find.text('En attente de paiement'), findsOneWidget);
+  });
+
+  testWidgets('écran 8 : code promo appliqué par le devis puis transmis à la réservation', (tester) async {
+    final fake = FakeBookings(quoteData: quoteJson(), booking: bookingJson());
+    await tester.pumpWidget(
+      app(fake, '/r', (_) => const BookingScreen(tripId: 't1', pickupStopId: 's0', dropoffStopId: 's1')),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Code promo (facultatif)'), 'nul');
+    await tester.tap(find.text('Appliquer'));
+    await tester.pumpAndSettle();
+    expect(find.text('Ce code promo n’existe pas.'), findsOneWidget);
+    expect(fake.quotedPromos.last, isNull); // devis recalculé sans le code refusé
+    await tester.enterText(find.widgetWithText(TextField, 'Code promo (facultatif)'), 'bienvenue');
+    await tester.tap(find.text('Appliquer'));
+    await tester.pumpAndSettle();
+    expect(find.text('Code promo BIENVENUE'), findsOneWidget);
+    expect(find.text('Code BIENVENUE appliqué.'), findsOneWidget);
+    await reveal(tester, find.text('J’accepte les conditions d’annulation'));
+    await tester.tap(find.text('J’accepte les conditions d’annulation'));
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'Réserver'));
+    await tester.pumpAndSettle();
+    expect(fake.createdPromos, ['BIENVENUE']);
+  });
+
+  testWidgets('détail d’un trajet effectué : avis, réclamation et signalement', (tester) async {
+    final json = bookingJson(status: 'COMPLETED', canCancel: false);
+    json['trip'] = {...json['trip'] as Map<String, dynamic>, 'status': 'COMPLETED'};
+    json['actions'] = {...json['actions'] as Map<String, dynamic>, 'canMessage': false, 'canShare': false};
+    final trust = FakeTrust();
+    await tester.pumpWidget(app(FakeBookings(booking: json), '/r', (_) => const BookingDetailScreen(bookingId: 'b1'), trust: trust));
+    await tester.pumpAndSettle();
+    await reveal(tester, find.text('Votre avis sur le conducteur'));
+    final publish = find.widgetWithText(FilledButton, 'Publier mon avis');
+    expect(tester.widget<FilledButton>(publish).onPressed, isNull);
+    await tester.tap(find.byTooltip('4 sur 5 : Bien'));
+    await tester.enterText(find.widgetWithText(TextField, 'Commentaire (facultatif, public)'), 'Ponctuel');
+    await tester.pump();
+    await tester.tap(publish);
+    await tester.pumpAndSettle();
+    expect(trust.reviews, [(4, 'Ponctuel')]);
+    expect(find.textContaining('Vous avez donné 4/5'), findsOneWidget);
+    expect(find.text('Revoir les messages'), findsOneWidget);
+    await reveal(tester, find.text('Un problème avec ce trajet ?'));
+    await tester.tap(find.text('Un problème avec ce trajet ?'));
+    await tester.pumpAndSettle();
+    expect(find.text('réclamation b1'), findsOneWidget);
   });
 }

@@ -11,6 +11,7 @@ import 'features/driver/driver_repository.dart';
 import 'features/payments/payments_repository.dart';
 import 'features/places/places_repository.dart';
 import 'features/trips/trips_repository.dart';
+import 'features/trust/trust_repository.dart';
 
 final apiClientProvider = Provider<ApiClient>((ref) => ApiClient(baseUrl: AppConfig.apiBaseUrl));
 
@@ -44,4 +45,8 @@ final bookingsRepositoryProvider = Provider<BookingsRepository>(
 
 final paymentsRepositoryProvider = Provider<PaymentsRepository>(
   (ref) => ApiPaymentsRepository(ref.watch(authSessionProvider)),
+);
+
+final trustRepositoryProvider = Provider<TrustRepository>(
+  (ref) => ApiTrustRepository(ref.watch(apiClientProvider), ref.watch(authSessionProvider)),
 );

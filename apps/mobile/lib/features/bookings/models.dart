@@ -73,6 +73,7 @@ class BookingQuote {
       serviceFeeXof = _i(j['serviceFeeXof']),
       discountXof = _i(j['discountXof']),
       totalXof = _i(j['totalXof']),
+      promoCode = j['promoCode'] as String?,
       seatsAvailable = _i(j['seatsAvailable']),
       manual = j['acceptanceMode'] == 'MANUAL',
       acceptanceDeadline = _dateOrNull(j['acceptanceDeadline']),
@@ -87,6 +88,7 @@ class BookingQuote {
   final int serviceFeeXof;
   final int discountXof;
   final int totalXof;
+  final String? promoCode;
   final int seatsAvailable;
   final bool manual;
   final DateTime? acceptanceDeadline;
@@ -134,6 +136,9 @@ class Booking {
       freeCancellation = j['freeCancellation'] == true,
       isDemo = j['isDemo'] == true,
       isDriver = j['viewerRole'] == 'DRIVER',
+      passengerId = (j['passenger'] as Map)['id'] as String?,
+      driverId = ((j['trip'] as Map)['driver'] as Map)['id'] as String?,
+      openDispute = j['openDispute'] == null ? null : OpenDispute.fromJson(j['openDispute'] as Map<String, dynamic>),
       policy = CancellationPolicy.fromJson(j['cancellationPolicy'] as Map<String, dynamic>),
       tripId = (j['trip'] as Map)['id'] as String,
       tripStatus = (j['trip'] as Map)['status'] as String,
@@ -168,6 +173,11 @@ class Booking {
   final bool freeCancellation;
   final bool isDemo;
   final bool isDriver;
+  final String? passengerId;
+  final String? driverId;
+
+  /// Réclamation en cours sur cette réservation, s'il y en a une.
+  final OpenDispute? openDispute;
   final CancellationPolicy policy;
   final String tripId;
   final String tripStatus;
@@ -187,6 +197,16 @@ class Booking {
   bool can(String action) => actions[action] ?? false;
 
   static String _vehicle(Map v) => '${v['make']} ${v['model']}, ${v['color']}';
+}
+
+class OpenDispute {
+  OpenDispute.fromJson(Map<String, dynamic> j)
+    : id = j['id'] as String,
+      reference = j['reference'] as String,
+      status = j['status'] as String;
+  final String id;
+  final String reference;
+  final String status;
 }
 
 class BookingSummary {

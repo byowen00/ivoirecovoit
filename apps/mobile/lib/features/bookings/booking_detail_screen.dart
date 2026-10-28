@@ -9,6 +9,7 @@ import '../../core/format.dart';
 import '../../core/theme.dart';
 import '../../providers.dart';
 import '../trips/trips_repository.dart';
+import '../trust/booking_trust.dart';
 import 'models.dart';
 import 'widgets.dart';
 
@@ -246,7 +247,7 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
                       b.subtotalXof,
                     ),
                     AmountRow('Frais de service', b.serviceFeeXof),
-                    if (b.discountXof > 0) AmountRow('Réduction', -b.discountXof),
+                    if (b.discountXof > 0) AmountRow('Réduction (code promo)', -b.discountXof),
                     const Divider(),
                     AmountRow('Total passager', b.totalXof, strong: true),
                     if (b.isDriver && b.driverNetXof != null) ...[
@@ -269,6 +270,8 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
                   child: Text(b.isDriver ? 'Annuler cette réservation' : 'Annuler ma réservation'),
                 ),
               ),
+            const SizedBox(height: 12),
+            BookingTrustSection(booking: b, onChanged: _load),
             const SizedBox(height: 12),
             Text('Historique', style: theme.textTheme.titleSmall),
             for (final h in b.history)

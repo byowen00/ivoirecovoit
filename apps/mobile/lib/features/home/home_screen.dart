@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/config.dart';
 import '../../core/theme.dart';
+import '../trust/notifications_screen.dart';
 import '../../providers.dart';
 import '../places/place_field.dart';
 import '../places/places_repository.dart';
@@ -78,6 +79,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           style: TextStyle(color: AppColors.brand, fontWeight: FontWeight.bold),
         ),
         actions: [
+          if (ref.watch(authControllerProvider).value != null) const NotificationBell(),
+          IconButton(
+            tooltip: 'Aide et urgence',
+            icon: const Icon(Icons.help_outline),
+            onPressed: () => context.push('/aide'),
+          ),
           IconButton(
             tooltip: 'Mon compte',
             icon: const Icon(Icons.account_circle_outlined),

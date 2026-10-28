@@ -3,7 +3,7 @@ import 'models.dart';
 
 /// Réservations (toutes les routes demandent une session).
 abstract class BookingsRepository {
-  Future<BookingQuote> quote(String tripId, String pickupStopId, String dropoffStopId, int seats);
+  Future<BookingQuote> quote(String tripId, String pickupStopId, String dropoffStopId, int seats, {String? promoCode});
   Future<Booking> create(
     String tripId,
     String pickupStopId,
@@ -11,6 +11,7 @@ abstract class BookingsRepository {
     int seats, {
     required String idempotencyKey,
     bool cash = false,
+    String? promoCode,
   });
   Future<({List<BookingSummary> bookings, String? next})> mine(String scope, {String? cursor});
   Future<Booking> get(String id);
@@ -33,10 +34,19 @@ class ApiBookingsRepository implements BookingsRepository {
   };
 
   @override
-  Future<BookingQuote> quote(String tripId, String pickupStopId, String dropoffStopId, int seats) async =>
-      BookingQuote.fromJson(
-        await _session.send('POST', '/bookings/quote', body: _segment(tripId, pickupStopId, dropoffStopId, seats)),
-      );
+  Future<BookingQuote> quote(
+    String tripId,
+    String pickupStopId,
+    String dropoffStopId,
+    int seats, {
+    String? promoCode,
+  }) async => BookingQuote.fromJson(
+    await _session.send(
+      'POST',
+      '/bookings/quote',
+      body: {..._segment(tripId, pickupStopId, dropoffStopId, seats), 'promoCode': ?promoCode},
+    ),
+  );
 
   @override
   Future<Booking> create(
@@ -46,6 +56,7 @@ class ApiBookingsRepository implements BookingsRepository {
     int seats, {
     required String idempotencyKey,
     bool cash = false,
+    String? promoCode,
   }) async => Booking.fromJson(
     await _session.send(
       'POST',
@@ -54,6 +65,7 @@ class ApiBookingsRepository implements BookingsRepository {
         ..._segment(tripId, pickupStopId, dropoffStopId, seats),
         'acceptCancellationPolicy': true,
         if (cash) 'paymentMethod': 'CASH',
+        'promoCode': ?promoCode,
       },
       headers: {'Idempotency-Key': idempotencyKey},
     ),

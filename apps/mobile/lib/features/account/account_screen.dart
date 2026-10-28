@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/api_client.dart';
 import '../../core/theme.dart';
+import '../trust/notifications_screen.dart';
 import '../../providers.dart';
 import '../auth/auth_controller.dart';
 import '../auth/models.dart';
@@ -52,6 +53,7 @@ class AccountScreen extends ConsumerWidget {
                 _PhotoCard(me: me),
                 _ProfileCard(me: me),
                 _PreferencesCard(me: me),
+                const NotificationPreferencesCard(),
                 _ConsentsCard(me: me),
                 const _EmergencyCard(),
                 const _SessionsCard(),
