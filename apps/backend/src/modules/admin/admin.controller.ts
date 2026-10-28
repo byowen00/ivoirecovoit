@@ -6,9 +6,19 @@ import { CurrentAuth, StaffOnly } from '../auth/decorators';
 import { type AppRequest, type AuthContext, requestContext } from '../auth/request-context';
 import { SessionsService } from '../auth/sessions.service';
 import { StaffAuthService } from '../auth/staff-auth.service';
+import { DocumentsService } from '../drivers/documents.service';
 import {
+  type ApproveInput,
+  approveSchema,
   type AuditQuery,
   auditQuery,
+  documentViewSchema,
+  type RejectInput,
+  rejectSchema,
+  type VerificationListQuery,
+  verificationListQuery,
+  verificationType,
+  type VerificationType,
   type ListUsersQuery,
   listUsersQuery,
   type RevealInput,
@@ -18,6 +28,7 @@ import {
   unsuspendSchema,
 } from './admin.schemas';
 import { AdminUsersService } from './admin-users.service';
+import { AdminVerificationsService } from './admin-verifications.service';
 
 @ApiTags('administration')
 @ApiBearerAuth()
@@ -27,7 +38,67 @@ export class AdminController {
     private readonly users: AdminUsersService,
     private readonly staff: StaffAuthService,
     private readonly sessions: SessionsService,
+    private readonly verifications: AdminVerificationsService,
+    private readonly documents: DocumentsService,
   ) {}
+
+  @StaffOnly('verifications.read')
+  @Get('verifications')
+  @ApiOperation({ summary: 'File de vérification : dossiers conducteur, véhicules, pièces renouvelées' })
+  listVerifications(@Query(new ZodValidationPipe(verificationListQuery)) query: VerificationListQuery) {
+    return this.verifications.list(query);
+  }
+
+  @StaffOnly('verifications.read')
+  @Get('verifications/driver/:id')
+  getDriverVerification(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.verifications.getDriver(id);
+  }
+
+  @StaffOnly('verifications.read')
+  @Get('verifications/vehicle/:id')
+  getVehicleVerification(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.verifications.getVehicle(id);
+  }
+
+  @StaffOnly('verifications.decide')
+  @Post('verifications/:type/:id/approve')
+  @HttpCode(HttpStatus.OK)
+  approve(
+    @CurrentAuth() auth: AuthContext,
+    @Param('type', new ZodValidationPipe(verificationType)) type: VerificationType,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodValidationPipe(approveSchema)) body: ApproveInput,
+    @Req() req: AppRequest,
+  ) {
+    return this.verifications.approve(auth.userId, type, id, body, requestContext(req));
+  }
+
+  @StaffOnly('verifications.decide')
+  @Post('verifications/:type/:id/reject')
+  @HttpCode(HttpStatus.OK)
+  reject(
+    @CurrentAuth() auth: AuthContext,
+    @Param('type', new ZodValidationPipe(verificationType)) type: VerificationType,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodValidationPipe(rejectSchema)) body: RejectInput,
+    @Req() req: AppRequest,
+  ) {
+    return this.verifications.reject(auth.userId, type, id, body, requestContext(req));
+  }
+
+  @StaffOnly('documents.view')
+  @Post('documents/:id/download-url')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'URL signée (5 min) d’une pièce justificative : motif obligatoire, journalisé' })
+  documentUrl(
+    @CurrentAuth() auth: AuthContext,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodValidationPipe(documentViewSchema)) body: z.infer<typeof documentViewSchema>,
+    @Req() req: AppRequest,
+  ) {
+    return this.documents.staffDownloadUrl(auth.userId, id, body.reason, requestContext(req));
+  }
 
   @StaffOnly()
   @Get('me')

@@ -7,9 +7,10 @@ import { setupApp } from '../src/app.setup';
 import { REDIS } from '../src/infra/redis.module';
 import { CurrentAuth } from '../src/modules/auth/decorators';
 import type { AuthContext } from '../src/modules/auth/request-context';
-import { TEST_DATABASE_URL } from './test-db';
+import { TEST_DATABASE_URL, TEST_S3 } from './test-db';
 
 export const TEST_REDIS_URL = process.env.TEST_REDIS_URL ?? 'redis://127.0.0.1:6379/15';
+
 
 /** Route de test : exige un compte ACTIVE (comportement par défaut de la garde). */
 @Controller('test-only')
@@ -31,6 +32,9 @@ export async function createTestApp(extraControllers: Type[] = []): Promise<Test
   process.env.REDIS_URL = TEST_REDIS_URL;
   process.env.NODE_ENV = 'test';
   process.env.OTP_TEST_MODE = 'true';
+  Object.assign(process.env, TEST_S3);
+  // Pas d'OSRM dans les tests d'API : estimation de repli (les tests du client OSRM utilisent un faux serveur).
+  delete process.env.OSRM_URL;
   const moduleRef = await Test.createTestingModule({
     imports: [AppModule],
     controllers: [ActiveOnlyController, ...extraControllers],

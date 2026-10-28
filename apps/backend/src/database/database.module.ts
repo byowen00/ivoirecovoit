@@ -11,6 +11,10 @@ types.setTypeParser(20, (value: string) => {
   return n;
 });
 
+// date : gardée en chaîne AAAA-MM-JJ (pas de décalage de fuseau) ; numeric (notes moyennes) : nombre.
+types.setTypeParser(1082, (value: string) => value);
+types.setTypeParser(1700, (value: string) => Number(value));
+
 export const DB = Symbol('DB');
 export type Db = Kysely<Database>;
 

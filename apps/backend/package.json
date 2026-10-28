@@ -16,9 +16,13 @@
     "db:seed:prod": "node dist/database/seeds/run-seed.js reference",
     "staff:create": "tsx --env-file-if-exists=../../.env src/scripts/create-staff.ts",
     "staff:create:prod": "node dist/scripts/create-staff.js",
-    "keys:generate": "tsx src/scripts/generate-jwt-keys.ts"
+    "keys:generate": "tsx src/scripts/generate-jwt-keys.ts",
+    "storage:init": "tsx --env-file-if-exists=../../.env src/scripts/init-storage.ts",
+    "storage:init:prod": "node dist/scripts/init-storage.js"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1158.0",
+    "@aws-sdk/s3-request-presigner": "^3.1158.0",
     "@nestjs/common": "^11.2.8",
     "@nestjs/core": "^11.2.8",
     "@nestjs/platform-express": "^11.2.8",

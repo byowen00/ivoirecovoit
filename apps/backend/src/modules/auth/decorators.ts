@@ -2,11 +2,23 @@ import { createParamDecorator, type ExecutionContext, SetMetadata } from '@nestj
 import type { AppRequest, AuthContext } from './request-context';
 
 export const IS_PUBLIC = 'auth:public';
+export const OPTIONAL_AUTH = 'auth:optional';
 export const ALLOW_INCOMPLETE_PROFILE = 'auth:allowIncomplete';
 export const STAFF_PERMISSIONS = 'auth:staffPermissions';
 
 /** Route accessible sans connexion. Toutes les autres exigent un jeton (sécurité par défaut). */
 export const Public = () => SetMetadata(IS_PUBLIC, true);
+
+/**
+ * Route publique qui reconnaît la personne connectée si un jeton valide est présent (sinon : visiteur).
+ * Un jeton invalide ou expiré n'est pas une erreur ici : la route répond comme pour un visiteur.
+ */
+export const OptionalAuth = () => SetMetadata(OPTIONAL_AUTH, true);
+
+/** Personne connectée sur une route @OptionalAuth (undefined pour un visiteur). */
+export const MaybeAuth = createParamDecorator(
+  (_data: unknown, ctx: ExecutionContext): AuthContext | undefined => ctx.switchToHttp().getRequest<AppRequest>().auth,
+);
 
 /** Route accessible avant que le profil soit complété (prénom, nom, CGU). */
 export const AllowIncompleteProfile = () => SetMetadata(ALLOW_INCOMPLETE_PROFILE, true);

@@ -1,0 +1,16 @@
+import { Module } from '@nestjs/common';
+import { DriversModule } from '../drivers/drivers.module';
+import { PlacesModule } from '../places/places.module';
+import { RoutingModule } from '../routing/routing.module';
+import { AuthModule } from '../auth/auth.module';
+import { SearchService } from './search.service';
+import { TripsController } from './trips.controller';
+import { TripsService } from './trips.service';
+
+@Module({
+  imports: [AuthModule, DriversModule, PlacesModule, RoutingModule],
+  controllers: [TripsController],
+  providers: [TripsService, SearchService],
+  exports: [TripsService],
+})
+export class TripsModule {}

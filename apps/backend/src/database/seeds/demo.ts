@@ -6,6 +6,8 @@ import { fallbackEstimate, type LatLng } from '../../modules/routing/haversine';
  * Données de démonstration : TOUTES fictives et marquées is_demo = true, noms préfixés « [DEMO] ».
  * Numéros dans la plage +225 00 00 00 00 xx, qui n'est attribuée à aucun abonné.
  * Distances et durées : estimation de repli (vol d'oiseau × coefficient), jamais des mesures GPS.
+ * Pièces justificatives : lignes « validées » SANS fichier (clé demo/absent) pour que les conducteurs fictifs
+ * puissent publier ; aucune image de document n'est fabriquée.
  */
 
 const DEMO_DRIVERS = [
@@ -127,8 +129,9 @@ export async function seedDemo(client: Client, now: Date = new Date()): Promise<
       [userId, d.phone, d.first, d.last],
     );
     await client.query(
-      `INSERT INTO driver_profiles (user_id, verification_status, verification_level, verified_at)
-       VALUES ($1, 'APPROVED', 2, now())`,
+      `INSERT INTO driver_profiles (user_id, verification_status, verification_level, verified_at, submitted_at,
+                                    license_expires_on)
+       VALUES ($1, 'APPROVED', 2, now(), now(), (now() + interval '3 years')::date)`,
       [userId],
     );
     const [make, model, color, plate, seats] = d.car;
@@ -138,6 +141,14 @@ export async function seedDemo(client: Client, now: Date = new Date()): Promise<
        VALUES ($1, $2, $3, $4, $5, $6, $7, 'APPROVED')`,
       [vehicleId, userId, make, model, color, plate, seats],
     );
+    for (const docType of ['VEHICLE_REGISTRATION', 'INSURANCE', 'TECHNICAL_INSPECTION']) {
+      await client.query(
+        `INSERT INTO vehicle_documents (id, vehicle_id, doc_type, object_key, mime_type, size_bytes, sha256, expires_on,
+                                        status, uploaded_at, reviewed_at)
+         VALUES ($1, $2, $3, 'demo/absent', 'image/jpeg', 1, '\\x00', $4, 'APPROVED', now(), now())`,
+        [uuidv7(), vehicleId, docType, docType === 'VEHICLE_REGISTRATION' ? null : new Date(now.getTime() + 365 * 86_400_000)],
+      );
+    }
     driverIds.push(userId);
     vehicleIds.push(vehicleId);
   }
@@ -159,12 +170,14 @@ export async function seedDemo(client: Client, now: Date = new Date()): Promise<
     await client.query(
       `INSERT INTO trips (id, public_ref, driver_id, vehicle_id, kind, status, departure_at, estimated_arrival_at,
                           seats_offered, acceptance_mode, cancellation_policy_code, description,
-                          estimated_distance_m, estimated_duration_s, route_source, is_demo, published_at)
-       VALUES ($1, $2, $3, $4, $5, 'PUBLISHED', $6, $7, $8, $9, $10, $11, $12, $13, 'HAVERSINE_FALLBACK', true, now())`,
+                          estimated_distance_m, estimated_duration_s, route_source, is_demo, published_at, route_geometry)
+       VALUES ($1, $2, $3, $4, $5, 'PUBLISHED', $6, $7, $8, $9, $10, $11, $12, $13, 'HAVERSINE_FALLBACK', true, now(),
+               ST_GeogFromText($14))`,
       [
         tripId, tripReference(), driverIds[t.driver], vehicleIds[t.driver], t.kind, departure,
         new Date(departure.getTime() + total.durationS * 1000), t.seats, t.mode, t.policy, t.description,
         total.distanceM, total.durationS,
+        `SRID=4326;LINESTRING(${places.map((p) => `${p.lng} ${p.lat}`).join(',')})`,
       ],
     );
     let elapsedS = 0;
@@ -173,11 +186,11 @@ export async function seedDemo(client: Client, now: Date = new Date()): Promise<
       const place = places[seq]!;
       await client.query(
         `INSERT INTO trip_stops (id, trip_id, seq, place_id, label, meeting_point, location, location_precision,
-                                 planned_at, price_from_origin_xof)
-         VALUES ($1, $2, $3, $4, $5, $6, ST_SetSRID(ST_MakePoint($8, $7), 4326)::geography, 'APPROX', $9, $10)`,
+                                 planned_at, price_from_origin_xof, is_pickup, is_dropoff)
+         VALUES ($1, $2, $3, $4, $5, $6, ST_SetSRID(ST_MakePoint($8, $7), 4326)::geography, 'APPROX', $9, $10, $11, $12)`,
         [
           uuidv7(), tripId, seq, place.id, t.stops[seq]![0], meetingPoint, place.lat, place.lng,
-          new Date(departure.getTime() + elapsedS * 1000), price,
+          new Date(departure.getTime() + elapsedS * 1000), price, seq < t.stops.length - 1, seq > 0,
         ],
       );
     }

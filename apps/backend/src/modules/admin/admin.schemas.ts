@@ -30,3 +30,27 @@ export const auditQuery = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
 });
 export type AuditQuery = z.infer<typeof auditQuery>;
+
+export const verificationListQuery = z.object({
+  type: z.enum(['driver', 'vehicle', 'document']),
+  status: z.enum(['PENDING', 'APPROVED', 'REJECTED']).default('PENDING'),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+});
+export type VerificationListQuery = z.infer<typeof verificationListQuery>;
+
+export const verificationType = z.enum(['driver', 'vehicle', 'document']);
+export type VerificationType = z.infer<typeof verificationType>;
+
+export const approveSchema = z.object({ note: z.string().trim().max(300).optional() }).strict();
+export type ApproveInput = z.infer<typeof approveSchema>;
+
+export const rejectSchema = z
+  .object({
+    // Montré tel quel au conducteur : « Photo de l'assurance illisible ».
+    reason: z.string().trim().min(5, 'Motif obligatoire, il sera montré au conducteur.').max(300),
+    documentIds: z.array(z.uuid()).max(20).default([]),
+  })
+  .strict();
+export type RejectInput = z.infer<typeof rejectSchema>;
+
+export const documentViewSchema = z.object({ reason }).strict();

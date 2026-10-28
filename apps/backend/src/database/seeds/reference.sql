@@ -31,6 +31,10 @@ INSERT INTO settings (key, value, version) VALUES
   ('trip.max_days_ahead', '90', 1),
   ('trip.price_min_xof', '500', 1),
   ('trip.price_max_xof', '30000', 1),
+  -- Prix suggéré au conducteur (XOF par km estimé) : valeur de DÉMONSTRATION, à fixer après étude commerciale.
+  ('trip.suggested_price_xof_per_km', '20', 1),
+  -- Plafond « partage de frais » par km (doc 05 §8) : non fixé (null = non appliqué) tant qu'il n'est pas décidé.
+  ('trip.price_cap_xof_per_km', 'null', 1),
   ('payments.cash_enabled', 'false', 1),
   ('payments.enabled_methods', '["WAVE","ORANGE_MONEY","MTN_MOMO","MOOV_MONEY"]', 1),
   ('reviews.window_days', '14', 1),

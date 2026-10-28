@@ -48,6 +48,11 @@ describe('loadEnv', () => {
     OTP_HMAC_SECRET: 'a'.repeat(40),
     REFRESH_TOKEN_PEPPER: 'b'.repeat(40),
     STAFF_TOTP_ENCRYPTION_KEY: 'c'.repeat(40),
+    PII_ENCRYPTION_KEY: 'd'.repeat(40),
+    S3_ENDPOINT: 'http://stockage.interne:9000',
+    S3_PUBLIC_ENDPOINT: 'https://documents.example.ci',
+    S3_ACCESS_KEY: 'cle-acces',
+    S3_SECRET_KEY: 'e'.repeat(40),
   };
 
   it('refuse les secrets de développement et l’absence de clés JWT en production', () => {
@@ -56,6 +61,8 @@ describe('loadEnv', () => {
     expect(run).toThrow(/OTP_HMAC_SECRET/);
     expect(run).toThrow(/REFRESH_TOKEN_PEPPER/);
     expect(run).toThrow(/STAFF_TOTP_ENCRYPTION_KEY/);
+    expect(run).toThrow(/PII_ENCRYPTION_KEY/);
+    expect(run).toThrow(/S3_ENDPOINT/);
     expect(() => loadEnv({ ...prodSecrets, OTP_HMAC_SECRET: 'change-me-local-only-but-long-enough-xx' })).toThrow(
       /OTP_HMAC_SECRET/,
     );
@@ -71,6 +78,19 @@ describe('loadEnv', () => {
     }
     expect(message).toMatch(/SMS_PROVIDER/);
     expect(message.split('\n').filter((l) => l.startsWith('  - '))).toHaveLength(1);
+  });
+
+  it('refuse en production un stockage aux identifiants de démo ou aux URL signées en HTTP', () => {
+    expect(() => loadEnv({ ...prodSecrets, S3_SECRET_KEY: 'rustfsadmin' })).toThrow(/S3_SECRET_KEY/);
+    expect(() => loadEnv({ ...prodSecrets, S3_PUBLIC_ENDPOINT: 'http://documents.example.ci' })).toThrow(
+      /S3_PUBLIC_ENDPOINT/,
+    );
+  });
+
+  it('traite une adresse vide comme absente (OSRM, stockage)', () => {
+    const env = loadEnv({ ...base, OSRM_URL: '', S3_ENDPOINT: '' });
+    expect(env.OSRM_URL).toBeUndefined();
+    expect(env.S3_ENDPOINT).toBeUndefined();
   });
 
   it('refuse un secret trop court', () => {

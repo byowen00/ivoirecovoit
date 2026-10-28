@@ -8,6 +8,8 @@ const booleanString = z
 /** Valeur publique, connue de tous : utilisable seulement en développement et en test. */
 export const DEV_ONLY_SECRET = 'insecure-dev-only-secret-do-not-use-in-production';
 
+const optionalUrl = z.preprocess((v) => (v === '' ? undefined : v), z.url().optional());
+
 function isDevOnlyValue(value: string): boolean {
   return value === DEV_ONLY_SECRET || /change-me|insecure|dev-only/i.test(value);
 }
@@ -47,6 +49,20 @@ export const envSchema = z
     STAFF_TOTP_ENCRYPTION_KEY: z.string().min(32).default(DEV_ONLY_SECRET),
     // Aucun fournisseur SMS n'est encore intégré (contrat et identifiant d'expéditeur à obtenir).
     SMS_PROVIDER: z.enum(['none']).default('none'),
+    // Chiffrement applicatif des données personnelles sensibles (numéro de permis).
+    PII_ENCRYPTION_KEY: z.string().min(32).default(DEV_ONLY_SECRET),
+    // Stockage privé des documents (API S3 : RustFS en local, tout service compatible S3 en production).
+    // Sans S3_ENDPOINT, le dépôt de documents répond 503 STORAGE_UNAVAILABLE.
+    S3_ENDPOINT: optionalUrl,
+    // Adresse vue par les téléphones et navigateurs pour les URL signées (par défaut S3_ENDPOINT).
+    S3_PUBLIC_ENDPOINT: optionalUrl,
+    S3_REGION: z.string().min(1).default('us-east-1'),
+    S3_BUCKET_DOCUMENTS: z.string().min(3).default('ivoirecovoit-documents'),
+    S3_ACCESS_KEY: z.string().optional(),
+    S3_SECRET_KEY: z.string().optional(),
+    // Moteur de routage OSRM. Absent ou injoignable : estimation de repli (vol d'oiseau × coefficient).
+    OSRM_URL: optionalUrl,
+    OSRM_TIMEOUT_MS: z.coerce.number().int().min(200).max(30000).default(4000),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== 'production') return;
@@ -67,7 +83,7 @@ export const envSchema = z
     if (!env.JWT_PRIVATE_KEY || !env.JWT_PUBLIC_KEY) {
       ctx.addIssue({ code: 'custom', path: ['JWT_PRIVATE_KEY'], message: 'Les clés JWT sont obligatoires en production.' });
     }
-    for (const key of ['OTP_HMAC_SECRET', 'REFRESH_TOKEN_PEPPER', 'STAFF_TOTP_ENCRYPTION_KEY'] as const) {
+    for (const key of ['OTP_HMAC_SECRET', 'REFRESH_TOKEN_PEPPER', 'STAFF_TOTP_ENCRYPTION_KEY', 'PII_ENCRYPTION_KEY'] as const) {
       if (isDevOnlyValue(env[key])) {
         ctx.addIssue({ code: 'custom', path: [key], message: 'Valeur de développement interdite en production.' });
       }
@@ -77,6 +93,18 @@ export const envSchema = z
         code: 'custom',
         path: ['SMS_PROVIDER'],
         message: "Aucun fournisseur SMS n'est configuré : impossible d'envoyer les codes de connexion.",
+      });
+    }
+    if (!env.S3_ENDPOINT || !env.S3_ACCESS_KEY || !env.S3_SECRET_KEY) {
+      ctx.addIssue({ code: 'custom', path: ['S3_ENDPOINT'], message: 'Le stockage des documents est obligatoire en production.' });
+    } else if (isDevOnlyValue(env.S3_SECRET_KEY) || env.S3_SECRET_KEY === 'rustfsadmin') {
+      ctx.addIssue({ code: 'custom', path: ['S3_SECRET_KEY'], message: 'Valeur de développement interdite en production.' });
+    }
+    if (!(env.S3_PUBLIC_ENDPOINT ?? env.S3_ENDPOINT ?? 'https://').startsWith('https://')) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['S3_PUBLIC_ENDPOINT'],
+        message: 'Les URL signées des documents doivent être servies en HTTPS en production.',
       });
     }
     if (!env.API_BASE_URL.startsWith('https://')) {

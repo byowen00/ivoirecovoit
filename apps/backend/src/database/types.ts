@@ -147,9 +147,79 @@ export interface SettingsTable {
   updated_at: CreatedAt;
 }
 
+export type VerificationStatus = 'NOT_SUBMITTED' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED';
+export type TripStatus = 'DRAFT' | 'PUBLISHED' | 'FULL' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+export type TripKind = 'URBAN' | 'INTERCITY';
+export type DriverDocType = 'NATIONAL_ID' | 'PASSPORT' | 'CONSULAR_CARD' | 'DRIVING_LICENSE';
+export type VehicleDocType = 'VEHICLE_REGISTRATION' | 'INSURANCE' | 'TECHNICAL_INSPECTION' | 'VEHICLE_PHOTO';
+type UpdatedAt = ColumnType<Date, never, never>;
+/** Date SQL (sans heure) : lue en chaîne AAAA-MM-JJ grâce au parseur configuré dans database.module. */
+type SqlDate = ColumnType<string, string, string>;
+
 export interface DriverProfilesTable {
   user_id: string;
-  verification_status: 'NOT_SUBMITTED' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED';
+  verification_status: Generated<VerificationStatus>;
+  verification_level: Generated<number>;
+  license_number_enc: Buffer | null;
+  license_expires_on: SqlDate | null;
+  rejection_reason: string | null;
+  verified_at: Date | null;
+  verified_by: string | null;
+  submitted_at: Date | null;
+  rating_avg: ColumnType<number | null, never, never>;
+  rating_count: Generated<number>;
+  completed_trips_count: Generated<number>;
+  cancellation_count_90d: Generated<number>;
+  is_professional: Generated<boolean>;
+  created_at: CreatedAt;
+  updated_at: UpdatedAt;
+}
+
+export interface VehiclesTable {
+  id: string;
+  driver_id: string;
+  make: string;
+  model: string;
+  color: string;
+  year: number | null;
+  plate_number: string;
+  plate_normalized: ColumnType<string, never, never>;
+  seats_capacity: number;
+  verification_status: Generated<VerificationStatus>;
+  submitted_at: Date | null;
+  rejection_reason: string | null;
+  verified_at: Date | null;
+  verified_by: string | null;
+  is_active: Generated<boolean>;
+  deleted_at: Date | null;
+  created_at: CreatedAt;
+  updated_at: UpdatedAt;
+}
+
+interface DocumentColumns {
+  id: string;
+  object_key: string;
+  mime_type: string;
+  size_bytes: number;
+  sha256: Buffer;
+  expires_on: SqlDate | null;
+  status: Generated<VerificationStatus>;
+  rejection_reason: string | null;
+  reviewed_by: string | null;
+  reviewed_at: Date | null;
+  uploaded_at: Date | null;
+  created_at: CreatedAt;
+}
+
+export interface DriverDocumentsTable extends DocumentColumns {
+  driver_id: string;
+  doc_type: DriverDocType;
+  side: 'FRONT' | 'BACK' | null;
+}
+
+export interface VehicleDocumentsTable extends DocumentColumns {
+  vehicle_id: string;
+  doc_type: VehicleDocType;
 }
 
 export interface DeviceTokensTable {
@@ -157,16 +227,105 @@ export interface DeviceTokensTable {
   user_id: string;
 }
 
+export interface CancellationPoliciesTable {
+  code: string;
+  label: string;
+  rules: ColumnType<Record<string, unknown>, string, string>;
+  is_active: Generated<boolean>;
+}
+
 export interface TripsTable {
   id: string;
+  public_ref: string;
   driver_id: string;
-  status: 'DRAFT' | 'PUBLISHED' | 'FULL' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  vehicle_id: string;
+  kind: TripKind;
+  status: Generated<TripStatus>;
+  departure_at: Date;
+  estimated_arrival_at: Date;
+  seats_offered: number;
+  acceptance_mode: Generated<'AUTO' | 'MANUAL'>;
+  cancellation_policy_code: string;
+  allows_cash: Generated<boolean>;
+  luggage_policy: Generated<'NONE' | 'SMALL' | 'MEDIUM' | 'LARGE'>;
+  description: string | null;
+  instructions: string | null;
+  estimated_distance_m: number | null;
+  estimated_duration_s: number | null;
+  route_geometry: string | null; // geography : via les fonctions PostGIS
+  route_source: 'OSRM' | 'HAVERSINE_FALLBACK' | null;
+  source_trip_id: string | null;
+  is_demo: Generated<boolean>;
+  published_at: Date | null;
+  started_at: Date | null;
+  completed_at: Date | null;
+  cancelled_at: Date | null;
+  cancellation_reason: string | null;
+  version: Generated<number>;
+  created_at: CreatedAt;
+  updated_at: UpdatedAt;
+}
+
+export interface TripStopsTable {
+  id: string;
+  trip_id: string;
+  seq: number;
+  place_id: string | null;
+  label: string;
+  meeting_point: string | null;
+  location: string; // geography
+  location_precision: Generated<'EXACT' | 'APPROX'>;
+  planned_at: Date;
+  price_from_origin_xof: number;
+  is_pickup: Generated<boolean>;
+  is_dropoff: Generated<boolean>;
 }
 
 export interface BookingsTable {
   id: string;
+  reference: string;
+  trip_id: string;
   passenger_id: string;
+  pickup_stop_id: string;
+  dropoff_stop_id: string;
+  pickup_seq: number;
+  dropoff_seq: number;
+  seats: number;
   status: string;
+  hold_expires_at: Date | null;
+  created_at: CreatedAt;
+}
+
+export interface IdempotencyKeysTable {
+  key: string;
+  user_id: string;
+  endpoint: string;
+  request_hash: Buffer;
+  response_code: number | null;
+  response_body: ColumnType<unknown, string | null, string | null>;
+  locked_until: Date | null;
+  created_at: CreatedAt;
+}
+
+export interface OutboxEventsTable {
+  id: Generated<number>;
+  aggregate: string;
+  aggregate_id: string;
+  event_type: string;
+  payload: ColumnType<unknown, string, never>;
+  created_at: CreatedAt;
+  published_at: Date | null;
+}
+
+export interface ReviewsTable {
+  id: string;
+  subject_id: string;
+  author_id: string;
+  direction: 'PASSENGER_TO_DRIVER' | 'DRIVER_TO_PASSENGER';
+  rating: number;
+  comment: string | null;
+  published_at: Date | null;
+  hidden_at: Date | null;
 }
 
 export interface Database {
@@ -183,7 +342,15 @@ export interface Database {
   audit_logs: AuditLogsTable;
   settings: SettingsTable;
   driver_profiles: DriverProfilesTable;
+  vehicles: VehiclesTable;
+  driver_documents: DriverDocumentsTable;
+  vehicle_documents: VehicleDocumentsTable;
   device_tokens: DeviceTokensTable;
+  cancellation_policies: CancellationPoliciesTable;
   trips: TripsTable;
+  trip_stops: TripStopsTable;
   bookings: BookingsTable;
+  idempotency_keys: IdempotencyKeysTable;
+  outbox_events: OutboxEventsTable;
+  reviews: ReviewsTable;
 }

@@ -1,14 +1,15 @@
 import type { Client } from 'pg';
 import { bookingReference, tripReference, uuidv7 } from '../src/common/ids';
 
-let phoneCounter = 100;
+// Valeurs uniques même entre fichiers de test (chaque fichier a son propre module) : certaines données restent en base.
+let phoneCounter = Math.floor(Math.random() * 1e7);
 
 export async function createUser(db: Client): Promise<string> {
   const id = uuidv7();
   phoneCounter++;
   await db.query(
     `INSERT INTO users (id, phone_e164, first_name, last_name, status) VALUES ($1, $2, 'Test', 'Utilisateur', 'ACTIVE')`,
-    [id, `+22500000${String(phoneCounter).padStart(5, '0')}`],
+    [id, `+2259${String(phoneCounter).padStart(8, '0')}`],
   );
   return id;
 }
@@ -22,7 +23,7 @@ export async function createDriverWithVehicle(db: Client, seats = 3): Promise<{ 
   await db.query(
     `INSERT INTO vehicles (id, driver_id, make, model, color, plate_number, seats_capacity, verification_status)
      VALUES ($1, $2, 'Toyota', 'Corolla', 'Gris', $3, $4, 'APPROVED')`,
-    [vehicleId, driverId, `TT-${phoneCounter}-CI`, seats],
+    [vehicleId, driverId, `TT-${vehicleId.slice(-8)}`, seats],
   );
   return { driverId, vehicleId };
 }

@@ -3,7 +3,7 @@ import { Reflector } from '@nestjs/core';
 import { sql } from 'kysely';
 import { ApiError } from '../../common/api-error';
 import { DB, type Db } from '../../database/database.module';
-import { ALLOW_INCOMPLETE_PROFILE, hasPermission, IS_PUBLIC, STAFF_PERMISSIONS } from './decorators';
+import { ALLOW_INCOMPLETE_PROFILE, hasPermission, IS_PUBLIC, OPTIONAL_AUTH, STAFF_PERMISSIONS } from './decorators';
 import type { AppRequest, AuthContext } from './request-context';
 import { accountSuspended, isAllowedStatus } from './sessions.service';
 import { TokenService } from './token.service';
@@ -25,9 +25,23 @@ export class AuthGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const targets = [context.getHandler(), context.getClass()];
-    if (this.reflector.getAllAndOverride<boolean>(IS_PUBLIC, targets)) return true;
-
     const req = context.switchToHttp().getRequest<AppRequest>();
+    if (this.reflector.getAllAndOverride<boolean>(IS_PUBLIC, targets)) {
+      if (this.reflector.getAllAndOverride<boolean>(OPTIONAL_AUTH, targets) && req.header('authorization')) {
+        try {
+          await this.authenticate(context, req);
+        } catch {
+          req.auth = undefined; // visiteur
+        }
+      }
+      return true;
+    }
+    await this.authenticate(context, req);
+    return true;
+  }
+
+  private async authenticate(context: ExecutionContext, req: AppRequest): Promise<void> {
+    const targets = [context.getHandler(), context.getClass()];
     const header = req.header('authorization');
     const match = header?.match(/^Bearer ([A-Za-z0-9._-]+)$/);
     if (!match) throw unauthenticated();
@@ -79,6 +93,5 @@ export class AuthGuard implements CanActivate {
     }
 
     req.auth = auth;
-    return true;
   }
 }

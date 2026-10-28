@@ -3,7 +3,9 @@ import { join } from 'node:path';
 import { Client } from 'pg';
 import { runMigrations } from '../src/database/migrator';
 import { seedPlaces } from '../src/database/seeds/places';
-import { TEST_DATABASE_URL } from './test-db';
+import { loadEnv } from '../src/config/env';
+import { StorageService } from '../src/infra/storage.service';
+import { TEST_DATABASE_URL, TEST_S3 } from './test-db';
 
 /** Recrée une base de test vide, applique toutes les migrations et le référentiel. */
 export default async function globalSetup(): Promise<void> {
@@ -25,4 +27,6 @@ export default async function globalSetup(): Promise<void> {
   await client.query(readFileSync(join(__dirname, '../src/database/seeds/reference.sql'), 'utf8'));
   await seedPlaces(client);
   await client.end();
+
+  await new StorageService(loadEnv({ DATABASE_URL: TEST_DATABASE_URL, ...TEST_S3 })).ensureBucket(['http://localhost:3001']);
 }
