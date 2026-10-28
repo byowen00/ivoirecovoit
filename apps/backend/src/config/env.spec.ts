@@ -32,6 +32,14 @@ describe('loadEnv', () => {
     ).toThrow(/PAYMENT_PROVIDER/);
   });
 
+  it('refuse l’adaptateur d’agrégateur tant qu’aucun prestataire n’est intégré', () => {
+    expect(() => loadEnv({ ...base, PAYMENT_PROVIDER: 'aggregator' })).toThrow(/aucun agrégateur/);
+  });
+
+  it('refuse un secret de webhook du bac à sable trop court', () => {
+    expect(() => loadEnv({ ...base, SANDBOX_WEBHOOK_SECRET: 'court' })).toThrow(/SANDBOX_WEBHOOK_SECRET/);
+  });
+
   it('refuse une API en HTTP simple en production', () => {
     expect(() =>
       loadEnv({ ...base, NODE_ENV: 'production', PAYMENT_PROVIDER: 'aggregator', API_BASE_URL: 'http://api.example.ci' }),
@@ -68,8 +76,8 @@ describe('loadEnv', () => {
     );
   });
 
-  it('refuse la production tant qu’aucun fournisseur SMS réel n’est intégré', () => {
-    // Avec tous les secrets corrects, seul le fournisseur SMS manque : c'est l'état réel du projet.
+  it('refuse la production tant qu’aucun fournisseur SMS ni agrégateur de paiement réel n’est intégré', () => {
+    // Avec tous les secrets corrects, seuls le fournisseur SMS et l'agrégateur de paiement manquent : c'est l'état réel du projet.
     let message = '';
     try {
       loadEnv(prodSecrets);
@@ -77,7 +85,8 @@ describe('loadEnv', () => {
       message = (err as Error).message;
     }
     expect(message).toMatch(/SMS_PROVIDER/);
-    expect(message.split('\n').filter((l) => l.startsWith('  - '))).toHaveLength(1);
+    expect(message).toMatch(/PAYMENT_PROVIDER/);
+    expect(message.split('\n').filter((l) => l.startsWith('  - '))).toHaveLength(2);
   });
 
   it('refuse en production un stockage aux identifiants de démo ou aux URL signées en HTTP', () => {

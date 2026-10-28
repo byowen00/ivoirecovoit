@@ -37,7 +37,13 @@ export const envSchema = z
     DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(100).default(10),
     REDIS_URL: z.string().min(1).default('redis://localhost:6379'),
     OTP_TEST_MODE: booleanString,
+    // Prestataire de paiement. « sandbox » : bac à sable interne, aucun argent réel (interdit en production).
+    // « aggregator » : squelette d'adaptateur, pas encore intégré (contrat et documentation à obtenir).
     PAYMENT_PROVIDER: z.enum(['sandbox', 'aggregator']).default('sandbox'),
+    // Secret de signature des webhooks du bac à sable (HMAC-SHA256).
+    SANDBOX_WEBHOOK_SECRET: z.string().min(32).default(DEV_ONLY_SECRET),
+    // Adresse de l'application web, pour le retour après la page de paiement (le retour ne change aucun statut).
+    WEB_BASE_URL: z.url().default('http://localhost:3001'),
     SWAGGER_ENABLED: booleanString,
     // Nombre de proxys de confiance devant l'API (pour lire la vraie IP du client).
     TRUST_PROXY: z.coerce.number().int().min(0).max(5).default(0),
@@ -70,6 +76,13 @@ export const envSchema = z
       .transform((v) => v === 'true'),
   })
   .superRefine((env, ctx) => {
+    if (env.PAYMENT_PROVIDER === 'aggregator') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['PAYMENT_PROVIDER'],
+        message: "L'adaptateur agrégateur n'est qu'un squelette : aucun agrégateur n'est encore intégré (contrat et accès à obtenir).",
+      });
+    }
     if (env.NODE_ENV !== 'production') return;
     if (env.OTP_TEST_MODE) {
       ctx.addIssue({

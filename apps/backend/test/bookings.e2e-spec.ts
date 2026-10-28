@@ -82,7 +82,7 @@ describe('Réservations (doc 05 §2, §3, §7)', () => {
     const res = await book(alice, trip, { seats: 2 }).expect(201);
     expect(res.body).toMatchObject({
       status: 'PENDING_PAYMENT', paymentStatus: 'UNPAID', seats: 2, unitPriceXof: 5000, subtotalXof: 10000, serviceFeeXof: 600, totalXof: 10600,
-      viewerRole: 'PASSENGER', actions: { canCancel: true, canPay: false },
+      viewerRole: 'PASSENGER', actions: { canCancel: true, canPay: true },
     });
     expect(res.body.reference).toMatch(/^IC-[A-HJ-NP-Z2-9]{6}$/);
     expect(res.body).not.toHaveProperty('commissionXof');

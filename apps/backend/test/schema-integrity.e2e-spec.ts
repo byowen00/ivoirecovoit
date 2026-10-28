@@ -122,13 +122,15 @@ describe('Intégrité du schéma (PostgreSQL + PostGIS réels)', () => {
        VALUES ($1, $2, 'sandbox', 'WAVE', 5300, 'SUCCEEDED', $3, now(), now())`,
       [paymentId, bookingId, uuidv7()],
     );
-    const refund = (amount: number) =>
+    const refund = (amount: number, reason = 'DISPUTE') =>
       db.query(
         `INSERT INTO refunds (id, payment_id, booking_id, amount_xof, reason_code, idempotency_key)
-         VALUES ($1, $2, $3, $4, 'PASSENGER_CANCELLED', $5)`,
-        [uuidv7(), paymentId, bookingId, amount, uuidv7()],
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [uuidv7(), paymentId, bookingId, amount, reason, uuidv7()],
       );
-    await refund(3000);
+    await refund(3000, 'PASSENGER_CANCELLED');
+    // Un second remboursement automatique pour le même motif est refusé (tâche rejouée).
+    await expectRejected(async () => refund(1, 'PASSENGER_CANCELLED'), /refunds_one_active_per_reason/);
     await expectRejected(async () => refund(2301), /supérieurs au montant payé/);
     await refund(2300);
   });

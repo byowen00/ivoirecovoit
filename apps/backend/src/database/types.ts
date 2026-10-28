@@ -326,6 +326,9 @@ export interface BookingsTable {
   expired_at: Date | null;
   rejected_at: Date | null;
   no_show_at: Date | null;
+  service_fee_refund_xof: number | null;
+  refund_reason: RefundReason | null;
+  hold_extended: Generated<boolean>;
   is_demo: Generated<boolean>;
   version: Generated<number>;
   created_at: CreatedAt;
@@ -390,6 +393,138 @@ export interface ReviewsTable {
   hidden_at: Date | null;
 }
 
+// ------------------------------------------------------------------ paiements (étape 8)
+
+export type PaymentStatus = 'CREATED' | 'PENDING' | 'SUCCEEDED' | 'FAILED' | 'EXPIRED' | 'CANCELLED';
+export type RefundStatus = 'REQUESTED' | 'APPROVED' | 'PROCESSING' | 'SUCCEEDED' | 'FAILED' | 'REJECTED' | 'MANUAL_REQUIRED';
+export type RefundReason =
+  | 'DRIVER_CANCELLED' | 'PASSENGER_CANCELLED' | 'DISPUTE' | 'ADMIN' | 'TRIP_CHANGED' | 'LATE_PAYMENT' | 'TRIP_NOT_STARTED' | 'DRIVER_LATE';
+export type PaymentEventResult = 'APPLIED' | 'DUPLICATE' | 'IGNORED_STALE' | 'REJECTED' | 'MISMATCH';
+
+export interface PaymentsTable {
+  id: string;
+  booking_id: string;
+  provider: string;
+  method: PaymentMethod;
+  amount_xof: number;
+  currency: Generated<string>;
+  status: Generated<PaymentStatus>;
+  provider_reference: string | null;
+  payer_phone_masked: string | null;
+  idempotency_key: string;
+  failure_code: string | null;
+  failure_message: string | null;
+  expires_at: Date;
+  succeeded_at: Date | null;
+  provider_fee_xof: number | null;
+  last_polled_at: Date | null;
+  created_at: CreatedAt;
+  updated_at: UpdatedAt;
+}
+
+export interface PaymentEventsTable {
+  id: string;
+  payment_id: string | null;
+  provider: string;
+  provider_event_id: string;
+  source: 'WEBHOOK' | 'POLL' | 'MANUAL';
+  event_type: string;
+  reported_status: string | null;
+  amount_xof: number | null;
+  signature_valid: boolean;
+  raw_payload: ColumnType<unknown, string, never>;
+  occurred_at: Date | null;
+  received_at: CreatedAt;
+  processed_at: Date | null;
+  processing_result: PaymentEventResult | null;
+}
+
+export interface RefundsTable {
+  id: string;
+  payment_id: string;
+  booking_id: string;
+  amount_xof: number;
+  reason_code: RefundReason;
+  status: Generated<RefundStatus>;
+  requested_by: string | null;
+  approved_by: string | null;
+  provider_reference: string | null;
+  idempotency_key: string;
+  failure_message: string | null;
+  succeeded_at: Date | null;
+  created_at: CreatedAt;
+  updated_at: UpdatedAt;
+}
+
+export interface CommissionsTable {
+  id: string;
+  booking_id: string;
+  driver_id: string;
+  gross_xof: number;
+  commission_xof: number;
+  service_fee_xof: number;
+  driver_net_xof: number;
+  adjusted_xof: Generated<number>;
+  status: Generated<'PENDING' | 'PAYABLE' | 'IN_PAYOUT' | 'PAID' | 'VOID'>;
+  payable_at: Date | null;
+  created_at: CreatedAt;
+  updated_at: UpdatedAt;
+}
+
+export interface LedgerEntriesTable {
+  id: Generated<number>;
+  journal_id: string;
+  account: string;
+  amount_xof: number;
+  booking_id: string | null;
+  payment_id: string | null;
+  refund_id: string | null;
+  payout_id: string | null;
+  description: string | null;
+  created_at: CreatedAt;
+}
+
+export interface ReconciliationRunsTable {
+  id: string;
+  provider: string;
+  period_start: Date;
+  period_end: Date;
+  status: 'RUNNING' | 'OK' | 'DISCREPANCIES' | 'FAILED';
+  internal_total_xof: number | null;
+  provider_total_xof: number | null;
+  created_at: CreatedAt;
+}
+
+export interface ReconciliationItemsTable {
+  id: string;
+  run_id: string;
+  payment_id: string | null;
+  provider_reference: string | null;
+  issue: 'MISSING_INTERNAL' | 'MISSING_PROVIDER' | 'AMOUNT_MISMATCH' | 'STATUS_MISMATCH';
+  details: ColumnType<unknown, string | null, never>;
+  resolved_at: Date | null;
+  resolved_by: string | null;
+  resolution_note: string | null;
+}
+
+export interface SandboxTransactionsTable {
+  provider_reference: string;
+  kind: 'PAYMENT' | 'REFUND';
+  merchant_reference: string;
+  amount_xof: number;
+  method: PaymentMethod | null;
+  payer_phone_masked: string | null;
+  status: 'PENDING' | 'SUCCEEDED' | 'FAILED' | 'EXPIRED' | 'CANCELLED';
+  created_at: CreatedAt;
+  updated_at: UpdatedAt;
+}
+
+export interface DisputesTable {
+  id: string;
+  booking_id: string;
+  status: 'OPEN' | 'AWAITING_RESPONSE' | 'IN_REVIEW' | 'RESOLVED' | 'REJECTED' | 'CLOSED';
+}
+
 export interface Database {
   places: PlacesTable;
   users: UsersTable;
@@ -417,4 +552,13 @@ export interface Database {
   idempotency_keys: IdempotencyKeysTable;
   outbox_events: OutboxEventsTable;
   reviews: ReviewsTable;
+  payments: PaymentsTable;
+  payment_events: PaymentEventsTable;
+  refunds: RefundsTable;
+  commissions: CommissionsTable;
+  ledger_entries: LedgerEntriesTable;
+  reconciliation_runs: ReconciliationRunsTable;
+  reconciliation_items: ReconciliationItemsTable;
+  sandbox_transactions: SandboxTransactionsTable;
+  disputes: DisputesTable;
 }

@@ -6,6 +6,7 @@ import { DB, type Db } from '../../database/database.module';
 import type { Database, TripKind, TripStatus } from '../../database/types';
 import { AuditService, type RequestContext } from '../../infra/audit.service';
 import { DriversService } from '../drivers/drivers.service';
+import { RefundsService } from '../payments/refunds.service';
 import { PlacesService } from '../places/places.service';
 import { haversineMeters } from '../routing/haversine';
 import { type RouteEstimate, RoutingService } from '../routing/routing.service';
@@ -75,6 +76,7 @@ export class TripsService {
     private readonly settings: SettingsService,
     private readonly drivers: DriversService,
     private readonly audit: AuditService,
+    private readonly refunds: RefundsService,
   ) {}
 
   // ---------------------------------------------------------------- calcul de l'itinéraire et des prix
@@ -632,11 +634,11 @@ export class TripsService {
   }
 
   async cancel(userId: string, tripId: string, input: CancelInput, ctx: RequestContext) {
-    await this.db.transaction().execute(async (trx) => {
+    const toRefund = await this.db.transaction().execute(async (trx) => {
       const trip = await this.owned(trx, userId, tripId, true);
       assertTransition(trip.status, 'CANCELLED');
       // Réservations annulées, remboursement intégral de ce qui a été payé (doc 05 §7.2).
-      const { cancelled } = await cancelTripBookings(trx, tripId, userId, input.reason, 'CANCELLED_BY_DRIVER');
+      const { cancelled, toRefund } = await cancelTripBookings(trx, tripId, userId, input.reason, 'CANCELLED_BY_DRIVER');
       await trx
         .updateTable('trips')
         .set({ status: 'CANCELLED', cancelled_at: new Date(), cancellation_reason: input.reason })
@@ -653,7 +655,10 @@ export class TripsService {
         { actorId: userId, action: 'trip.cancel', targetType: 'trip', targetId: tripId, reason: input.reason, changes: { bookingsCancelled: cancelled }, ctx },
         trx,
       );
+      return toRefund;
     });
+    // Remboursements envoyés tout de suite ; en cas d'échec, la tâche de rattrapage reprend.
+    for (const id of toRefund) await this.refunds.processBooking(id).catch(() => undefined);
     return this.manageView(userId, tripId);
   }
 

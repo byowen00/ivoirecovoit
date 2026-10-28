@@ -22,8 +22,12 @@ export class BookingsMaintenanceService {
     private readonly settings: SettingsService,
   ) {}
 
-  /** Réservations en attente (acceptation ou paiement) dont le blocage est échu -> EXPIRED. */
+  /**
+   * Réservations en attente (acceptation ou paiement) dont le blocage est échu -> EXPIRED. Exception (doc 05 §4) :
+   * si un paiement est en cours chez le prestataire, le blocage est prolongé une seule fois de quelques minutes.
+   */
   async expireHolds(now: Date = new Date()): Promise<number> {
+    const extension = (await this.settings.get<number>('booking.hold_extension_minutes')) ?? 10;
     const due = await this.db
       .selectFrom('bookings')
       .select(['id', 'trip_id'])
@@ -37,8 +41,16 @@ export class BookingsMaintenanceService {
     for (const [tripId, ids] of byTrip) {
       count += await this.db.transaction().execute(async (trx) => {
         await trx.selectFrom('trips').select('id').where('id', '=', tripId).forUpdate().execute();
+        await trx
+          .updateTable('bookings')
+          .set({ hold_expires_at: sql<Date>`hold_expires_at + make_interval(mins => ${extension})`, hold_extended: true })
+          .where('id', 'in', ids)
+          .where('status', '=', 'PENDING_PAYMENT')
+          .where('payment_status', '=', 'PROCESSING')
+          .where('hold_extended', '=', false)
+          .where('hold_expires_at', '<=', now)
+          .execute();
         await setActor(trx, null, 'Délai dépassé');
-        // Le paiement mobile (étape 8) prolongera le blocage si un paiement est en cours chez le prestataire.
         const expired = await trx
           .updateTable('bookings')
           .set({ status: 'EXPIRED', expired_at: now })
@@ -94,7 +106,7 @@ export class BookingsMaintenanceService {
       await this.db.transaction().execute(async (trx) => {
         const locked = await trx.selectFrom('trips').select('status').where('id', '=', t.id).forUpdate().executeTakeFirstOrThrow();
         if (!['PUBLISHED', 'FULL'].includes(locked.status)) return;
-        const { cancelled } = await cancelTripBookings(trx, t.id, t.driver_id, reason, 'CANCELLED_BY_DRIVER');
+        const { cancelled } = await cancelTripBookings(trx, t.id, t.driver_id, reason, 'CANCELLED_BY_DRIVER', 'TRIP_NOT_STARTED');
         await trx.updateTable('trips').set({ status: 'CANCELLED', cancelled_at: now, cancellation_reason: reason }).where('id', '=', t.id).execute();
         if (cancelled > 0) {
           // Pénalité de fiabilité : comptée comme une annulation du conducteur (doc 05 §1).

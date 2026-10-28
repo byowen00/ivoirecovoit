@@ -3,8 +3,9 @@ import { sql, type Transaction } from 'kysely';
 import { ApiError } from '../../common/api-error';
 import { bookingReference, uuidv7 } from '../../common/ids';
 import { DB, type Db } from '../../database/database.module';
-import type { BookingStatus, Database, TripKind } from '../../database/types';
+import type { BookingStatus, Database, RefundReason, TripKind } from '../../database/types';
 import { AuditService, type RequestContext } from '../../infra/audit.service';
+import { RefundsService } from '../payments/refunds.service';
 import { SettingsService } from '../users/settings.service';
 import {
   type BookingAmounts,
@@ -71,8 +72,8 @@ export function policySummary(rules: PolicyRules): string {
 
 /**
  * Réservations (doc 05 §2, §3, §7) : devis, création sous verrou du trajet (anti-survente), acceptation,
- * refus, annulation, absence. Aucun paiement n'est simulé ici : le paiement mobile arrive à l'étape 8 ;
- * une réservation PENDING_PAYMENT non payée expire à la fin de son blocage.
+ * refus, annulation, absence. Le paiement mobile est géré par PaymentsService ; une réservation PENDING_PAYMENT
+ * non payée expire à la fin de son blocage, et les remboursements dus sont exécutés par RefundsService.
  */
 @Injectable()
 export class BookingsService {
@@ -80,6 +81,7 @@ export class BookingsService {
     @Inject(DB) private readonly db: Db,
     private readonly settings: SettingsService,
     private readonly audit: AuditService,
+    private readonly refunds: RefundsService,
   ) {}
 
   async rules(): Promise<BookingRules> {
@@ -336,7 +338,7 @@ export class BookingsService {
   async view(userId: string, bookingId: string) {
     const b = await this.accessible(this.db, userId, bookingId);
     const rules = await this.rules();
-    const [trip, stops, passenger, history, policy] = await Promise.all([
+    const [trip, stops, passenger, history, policy, payment] = await Promise.all([
       this.db
         .selectFrom('trips')
         .innerJoin('vehicles', 'vehicles.id', 'trips.vehicle_id')
@@ -354,6 +356,13 @@ export class BookingsService {
       this.db.selectFrom('booking_status_history').select(['from_status', 'to_status', 'reason', 'created_at', 'actor_id'])
         .where('booking_id', '=', bookingId).orderBy('id').execute(),
       this.policy(this.db, b.cancellation_policy_code),
+      this.db
+        .selectFrom('payments')
+        .select(['id', 'status', 'method', 'amount_xof', 'failure_message', 'created_at'])
+        .where('booking_id', '=', bookingId)
+        .orderBy('created_at', 'desc')
+        .orderBy('id', 'desc')
+        .executeTakeFirst(),
     ]);
     const pickup = stops.find((s) => s.id === b.pickup_stop_id)!;
     const dropoff = stops.find((s) => s.id === b.dropoff_stop_id)!;
@@ -388,6 +397,11 @@ export class BookingsService {
       isDemo: b.is_demo || trip.is_demo,
       viewerRole: b.role,
       cancellationPolicy: policy,
+      // Dernier paiement, visible du seul passager (le conducteur voit le statut de paiement de la réservation).
+      payment:
+        payment && !isDriver
+          ? { id: payment.id, status: payment.status, method: payment.method, amountXof: payment.amount_xof, failureMessage: payment.failure_message, createdAt: payment.created_at }
+          : null,
       trip: {
         id: trip.id,
         publicRef: trip.public_ref,
@@ -415,8 +429,8 @@ export class BookingsService {
         canAccept: isDriver && b.status === 'PENDING_ACCEPTANCE' && holdOpen && tripOpen,
         canReject: isDriver && b.status === 'PENDING_ACCEPTANCE' && tripOpen,
         canMarkNoShow: isDriver && confirmed && trip.status === 'IN_PROGRESS' && now >= pickup.planned_at.getTime() + rules.noShowDelayMinutes * MINUTE,
-        // Le paiement mobile (Wave, Orange Money, MTN, Moov) arrive à l'étape 8 : aucun paiement n'est simulé ici.
-        canPay: false,
+        // Paiement mobile possible tant que le blocage court et qu'aucun paiement n'est en cours chez le prestataire.
+        canPay: !isDriver && b.status === 'PENDING_PAYMENT' && holdOpen && b.hold_expires_at !== null && b.payment_status === 'UNPAID' && tripOpen,
       },
     };
   }
@@ -596,13 +610,17 @@ export class BookingsService {
   async cancel(userId: string, bookingId: string, reason: string, ctx: RequestContext) {
     const rules = await this.rules();
     let result: CancellationOutcome | null = null;
+    let refundNow = false;
     await this.db.transaction().execute(async (trx) => {
       const head = await this.accessible(trx, userId, bookingId);
       await trx.selectFrom('trips').select('id').where('id', '=', head.trip_id).forUpdate().execute();
       const b = { ...(await this.load(trx, bookingId, true))!, role: head.role };
       this.cancellable(b);
-      const { outcome } = await this.outcome(trx, b, b.role, rules);
+      const { outcome, lateDriver } = await this.outcome(trx, b, b.role, rules);
       result = outcome;
+      const refundReason: RefundReason =
+        b.role === 'DRIVER' ? 'DRIVER_CANCELLED' : outcome.reason === 'FREE_CANCELLATION' ? (lateDriver ? 'DRIVER_LATE' : 'TRIP_CHANGED') : 'PASSENGER_CANCELLED';
+      refundNow = b.payment_status === 'PAID' && outcome.refundXof > 0;
       const status = b.role === 'PASSENGER' ? ('CANCELLED_BY_PASSENGER' as const) : ('CANCELLED_BY_DRIVER' as const);
       await setActor(trx, userId, reason);
       await trx
@@ -614,7 +632,7 @@ export class BookingsService {
           cancellation_reason: reason,
           refund_due_xof: outcome.refundXof,
           driver_compensation_xof: outcome.driverCompensationXof,
-          ...(b.payment_status === 'PAID' && outcome.refundXof > 0 ? { payment_status: 'REFUND_PENDING' as const } : {}),
+          ...(refundNow ? { payment_status: 'REFUND_PENDING' as const, service_fee_refund_xof: outcome.serviceFeeRefundXof, refund_reason: refundReason } : {}),
         })
         .where('id', '=', bookingId)
         .execute();
@@ -623,12 +641,14 @@ export class BookingsService {
         await trx.updateTable('driver_profiles').set({ cancellation_count_90d: sql<number>`cancellation_count_90d + 1` }).where('user_id', '=', userId).execute();
       }
       await outbox(trx, 'booking', bookingId, 'booking.cancelled', { by: status, refundXof: outcome.refundXof });
-      if (outcome.refundXof > 0) await outbox(trx, 'booking', bookingId, 'refund.requested', { amountXof: outcome.refundXof, reason: outcome.reason });
+      if (refundNow) await outbox(trx, 'booking', bookingId, 'refund.requested', { amountXof: outcome.refundXof, reason: refundReason });
       await this.audit.log(
         { actorId: userId, action: 'booking.cancel', targetType: 'booking', targetId: bookingId, reason, changes: { status, refundXof: outcome.refundXof }, ctx },
         trx,
       );
     });
+    // Remboursement envoyé tout de suite ; en cas d'échec, la tâche de rattrapage reprend.
+    if (refundNow) await this.refunds.processBooking(bookingId).catch(() => undefined);
     return { booking: await this.view(userId, bookingId), refund: this.outcomeView(result!) };
   }
 }

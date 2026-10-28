@@ -41,7 +41,7 @@ export async function createTestApp(extraControllers: Type[] = []): Promise<Test
     imports: [AppModule],
     controllers: [ActiveOnlyController, ...extraControllers],
   }).compile();
-  const app = moduleRef.createNestApplication({ logger: ['error'] });
+  const app = moduleRef.createNestApplication({ logger: ['error'], rawBody: true });
   setupApp(app);
   await app.init();
   const redis = app.get<Redis>(REDIS);

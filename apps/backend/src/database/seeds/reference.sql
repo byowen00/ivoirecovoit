@@ -44,6 +44,12 @@ INSERT INTO settings (key, value, version) VALUES
   ('trip.price_cap_xof_per_km', 'null', 1),
   ('payments.cash_enabled', 'false', 1),
   ('payments.enabled_methods', '["WAVE","ORANGE_MONEY","MTN_MOMO","MOOV_MONEY"]', 1),
+  -- GET /payments/:id interroge le prestataire si le paiement est en attente depuis plus de N secondes (doc 04 §9).
+  ('payments.status_poll_after_seconds', '30', 1),
+  -- Paiement confirmé après expiration : réactivation si l'expiration date de moins de N minutes (doc 05 §5.4).
+  ('payments.late_reactivation_minutes', '30', 1),
+  -- Part conducteur payable N heures après la fin du trajet, sans litige ouvert (doc 05 §4).
+  ('finance.driver_payable_after_hours', '48', 1),
   ('reviews.window_days', '14', 1),
   ('disputes.window_days', '7', 1),
   -- Versions des textes juridiques à accepter. Textes NON RÉDIGÉS : à faire valider par un juriste avant lancement.

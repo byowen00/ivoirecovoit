@@ -1,5 +1,5 @@
 import { sql, type Transaction } from 'kysely';
-import type { BookingStatus, Database } from '../../database/types';
+import type { BookingStatus, Database, RefundReason } from '../../database/types';
 import { driverCancellation } from './amounts';
 
 export const BLOCKING_STATUSES = ['PENDING_ACCEPTANCE', 'PENDING_PAYMENT', 'CONFIRMED'] as const satisfies readonly BookingStatus[];
@@ -29,8 +29,8 @@ export async function outbox(trx: Transaction<Database>, aggregate: string, id: 
 
 /**
  * Annule toutes les réservations actives d'un trajet annulé par le conducteur ou l'administration (doc 05 §7.2) :
- * remboursement intégral de ce qui a été payé (exécuté par la couche de paiement, étape 8), rien n'est dû au conducteur.
- * Le trajet doit être verrouillé par l'appelant. Renvoie le nombre de réservations annulées.
+ * remboursement intégral de ce qui a été payé (exécuté ensuite par RefundsService), rien n'est dû au conducteur.
+ * Le trajet doit être verrouillé par l'appelant. Renvoie le nombre de réservations annulées et celles à rembourser.
  */
 export async function cancelTripBookings(
   trx: Transaction<Database>,
@@ -38,7 +38,8 @@ export async function cancelTripBookings(
   actorId: string,
   reason: string,
   status: 'CANCELLED_BY_DRIVER' | 'CANCELLED_BY_ADMIN',
-): Promise<{ cancelled: number; confirmed: number }> {
+  refundReason: Extract<RefundReason, 'DRIVER_CANCELLED' | 'TRIP_NOT_STARTED' | 'ADMIN'> = 'DRIVER_CANCELLED',
+): Promise<{ cancelled: number; confirmed: number; toRefund: string[] }> {
   const bookings = await trx
     .selectFrom('bookings')
     .select(['id', 'status', 'payment_status', 'subtotal_xof', 'service_fee_xof', 'total_xof', 'commission_xof', 'passenger_id'])
@@ -48,6 +49,7 @@ export async function cancelTripBookings(
     .execute();
   await setActor(trx, actorId, reason);
   let confirmed = 0;
+  const toRefund: string[] = [];
   for (const b of bookings) {
     const outcome = driverCancellation({
       paymentStatus: b.payment_status,
@@ -63,12 +65,17 @@ export async function cancelTripBookings(
         cancellation_reason: reason,
         refund_due_xof: outcome.refundXof,
         driver_compensation_xof: 0,
-        ...(b.payment_status === 'PAID' ? { payment_status: 'REFUND_PENDING' as const } : {}),
+        ...(b.payment_status === 'PAID' && outcome.refundXof > 0
+          ? { payment_status: 'REFUND_PENDING' as const, service_fee_refund_xof: outcome.serviceFeeRefundXof, refund_reason: refundReason }
+          : {}),
       })
       .where('id', '=', b.id)
       .execute();
     await outbox(trx, 'booking', b.id, 'booking.cancelled', { by: status, passengerId: b.passenger_id, refundXof: outcome.refundXof });
-    if (outcome.refundXof > 0) await outbox(trx, 'booking', b.id, 'refund.requested', { amountXof: outcome.refundXof, reason: 'DRIVER_CANCELLED' });
+    if (outcome.refundXof > 0) {
+      toRefund.push(b.id);
+      await outbox(trx, 'booking', b.id, 'refund.requested', { amountXof: outcome.refundXof, reason: refundReason });
+    }
   }
-  return { cancelled: bookings.length, confirmed };
+  return { cancelled: bookings.length, confirmed, toRefund };
 }

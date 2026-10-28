@@ -7,6 +7,8 @@ import { AuthModule } from './modules/auth/auth.module';
 import { BookingsModule } from './modules/bookings/bookings.module';
 import { DriversModule } from './modules/drivers/drivers.module';
 import { HealthModule } from './modules/health/health.module';
+import { JobsModule } from './modules/jobs/jobs.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 import { PlacesModule } from './modules/places/places.module';
 import { RoutingModule } from './modules/routing/routing.module';
 import { TripsModule } from './modules/trips/trips.module';
@@ -15,7 +17,7 @@ import { UsersModule } from './modules/users/users.module';
 @Module({
   imports: [
     ConfigModule, DatabaseModule, InfraModule, AuthModule, UsersModule, AdminModule, HealthModule, PlacesModule,
-    RoutingModule, DriversModule, TripsModule, BookingsModule,
+    RoutingModule, DriversModule, TripsModule, BookingsModule, PaymentsModule, JobsModule,
   ],
 })
 export class AppModule {}
