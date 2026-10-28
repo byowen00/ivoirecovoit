@@ -45,7 +45,8 @@ export class StorageService {
     const base = {
       region: env.S3_REGION,
       forcePathStyle: true,
-      credentials: { accessKeyId: env.S3_ACCESS_KEY, secretAccessKey: env.S3_SECRET_KEY },
+      // Lu depuis l'environnement, aucune valeur dans le code (faux positif du détecteur de secrets).
+      credentials: { accessKeyId: env.S3_ACCESS_KEY, secretAccessKey: env.S3_SECRET_KEY }, // gitleaks:allow
       requestChecksumCalculation: 'WHEN_REQUIRED' as const,
       responseChecksumValidation: 'WHEN_REQUIRED' as const,
     };

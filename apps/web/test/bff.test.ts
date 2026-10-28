@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { NextRequest } from 'next/server';
-import { DELETE, GET, PATCH } from '@/app/bff/api/[...path]/route';
+import { DELETE, GET, PATCH, POST } from '@/app/bff/api/[...path]/route';
 
 const ctx = (path: string) => ({ params: Promise.resolve({ path: path.split('/') }) });
 
@@ -84,9 +84,31 @@ describe('relais authentifié /bff/api', () => {
     expect(res.status).toBe(204);
   });
 
+  it('relaie l’espace conducteur avec la clé d’idempotence et la version attendue', async () => {
+    fetchMock.mockImplementation(async () => json(200, {}));
+    const csrf = 'z'.repeat(32);
+    const id = '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b';
+    const res = await POST(
+      req('trips', { method: 'POST', cookies: { ic_access: 'AAA', ic_csrf: csrf }, headers: { 'x-csrf-token': csrf, 'idempotency-key': 'k-1' }, body: '{}' }),
+      ctx('trips'),
+    );
+    expect(res.status).toBe(200);
+    expect(fetchMock.mock.calls[0]![1].headers['idempotency-key']).toBe('k-1');
+    await PATCH(
+      req(`trips/${id}`, { method: 'PATCH', cookies: { ic_access: 'AAA', ic_csrf: csrf }, headers: { 'x-csrf-token': csrf, 'if-match': '3' }, body: '{}' }),
+      ctx(`trips/${id}`),
+    );
+    expect(fetchMock.mock.calls[1]![1].headers['if-match']).toBe('3');
+    for (const path of ['drivers/me', 'vehicles', `trips/${id}/manage`, 'trips/mine']) {
+      expect((await GET(req(path, { cookies: { ic_access: 'AAA' } }), ctx(path))).status).toBe(200);
+    }
+  });
+
   it('ne relaie que les routes de l’espace personnel', async () => {
-    const res = await GET(req('admin/users', { cookies: { ic_access: 'AAA' } }), ctx('admin/users'));
-    expect(res.status).toBe(404);
+    for (const path of ['admin/users', 'admin/verifications', 'trips/search', 'drivers/0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b']) {
+      const res = await GET(req(path, { cookies: { ic_access: 'AAA' } }), ctx(path));
+      expect(res.status).toBe(404);
+    }
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });

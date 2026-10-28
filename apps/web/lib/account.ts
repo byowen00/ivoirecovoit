@@ -18,6 +18,8 @@ export interface Me {
   lastName: string | null;
   displayName: string | null;
   bio: string | null;
+  /** URL signée temporaire (1 h), ou null. */
+  photoUrl: string | null;
   preferences: Preferences;
   status: 'PENDING_VERIFICATION' | 'ACTIVE' | 'SUSPENDED' | 'BANNED' | 'DELETED';
   profileComplete: boolean;
@@ -43,6 +45,13 @@ export interface OtpRequest {
   testCode?: string;
 }
 
+export interface SignedUpload {
+  method: 'PUT';
+  url: string;
+  headers: Record<string, string>;
+  expiresAt: string;
+}
+
 export class FieldErrors extends ApiRequestError {
   constructor(
     code: string,
@@ -63,8 +72,9 @@ function readCookie(name: string): string | null {
 
 const NETWORK_MESSAGE = 'Connexion impossible. Vérifiez votre réseau puis réessayez.';
 
-async function send<T>(url: string, method: string, body?: unknown): Promise<T> {
-  const headers: Record<string, string> = { Accept: 'application/json' };
+/** Appel JSON avec jeton CSRF ; les erreurs portent le détail par champ renvoyé par l'API. */
+export async function send<T>(url: string, method: string, body?: unknown, extraHeaders: Record<string, string> = {}): Promise<T> {
+  const headers: Record<string, string> = { Accept: 'application/json', ...extraHeaders };
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   const csrf = readCookie('ic_csrf');
   if (csrf) headers['X-CSRF-Token'] = csrf;
@@ -110,6 +120,10 @@ export const account = {
   revokeSession: (id: string) => send<void>(`/bff/api/auth/sessions/${id}`, 'DELETE'),
   revokeAll: () => send<{ revoked: number }>('/bff/api/auth/sessions/all', 'DELETE'),
   logout: () => send<void>('/bff/auth/logout', 'POST'),
+  photoUploadUrl: (meta: { mimeType: string; sizeBytes: number; sha256: string }) =>
+    send<{ upload: SignedUpload }>('/bff/api/me/photo/upload-url', 'POST', meta),
+  photoComplete: () => send<Me>('/bff/api/me/photo/complete', 'POST'),
+  photoDelete: () => send<Me>('/bff/api/me/photo', 'DELETE'),
   deletionOtp: () => send<OtpRequest>('/bff/api/me/deletion/otp', 'POST'),
   deleteAccount: (otpRequestId: string, code: string) => send<void>('/bff/api/me', 'DELETE', { otpRequestId, code }),
 };

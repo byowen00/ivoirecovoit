@@ -11,8 +11,22 @@ import {
   type TokenPair,
 } from '@/lib/server/session';
 
-// Seules les routes de l'espace personnel passent par ce relais authentifié.
-const ALLOWED = /^(me(\/.*)?|auth\/sessions(\/.*)?)$/;
+// Seules les routes de l'espace personnel et de l'espace conducteur passent par ce relais authentifié.
+const ID = '[0-9a-fA-F-]{36}';
+const ALLOWED_ROUTES = [
+  'me(/.*)?',
+  'auth/sessions(/.*)?',
+  'drivers/me(/.*)?',
+  'vehicles(/.*)?',
+  `documents/${ID}/download-url`,
+  'trips',
+  'trips/(mine|preview)',
+  `trips/${ID}(/(manage|publish|duplicate|cancel|start|complete))?`,
+  'routing/estimate',
+];
+const ALLOWED = new RegExp(`^(${ALLOWED_ROUTES.join('|')})$`);
+// En-têtes du client utiles à l'API : clé d'idempotence (création sans doublon) et version attendue (If-Match).
+const PASSTHROUGH = ['idempotency-key', 'if-match'];
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 type Ctx = { params: Promise<{ path: string[] }> };
@@ -28,11 +42,16 @@ async function relay(req: NextRequest, ctx: Ctx): Promise<NextResponse> {
   }
 
   const body = MUTATING.has(req.method) ? await req.text() : undefined;
+  const passthrough: Record<string, string> = {};
+  for (const name of PASSTHROUGH) {
+    const value = req.headers.get(name);
+    if (value && value.length <= 128) passthrough[name] = value;
+  }
   const url = `${API_INTERNAL_URL}/api/v1/${target}${req.nextUrl.search}`;
   const call = (access: string | undefined) =>
     fetch(url, {
       method: req.method,
-      headers: { ...forwardHeaders(req), ...(access ? { Authorization: `Bearer ${access}` } : {}) },
+      headers: { ...forwardHeaders(req), ...passthrough, ...(access ? { Authorization: `Bearer ${access}` } : {}) },
       body: body || undefined,
       cache: 'no-store',
     });
@@ -62,7 +81,10 @@ async function relay(req: NextRequest, ctx: Ctx): Promise<NextResponse> {
 
   const out = new NextResponse(res.status === 204 ? null : await res.arrayBuffer(), {
     status: res.status,
-    headers: { 'Content-Type': res.headers.get('content-type') ?? 'application/json' },
+    headers: {
+      'Content-Type': res.headers.get('content-type') ?? 'application/json',
+      ...(res.headers.get('etag') ? { ETag: res.headers.get('etag')! } : {}),
+    },
   });
   if (renewed) setSessionCookies(out, renewed);
   // Session terminée côté serveur (déconnexion ailleurs, suspension, suppression) : on nettoie le navigateur.

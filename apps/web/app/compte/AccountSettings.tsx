@@ -2,10 +2,12 @@
 
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
+import { Avatar } from '@/components/Avatar';
 import { OtpInput } from '@/components/OtpInput';
 import { account, FieldErrors, formatLocalPhone, type Me, type OtpRequest, type Preferences, type SessionInfo } from '@/lib/account';
 import { ApiRequestError } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
+import { checkFile, fileMeta, MAX_PHOTO_BYTES, PHOTO_TYPES, putSigned } from '@/lib/upload';
 
 // Version des textes d'information pour les consentements facultatifs.
 const OPTIONAL_CONSENT_VERSION = '1';
@@ -83,6 +85,7 @@ export function AccountSettings() {
           {me.displayName} · {displayPhone(me.phone)} {me.isDemo && <span className="ml-1 rounded bg-warning-soft px-1 text-xs">[DEMO]</span>}
         </p>
       </div>
+      <PhotoSection me={me} onSaved={setMe} />
       <ProfileSection me={me} onSaved={setMe} />
       <PreferencesSection me={me} onSaved={setMe} />
       <ConsentsSection me={me} onSaved={setMe} />
@@ -90,6 +93,71 @@ export function AccountSettings() {
       <SessionsSection />
       <DeleteSection />
     </div>
+  );
+}
+
+function PhotoSection({ me, onSaved }: { me: Me; onSaved: (me: Me) => void }) {
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function upload(file: File) {
+    const problem = checkFile(file, PHOTO_TYPES, MAX_PHOTO_BYTES);
+    if (problem) return setError(problem);
+    setBusy(true);
+    setError(null);
+    try {
+      const { meta, body } = await fileMeta(file);
+      const { upload } = await account.photoUploadUrl(meta);
+      await putSigned(upload, body);
+      onSaved(await account.photoComplete());
+    } catch (err) {
+      setError(message(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove() {
+    setBusy(true);
+    setError(null);
+    try {
+      onSaved(await account.photoDelete());
+    } catch (err) {
+      setError(message(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Section title="Photo de profil">
+      <div className="flex flex-wrap items-center gap-4">
+        <Avatar name={me.displayName ?? '?'} url={me.photoUrl} size="h-20 w-20 text-2xl" />
+        <div className="grid gap-2">
+          <label className="btn-secondary cursor-pointer">
+            {busy ? 'Envoi…' : me.photoUrl ? 'Changer de photo' : 'Ajouter une photo'}
+            <input
+              type="file"
+              accept={PHOTO_TYPES.join(',')}
+              className="sr-only"
+              disabled={busy}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                e.target.value = '';
+                if (f) void upload(f);
+              }}
+            />
+          </label>
+          {me.photoUrl && (
+            <button type="button" className="text-sm text-danger underline" onClick={() => void remove()} disabled={busy}>
+              Retirer la photo
+            </button>
+          )}
+        </div>
+      </div>
+      <p className="text-sm text-ink-muted">Visible des autres membres sur votre profil. JPEG, PNG ou WebP, 5 Mo maximum.</p>
+      <Status error={error} />
+    </Section>
   );
 }
 

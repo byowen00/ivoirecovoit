@@ -29,6 +29,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               IvoireCovoit
             </Link>
             <div className="flex items-center gap-4">
+              {signedIn && (
+                <Link href="/conducteur" className="text-sm text-ink-muted underline-offset-4 hover:underline">
+                  Espace conducteur
+                </Link>
+              )}
               <Link href="/statut" className="text-sm text-ink-muted underline-offset-4 hover:underline">
                 État du service
               </Link>
