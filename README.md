@@ -2,7 +2,7 @@
 
 Plateforme de covoiturage pour la Côte d'Ivoire : application mobile (Flutter, Android en priorité), site web et administration (Next.js), API (NestJS), PostgreSQL + PostGIS. Nom provisoire.
 
-> **État : étape 5 sur 10** (connexion, rôles et profils). Voir [docs/etapes/etape-05.md](docs/etapes/etape-05.md) pour ce qui fonctionne, ce qui est simulé et ce qui reste à faire.
+> **État : étape 6 sur 10** (conducteurs, véhicules, trajets et recherche). Voir [docs/etapes/etape-06.md](docs/etapes/etape-06.md) pour ce qui fonctionne, ce qui est simulé et ce qui reste à faire.
 > Aucune clé d'API, aucun compte marchand et aucune intégration de paiement réelle ne sont inclus.
 
 ## Structure
@@ -77,7 +77,7 @@ flutter run --dart-define=API_BASE_URL=http://10.0.2.2:3000
 ## Tests
 
 ```bash
-pnpm --filter @ivoirecovoit/backend test   # unitaires + intégration sur PostGIS (TEST_DATABASE_URL) et Redis (TEST_REDIS_URL, base 15)
+pnpm --filter @ivoirecovoit/backend test   # unitaires + intégration sur PostGIS (TEST_DATABASE_URL), Redis (TEST_REDIS_URL, base 15) et S3 (TEST_S3_ENDPOINT)
 pnpm --filter @ivoirecovoit/web test       # Vitest + Testing Library
 cd apps/mobile && flutter analyze && flutter test
 ```
@@ -93,4 +93,8 @@ La base de test (`ivoirecovoit_test`) est supprimée et recréée à chaque exé
 
 ## Données cartographiques
 
-Les coordonnées du référentiel de lieux (`apps/backend/src/database/seeds/places-ci.json`) sont **approximatives** et doivent être vérifiées contre OpenStreetMap avant la production. Les distances et durées sont toujours présentées comme des estimations. Données OSM : © contributeurs OpenStreetMap, licence ODbL.
+Les coordonnées du référentiel de lieux (`apps/backend/src/database/seeds/places-ci.json`) sont **approximatives** et doivent être vérifiées contre OpenStreetMap avant la production. Les distances et durées sont toujours présentées comme des estimations.
+
+Itinéraires : sans `OSRM_URL`, l'API calcule une estimation à vol d'oiseau, signalée comme telle à l'écran (voir `infrastructure/osrm` pour préparer OSRM). Fonds de carte : tuiles OpenStreetMap par défaut (`NEXT_PUBLIC_TILE_URL` pour le web, `--dart-define=TILE_URL=…` pour le mobile) ; en production, utiliser un fournisseur de tuiles sous contrat, la politique d'usage d'OSM l'impose.
+
+Pièces justificatives et photos : stockage compatible S3 (RustFS en développement, profil `storage` de docker compose ; voir [ADR 0004](docs/adr/0004-stockage-itineraires-et-recherche.md)). Sans `S3_ENDPOINT`, les dépôts répondent 503 et le reste fonctionne. Données OSM : © contributeurs OpenStreetMap, licence ODbL.
