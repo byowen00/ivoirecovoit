@@ -209,8 +209,8 @@ function StatusPanel({ b, holdLeft }: { b: Booking; holdLeft: number | null }) {
         <>Répondez avant le {b.acceptanceDeadline && until(b.acceptanceDeadline)} ({holdLeft !== null && remaining(holdLeft)}) : sans réponse, la demande expire.</>
       ) : (
         <>
-          Demande envoyée à {b.trip.driver.displayName ?? 'votre conducteur'}. Réponse au plus tard le {b.acceptanceDeadline && until(b.acceptanceDeadline)}. Vos places
-          sont réservées en attendant.
+          Demande envoyée au conducteur{b.trip.driver.displayName ? ` (${b.trip.driver.displayName})` : ''} : réponse au plus tard le{' '}
+          {b.acceptanceDeadline && until(b.acceptanceDeadline)}. Vos places sont réservées en attendant.
         </>
       );
       break;

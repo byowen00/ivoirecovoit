@@ -2,7 +2,7 @@
 
 Plateforme de covoiturage pour la Côte d'Ivoire : application mobile (Flutter, Android en priorité), site web et administration (Next.js), API (NestJS), PostgreSQL + PostGIS. Nom provisoire.
 
-> **État : étape 6 sur 10** (conducteurs, véhicules, trajets et recherche). Voir [docs/etapes/etape-06.md](docs/etapes/etape-06.md) pour ce qui fonctionne, ce qui est simulé et ce qui reste à faire.
+> **État : étape 7 sur 10** (réservations ; le paiement arrive à l'étape 8). Voir [docs/etapes/etape-07.md](docs/etapes/etape-07.md) pour ce qui fonctionne, ce qui est simulé et ce qui reste à faire.
 > Aucune clé d'API, aucun compte marchand et aucune intégration de paiement réelle ne sont inclus.
 
 ## Structure

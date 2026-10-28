@@ -82,4 +82,4 @@ Tests serveur ajoutés :
 
 ## 7. Prochaine étape
 
-**Étape 7 : réservations et paiement** : réservation d'un segment avec blocage des places, acceptation par le conducteur, couche de paiement interchangeable avec bac à sable interne (aucun paiement réel sans contrat avec un agrégateur), annulations et remboursements selon les règles validées.
+**Étape 7 : réservations** : réservation d'un segment avec blocage des places, acceptation par le conducteur, expiration, annulations selon les règles validées, absences ; écrans 8 et 12. Le paiement (couche interchangeable, bac à sable interne, remboursements effectifs) est l'étape 8. *(Corrigé le 28/10/2026 : la première version de ce rapport rattachait par erreur le paiement à l'étape 7.)*
