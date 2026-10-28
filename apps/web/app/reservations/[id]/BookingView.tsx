@@ -10,6 +10,7 @@ import { type Booking, BOOKING_STATUS_LABEL, bookings, type CancelPreview, refun
 import { formatXof } from '@/lib/format';
 import { newIdempotencyKey } from '@/lib/trips';
 import { useNow } from '@/lib/use-now';
+import { BookingTrust } from './BookingTrust';
 
 const message = (err: unknown) => (err instanceof ApiRequestError ? err.message : 'Une erreur est survenue. Réessayez.');
 
@@ -150,6 +151,12 @@ export function BookingView({ id }: { id: string }) {
           <span>Frais de service</span>
           <span className="tabular-nums">{formatXof(b.serviceFeeXof)}</span>
         </p>
+        {b.discountXof > 0 && (
+          <p className="flex justify-between text-success">
+            <span>Code promo</span>
+            <span className="tabular-nums">−{formatXof(b.discountXof)}</span>
+          </p>
+        )}
         <p className="flex justify-between border-t border-line pt-1 font-bold">
           <span>Total passager</span>
           <span className="tabular-nums">{formatXof(b.totalXof)}</span>
@@ -185,6 +192,8 @@ export function BookingView({ id }: { id: string }) {
           }
         />
       )}
+
+      <BookingTrust b={b} onChange={load} />
 
       <section className="card" aria-labelledby="history-title">
         <h2 id="history-title" className="mb-2 text-lg font-semibold">

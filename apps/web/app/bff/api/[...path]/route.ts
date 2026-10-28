@@ -11,7 +11,8 @@ import {
   type TokenPair,
 } from '@/lib/server/session';
 
-// Seules les routes de l'espace personnel, des réservations et de l'espace conducteur passent par ce relais authentifié.
+// Seules les routes de l'espace personnel, des réservations, de l'espace conducteur, des notifications et de l'aide
+// passent par ce relais authentifié (l'administration a son propre relais, /bff/admin).
 const ID = '[0-9a-fA-F-]{36}';
 const ALLOWED_ROUTES = [
   'me(/.*)?',
@@ -30,6 +31,11 @@ const ALLOWED_ROUTES = [
   `bookings/${ID}/payments`,
   'payments/methods',
   `payments/${ID}`,
+  'notifications(/(unread-count|read))?',
+  `bookings/${ID}/(messages|review|reviews|dispute|share)`,
+  'reports(/mine)?',
+  'disputes(/mine)?',
+  `disputes/${ID}(/messages)?`,
 ];
 const ALLOWED = new RegExp(`^(${ALLOWED_ROUTES.join('|')})$`);
 // En-têtes du client utiles à l'API : clé d'idempotence (création sans doublon) et version attendue (If-Match).

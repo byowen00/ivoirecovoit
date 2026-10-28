@@ -104,6 +104,22 @@ describe('relais authentifié /bff/api', () => {
     }
   });
 
+  it('relaie les notifications, la messagerie, les avis, le partage, les signalements et les réclamations', async () => {
+    fetchMock.mockImplementation(async () => json(200, {}));
+    const id = '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b';
+    for (const path of [
+      'notifications', 'notifications/unread-count', 'me/notification-preferences', `bookings/${id}/messages`, `bookings/${id}/review`,
+      `bookings/${id}/dispute`, `bookings/${id}/share`, 'reports/mine', 'disputes/mine', `disputes/${id}`,
+    ]) {
+      expect((await GET(req(path, { cookies: { ic_access: 'AAA' } }), ctx(path))).status).toBe(200);
+    }
+    const csrf = 'w'.repeat(32);
+    for (const path of ['notifications/read', `bookings/${id}/messages`, `bookings/${id}/reviews`, 'reports', 'disputes', `disputes/${id}/messages`]) {
+      const res = await POST(req(path, { method: 'POST', cookies: { ic_access: 'AAA', ic_csrf: csrf }, headers: { 'x-csrf-token': csrf }, body: '{}' }), ctx(path));
+      expect(res.status).toBe(200);
+    }
+  });
+
   it('ne relaie que les routes de l’espace personnel', async () => {
     for (const path of [
       'admin/users',
@@ -116,6 +132,11 @@ describe('relais authentifié /bff/api', () => {
       'webhooks/payments/sandbox',
       'sandbox/pay/SBX-abc',
       'payments/abc',
+      'admin/disputes',
+      'admin/refunds',
+      'admin/staff',
+      'bookings/abc/messages',
+      'disputes/abc',
     ]) {
       const res = await GET(req(path, { cookies: { ic_access: 'AAA' } }), ctx(path));
       expect(res.status).toBe(404);

@@ -438,7 +438,7 @@ export class BookingsService {
         // Immatriculation communiquée au passager une fois la réservation confirmée.
         vehicle: { make: trip.make, model: trip.model, color: trip.color, plateNumber: isDriver || confirmed || b.status === 'COMPLETED' ? trip.plate_number : null },
       },
-      passenger: { displayName: passenger.rows[0]?.display_name ?? null, ratingAvg: passenger.rows[0]?.rating ?? null },
+      passenger: { id: b.passenger_id, displayName: passenger.rows[0]?.display_name ?? null, ratingAvg: passenger.rows[0]?.rating ?? null },
       pickup: { stopId: pickup.id, label: pickup.label, meetingPoint: pickup.meeting_point, plannedAt: pickup.planned_at, isEstimate: true },
       dropoff: { stopId: dropoff.id, label: dropoff.label, meetingPoint: dropoff.meeting_point, plannedAt: dropoff.planned_at, isEstimate: true },
       history: history.map((h) => ({

@@ -20,6 +20,10 @@ export function BookingForm({ tripId }: { tripId: string }) {
   const [seats, setSeats] = useState(Math.min(4, Math.max(1, Number(params.get('seats')) || 1)));
   // Devis mémorisé avec son nombre de places : un ancien devis ne s'affiche pas pour un autre choix.
   const [quote, setQuote] = useState<{ seats: number; data: Quote } | null>(null);
+  // Code promo appliqué (vérifié par le devis) et saisie en cours.
+  const [promo, setPromo] = useState('');
+  const [promoInput, setPromoInput] = useState('');
+  const [promoError, setPromoError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [accepted, setAccepted] = useState(false);
   const [cash, setCash] = useState(false);
@@ -35,11 +39,14 @@ export function BookingForm({ tripId }: { tripId: string }) {
       return;
     }
     let live = true;
-    bookings.quote({ tripId, pickupStopId, dropoffStopId, seats }).then(
+    bookings.quote({ tripId, pickupStopId, dropoffStopId, seats, ...(promo ? { promoCode: promo } : {}) }).then(
       (data) => live && setQuote({ seats, data }),
       (err: unknown) => {
         if (!live) return;
-        if (err instanceof ApiRequestError && err.status === 401) router.replace(`/connexion?next=${encodeURIComponent(here)}`);
+        if (promo && err instanceof ApiRequestError && (err.code === 'PROMO_INVALID' || err.code === 'VALIDATION_ERROR')) {
+          setPromoError(err.code === 'PROMO_INVALID' ? err.message : 'Code promo invalide.');
+          setPromo('');
+        } else if (err instanceof ApiRequestError && err.status === 401) router.replace(`/connexion?next=${encodeURIComponent(here)}`);
         else if (err instanceof ApiRequestError && err.code === 'PROFILE_INCOMPLETE') router.replace(`/inscription/profil?next=${encodeURIComponent(here)}`);
         else setError(message(err));
       },
@@ -49,9 +56,15 @@ export function BookingForm({ tripId }: { tripId: string }) {
     };
     // `here` dépend des mêmes valeurs
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tripId, pickupStopId, dropoffStopId, seats, router]);
+  }, [tripId, pickupStopId, dropoffStopId, seats, promo, router]);
 
+  // Pendant le recalcul avec un nouveau code, le devis affiché reste cohérent avec ce qui serait envoyé (q.promoCode).
   const q = quote?.seats === seats ? quote.data : null;
+
+  function applyPromo() {
+    setPromoError(null);
+    setPromo(promoInput.trim().toUpperCase());
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -59,7 +72,10 @@ export function BookingForm({ tripId }: { tripId: string }) {
     setBusy(true);
     setError(null);
     try {
-      const b = await bookings.create({ tripId, pickupStopId, dropoffStopId, seats, ...(cash ? { paymentMethod: 'CASH' as const } : {}) }, key);
+      const b = await bookings.create(
+        { tripId, pickupStopId, dropoffStopId, seats, ...(q.promoCode ? { promoCode: q.promoCode } : {}), ...(cash ? { paymentMethod: 'CASH' as const } : {}) },
+        key,
+      );
       router.push(`/reservations/${b.id}`);
     } catch (err) {
       if (err instanceof ApiRequestError && err.code === 'ALREADY_BOOKED') {
@@ -128,11 +144,51 @@ export function BookingForm({ tripId }: { tripId: string }) {
           <span>Frais de service</span>
           <span className="tabular-nums">{formatXof(q.serviceFeeXof)}</span>
         </p>
+        {q.discountXof > 0 && (
+          <p className="flex justify-between text-success">
+            <span>Code promo {q.promoCode}</span>
+            <span className="tabular-nums">−{formatXof(q.discountXof)}</span>
+          </p>
+        )}
         <p className="mt-1 flex justify-between border-t border-line pt-2 text-lg font-bold">
           <span>Total</span>
           <span className="tabular-nums text-brand-strong">{formatXof(q.totalXof)}</span>
         </p>
         {q.seatsAvailable < q.seats && <p className="text-sm text-danger">Plus que {q.seatsAvailable} place(s) sur ce segment.</p>}
+        <div className="mt-2 border-t border-line pt-2">
+          <label htmlFor="promo" className="mb-1 block text-sm font-medium">
+            Code promo
+          </label>
+          <div className="flex gap-2">
+            <input
+              id="promo"
+              className="field uppercase"
+              maxLength={30}
+              autoComplete="off"
+              value={promoInput}
+              aria-invalid={promoError ? true : undefined}
+              aria-describedby={promoError ? 'promo-error' : undefined}
+              onChange={(e) => setPromoInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  applyPromo();
+                }
+              }}
+            />
+            {q.promoCode ? (
+              <button type="button" className="btn-secondary" onClick={() => { setPromo(''); setPromoInput(''); }}>
+                Retirer
+              </button>
+            ) : (
+              <button type="button" className="btn-secondary" disabled={promoInput.trim().length < 3} onClick={applyPromo}>
+                Appliquer
+              </button>
+            )}
+          </div>
+          {promoError && <p id="promo-error" className="mt-1 text-sm text-danger">{promoError}</p>}
+          {q.promoCode && <p className="mt-1 text-sm text-success">Code {q.promoCode} appliqué sur le prix du trajet.</p>}
+        </div>
       </section>
 
       <section className="card grid gap-2 text-sm" aria-label="Déroulement">

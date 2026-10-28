@@ -73,10 +73,10 @@ function readCookie(name: string): string | null {
 const NETWORK_MESSAGE = 'Connexion impossible. Vérifiez votre réseau puis réessayez.';
 
 /** Appel JSON avec jeton CSRF ; les erreurs portent le détail par champ renvoyé par l'API. */
-export async function send<T>(url: string, method: string, body?: unknown, extraHeaders: Record<string, string> = {}): Promise<T> {
+export async function send<T>(url: string, method: string, body?: unknown, extraHeaders: Record<string, string> = {}, csrfCookie = 'ic_csrf'): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json', ...extraHeaders };
   if (body !== undefined) headers['Content-Type'] = 'application/json';
-  const csrf = readCookie('ic_csrf');
+  const csrf = readCookie(csrfCookie);
   if (csrf) headers['X-CSRF-Token'] = csrf;
   let res: Response;
   try {

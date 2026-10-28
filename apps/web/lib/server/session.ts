@@ -49,8 +49,8 @@ export function newCsrfToken(): string {
   return randomBytes(24).toString('base64url');
 }
 
-export function csrfValid(req: NextRequest): boolean {
-  const cookie = req.cookies.get(CSRF_COOKIE)?.value;
+export function csrfValid(req: NextRequest, cookieName: string = CSRF_COOKIE): boolean {
+  const cookie = req.cookies.get(cookieName)?.value;
   const header = req.headers.get('x-csrf-token');
   return !!cookie && cookie.length >= 20 && cookie === header;
 }

@@ -14,6 +14,7 @@ export interface CancellationPolicy {
 
 export interface Quote {
   tripId: string;
+  promoCode: string | null;
   pickup: { stopId: string; label: string; plannedAt: string };
   dropoff: { stopId: string; label: string; plannedAt: string };
   seats: number;
@@ -67,11 +68,21 @@ export interface Booking {
     driver: { id: string; displayName: string | null };
     vehicle: { make: string; model: string; color: string; plateNumber: string | null };
   };
-  passenger: { displayName: string | null; ratingAvg: number | null };
+  passenger: { id: string; displayName: string | null; ratingAvg: number | null };
   pickup: { stopId: string; label: string; meetingPoint: string | null; plannedAt: string };
   dropoff: { stopId: string; label: string; meetingPoint: string | null; plannedAt: string };
   history: { from: BookingStatus | null; to: BookingStatus; at: string; by: 'PASSENGER' | 'DRIVER' | 'SYSTEM' | 'STAFF'; reason: string | null }[];
-  actions: { canCancel: boolean; canAccept: boolean; canReject: boolean; canMarkNoShow: boolean; canPay: boolean };
+  actions: {
+    canCancel: boolean;
+    canAccept: boolean;
+    canReject: boolean;
+    canMarkNoShow: boolean;
+    canPay: boolean;
+    canMessage: boolean;
+    canShare: boolean;
+    canReview: boolean;
+  };
+  openDispute: { id: string; reference: string; status: string } | null;
 }
 
 export interface BookingSummary {
@@ -106,6 +117,7 @@ export interface Segment {
   pickupStopId: string;
   dropoffStopId: string;
   seats: number;
+  promoCode?: string;
 }
 
 export const BOOKING_STATUS_LABEL: Record<BookingStatus, string> = {

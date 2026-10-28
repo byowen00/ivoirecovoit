@@ -7,6 +7,7 @@ import { OtpInput } from '@/components/OtpInput';
 import { account, FieldErrors, formatLocalPhone, type Me, type OtpRequest, type Preferences, type SessionInfo } from '@/lib/account';
 import { ApiRequestError } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
+import { notifications, type NotificationPreferences } from '@/lib/trust';
 import { checkFile, fileMeta, MAX_PHOTO_BYTES, PHOTO_TYPES, putSigned } from '@/lib/upload';
 
 // Version des textes d'information pour les consentements facultatifs.
@@ -88,10 +89,60 @@ export function AccountSettings() {
       <PhotoSection me={me} onSaved={setMe} />
       <ProfileSection me={me} onSaved={setMe} />
       <PreferencesSection me={me} onSaved={setMe} />
+      <NotificationsSection />
       <ConsentsSection me={me} onSaved={setMe} />
       <EmergencySection />
       <SessionsSection />
       <DeleteSection />
+    </div>
+  );
+}
+
+/** Écran 13 (réglages) : catégories de notifications ; celles liées aux réservations et paiements restent actives. */
+function NotificationsSection() {
+  const [prefs, setPrefs] = useState<NotificationPreferences | null>(null);
+  const [status, setStatus] = useState<{ ok?: string; error?: string }>({});
+  useEffect(() => {
+    notifications.preferences().then(setPrefs, (err: unknown) => setStatus({ error: message(err) }));
+  }, []);
+
+  async function toggle(code: string, enabled: boolean) {
+    setStatus({});
+    try {
+      setPrefs(await notifications.setPreferences({ [code]: enabled }));
+      setStatus({ ok: 'Préférences enregistrées.' });
+    } catch (err) {
+      setStatus({ error: message(err) });
+    }
+  }
+
+  return (
+    <div id="notifications">
+      <Section title="Notifications">
+        {prefs && (
+          <>
+            <ul className="grid gap-2">
+              {prefs.categories.map((c) => (
+                <li key={c.code}>
+                  <label className="flex items-start gap-2">
+                    <input type="checkbox" className="mt-1" checked={c.enabled} disabled={c.mandatory} onChange={(e) => void toggle(c.code, e.target.checked)} />
+                    <span>
+                      {c.label}
+                      {c.mandatory && <span className="block text-xs text-ink-muted">Toujours envoyées : elles concernent vos réservations et votre argent.</span>}
+                    </span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs text-ink-muted">
+              {prefs.pushAvailable
+                ? 'Les notifications arrivent dans l’application et sur votre téléphone.'
+                : 'Les notifications sont visibles dans l’application (cloche en haut de page). L’envoi sur le téléphone n’est pas encore activé.'}
+            </p>
+          </>
+        )}
+        <Status ok={status.ok} error={status.error} />
+      </Section>
     </div>
   );
 }

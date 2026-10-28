@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
+import { NotificationBell } from '@/components/NotificationBell';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -40,9 +41,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   </Link>
                 </>
               )}
-              <Link href="/statut" className={`text-sm text-ink-muted underline-offset-4 hover:underline ${signedIn ? 'hidden sm:inline' : ''}`}>
+              <Link href="/aide" className="text-sm text-ink-muted underline-offset-4 hover:underline">
+                Aide
+              </Link>
+              <Link href="/statut" className="hidden text-sm text-ink-muted underline-offset-4 hover:underline sm:inline">
                 État du service
               </Link>
+              {signedIn && <NotificationBell />}
               <Link href={signedIn ? '/compte' : '/connexion'} className="text-sm font-semibold text-brand underline-offset-4 hover:underline">
                 {signedIn ? (
                   <>
