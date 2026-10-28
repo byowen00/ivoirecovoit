@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { adminCall, ROLE_LABEL } from '@/lib/admin';
+import { adminCall, can, ROLE_LABEL } from '@/lib/admin';
 import { useStaff } from '../_components/AdminShell';
 import { Badge, dt, errText, Loading, Notice, PageTitle, ReasonAction, Section, Table, useAdmin } from '../_components/ui';
 
@@ -51,7 +51,7 @@ export function StaffList() {
   return (
     <>
       <PageTitle title="Personnel">
-        {!creating && <button type="button" className="btn-primary" onClick={() => setCreating(true)}>Nouveau compte</button>}
+        {!creating && can(me, 'staff.manage') && <button type="button" className="btn-primary" onClick={() => setCreating(true)}>Nouveau compte</button>}
       </PageTitle>
       <Notice ok={msg.ok} error={msg.error} />
       {created && (

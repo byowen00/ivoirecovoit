@@ -88,7 +88,7 @@ export function Promotions() {
       {creating && (
         <Section title="Nouveau code promo">
           <form className="grid gap-2 sm:grid-cols-2" onSubmit={(e) => void create(e)}>
-            <label className="grid gap-1 text-sm"><span>Code</span><input className="field uppercase" value={f.code} onChange={set('code')} required pattern="[A-Za-z0-9-]{3,30}" /></label>
+            <label className="grid gap-1 text-sm"><span>Code</span><input className="field uppercase" value={f.code} onChange={set('code')} required pattern="[A-Za-z0-9\-]{3,30}" /></label>
             <label className="grid gap-1 text-sm"><span>Description (interne)</span><input className="field" value={f.description} onChange={set('description')} maxLength={200} /></label>
             <label className="grid gap-1 text-sm">
               <span>Type</span>
