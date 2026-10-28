@@ -72,7 +72,7 @@ node run7.js                                         # parcours web dans Chromiu
 | Lint et types | backend, web : aucune erreur |
 | Contre-épreuve du verrou | En retirant le verrou du trajet, T1 et T1b échouent (survente constatée) : ce sont bien eux qui protègent contre la survente |
 | Parcours web dans Chromium | Réservation instantanée, annulation gratuite ; demande sur un trajet à acceptation manuelle, acceptation par le conducteur depuis la gestion du trajet ; mes réservations (à venir, passées) ; largeur de téléphone de 320 à 390 px sans débordement |
-| CI GitHub | CI_RESULT |
+| CI GitHub (28/10/2026, commit c7853a0) | Les 5 tâches réussies : recherche de secrets, backend, web, mobile + APK Android de debug, images Docker. La compilation de l'APK a échoué une première fois sur un téléchargement Android corrompu côté GitHub ; relancée sans changement, elle a réussi |
 
 Tests serveur ajoutés :
 
