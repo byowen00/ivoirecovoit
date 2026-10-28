@@ -31,7 +31,16 @@ jobs:
         ports: ["6379:6379"]
         options: >-
           --health-cmd "redis-cli ping" --health-interval 5s --health-retries 20
+      storage:
+        image: rustfs/rustfs:1.0.4
+        env:
+          RUSTFS_ACCESS_KEY: ci-access
+          RUSTFS_SECRET_KEY: ci-secret-key-not-real
+        ports: ["9000:9000"]
     env:
+      TEST_S3_ENDPOINT: http://127.0.0.1:9000
+      TEST_S3_ACCESS_KEY: ci-access
+      TEST_S3_SECRET_KEY: ci-secret-key-not-real
       TEST_DATABASE_URL: postgres://ivoirecovoit:ci-password@localhost:5432/ivoirecovoit_test
       TEST_REDIS_URL: redis://localhost:6379/15
     steps:
@@ -42,6 +51,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @ivoirecovoit/backend lint
       - run: pnpm --filter @ivoirecovoit/backend typecheck
+      - name: Attendre le stockage S3
+        run: for i in $(seq 1 30); do curl -s -o /dev/null http://127.0.0.1:9000/ && exit 0; sleep 2; done; exit 1
       - run: pnpm --filter @ivoirecovoit/backend test
       - run: pnpm --filter @ivoirecovoit/backend build
 
