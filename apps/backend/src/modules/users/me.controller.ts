@@ -11,9 +11,12 @@ import {
   type ConsentInput,
   consentSchema,
   emergencyContactSchema,
+  type PhotoUploadInput,
+  photoUploadSchema,
   type UpdateProfileInput,
   updateProfileSchema,
 } from './profile.schemas';
+import { PhotoService } from './photo.service';
 import { UsersService } from './users.service';
 
 @ApiTags('profil')
@@ -24,7 +27,27 @@ export class MeController {
   constructor(
     private readonly users: UsersService,
     private readonly otp: OtpService,
+    private readonly photos: PhotoService,
   ) {}
+
+  @Post('photo/upload-url')
+  @ApiOperation({ summary: 'URL de dépôt signée (5 min) pour la photo de profil' })
+  photoUploadUrl(@CurrentAuth() auth: AuthContext, @Body(new ZodValidationPipe(photoUploadSchema)) body: PhotoUploadInput) {
+    return this.photos.createUpload(auth.userId, body);
+  }
+
+  @Post('photo/complete')
+  @ApiOperation({ summary: 'Confirme la nouvelle photo après contrôle du fichier reçu' })
+  async photoComplete(@CurrentAuth() auth: AuthContext, @Req() req: AppRequest) {
+    await this.photos.complete(auth.userId, requestContext(req));
+    return this.users.getMe(auth.userId);
+  }
+
+  @Delete('photo')
+  async photoDelete(@CurrentAuth() auth: AuthContext, @Req() req: AppRequest) {
+    await this.photos.remove(auth.userId, requestContext(req));
+    return this.users.getMe(auth.userId);
+  }
 
   @Get()
   @ApiOperation({ summary: 'Profil complet de la personne connectée' })

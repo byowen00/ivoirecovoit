@@ -48,3 +48,13 @@ export const emergencyContactSchema = z
     phone: z.string().trim().min(8).max(25),
   })
   .strict();
+
+export const photoUploadSchema = z.object({
+  mimeType: z.enum(['image/jpeg', 'image/png', 'image/webp'], { message: 'Format accepté : JPEG, PNG ou WebP.' }),
+  sizeBytes: z.number().int().min(1).max(5 * 1024 * 1024, 'Photo trop lourde (5 Mo au maximum).'),
+  sha256: z
+    .string()
+    .regex(/^[0-9a-fA-F]{64}$/, 'Empreinte SHA-256 attendue.')
+    .transform((v) => v.toLowerCase()),
+});
+export type PhotoUploadInput = z.infer<typeof photoUploadSchema>;

@@ -299,4 +299,21 @@ describe('Conducteurs, véhicules et documents', () => {
     const me = await t.http().get('/api/v1/me').set(bearer(token));
     await t.http().get(`/api/v1/drivers/${me.body.id}`).expect(404);
   });
+
+  it('photo de profil : dépôt contrôlé, URL signée, remplacement et suppression', async () => {
+    const s = await loginActive(t);
+    const h = bearer(s.accessToken);
+    const content = fakeJpeg(512);
+    const ask = await t.http().post('/api/v1/me/photo/upload-url').set(h).send({ mimeType: 'image/jpeg', sizeBytes: content.length, sha256: sha256(content) }).expect(201);
+    expect((await fetch(ask.body.upload.url, { method: 'PUT', body: content, headers: ask.body.upload.headers })).status).toBe(200);
+    const me = await t.http().post('/api/v1/me/photo/complete').set(h).expect(201);
+    expect(me.body.photoUrl).toMatch(/X-Amz-Signature=/);
+    expect(Buffer.from(await (await fetch(me.body.photoUrl)).arrayBuffer()).equals(content)).toBe(true);
+    const pdf = await t.http().post('/api/v1/me/photo/upload-url').set(h).send({ mimeType: 'application/pdf', sizeBytes: 10, sha256: 'a'.repeat(64) }).expect(400);
+    expect(pdf.body.error.details.fields).toHaveProperty('mimeType');
+    await t.http().post('/api/v1/me/photo/complete').set(h).expect(422);
+    const removed = await t.http().delete('/api/v1/me/photo').set(h).expect(200);
+    expect(removed.body.photoUrl).toBeNull();
+    expect((await fetch(me.body.photoUrl)).status).toBe(404);
+  });
 });

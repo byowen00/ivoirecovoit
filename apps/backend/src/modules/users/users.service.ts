@@ -6,6 +6,7 @@ import { normalizeCiPhone } from '../../common/phone';
 import { DB, type Db } from '../../database/database.module';
 import type { ConsentType, Database, UserStatus } from '../../database/types';
 import { AuditService, type RequestContext } from '../../infra/audit.service';
+import { StorageService } from '../../infra/storage.service';
 import { SessionsService } from '../auth/sessions.service';
 import type { ConsentInput, Preferences, UpdateProfileInput } from './profile.schemas';
 import { SettingsService } from './settings.service';
@@ -24,6 +25,8 @@ export interface MeView {
   firstName: string | null;
   lastName: string | null;
   displayName: string | null;
+  /** URL signée d'une heure (photo de profil privée dans le stockage). */
+  photoUrl: string | null;
   bio: string | null;
   preferences: Preferences;
   status: UserStatus;
@@ -46,6 +49,7 @@ export class UsersService {
     private readonly settings: SettingsService,
     private readonly audit: AuditService,
     private readonly sessions: SessionsService,
+    private readonly storage: StorageService,
   ) {}
 
   /** Compte lié à un téléphone vérifié ; créé s'il n'existe pas (inscription et connexion sont un seul parcours). */
@@ -90,7 +94,7 @@ export class UsersService {
       .leftJoin('driver_profiles', 'driver_profiles.user_id', 'users.id')
       .select([
         'users.id', 'users.phone_e164', 'users.email', 'users.first_name', 'users.last_name', 'users.display_name',
-        'users.bio', 'users.preferences', 'users.status', 'users.suspended_until', 'users.is_demo',
+        'users.bio', 'users.preferences', 'users.status', 'users.suspended_until', 'users.is_demo', 'users.photo_object_key',
         'users.created_at', 'driver_profiles.verification_status',
       ])
       .where('users.id', '=', userId)
@@ -108,6 +112,7 @@ export class UsersService {
       firstName: user.first_name,
       lastName: user.last_name,
       displayName: user.display_name,
+      photoUrl: user.photo_object_key && this.storage.available ? (await this.storage.presignGet(user.photo_object_key, 3600)).url : null,
       bio: user.bio,
       preferences: user.preferences as Preferences,
       status: user.status,
@@ -238,6 +243,8 @@ export class UsersService {
           { activeBookings: activeBookings.n, activeTrips: activeTrips.n },
         );
       }
+      const photo = await trx.selectFrom('users').select('photo_object_key').where('id', '=', userId).executeTakeFirst();
+      if (photo?.photo_object_key) await this.storage.remove(photo.photo_object_key);
       await trx
         .updateTable('users')
         .set({
