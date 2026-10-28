@@ -10,6 +10,12 @@ import 'features/auth/models.dart';
 import 'features/auth/otp_screen.dart';
 import 'features/auth/phone_screen.dart';
 import 'features/auth/profile_setup_screen.dart';
+import 'features/driver/driver_screen.dart';
+import 'features/trips/driver_profile_screen.dart';
+import 'features/trips/my_trips_screen.dart';
+import 'features/trips/publish_screen.dart';
+import 'features/trips/search_results_screen.dart';
+import 'features/trips/trip_detail_screen.dart';
 import 'features/home/home_screen.dart';
 import 'features/status/status_screen.dart';
 import 'features/welcome/welcome_screen.dart';
@@ -42,6 +48,40 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(path: '/compte', builder: (_, _) => const AccountScreen()),
+      GoRoute(
+        path: '/recherche',
+        redirect: (_, state) => queryFromUri(state.uri) == null ? '/' : null,
+        builder: (_, state) => SearchResultsScreen(query: queryFromUri(state.uri)!),
+      ),
+      GoRoute(
+        path: '/trajets/:id',
+        builder: (_, state) => TripDetailScreen(
+          tripId: state.pathParameters['id']!,
+          pickupStopId: state.uri.queryParameters['pickup'],
+          dropoffStopId: state.uri.queryParameters['dropoff'],
+          seats: (int.tryParse(state.uri.queryParameters['seats'] ?? '') ?? 1).clamp(1, 8),
+        ),
+      ),
+      GoRoute(
+        path: '/conducteurs/:id',
+        builder: (_, state) => DriverProfileScreen(driverId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/conducteur',
+        builder: (_, _) => _RequireMe(builder: (_) => const DriverScreen()),
+      ),
+      GoRoute(
+        path: '/conducteur/publier',
+        builder: (_, _) => _RequireMe(builder: (_) => const PublishScreen()),
+      ),
+      GoRoute(
+        path: '/conducteur/trajets',
+        builder: (_, _) => _RequireMe(builder: (_) => const MyTripsScreen()),
+      ),
+      GoRoute(
+        path: '/conducteur/trajets/:id',
+        builder: (_, state) => _RequireMe(builder: (_) => ManageTripScreen(tripId: state.pathParameters['id']!)),
+      ),
     ],
   );
 });

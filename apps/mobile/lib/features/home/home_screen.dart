@@ -8,9 +8,16 @@ import '../../core/theme.dart';
 import '../../providers.dart';
 import '../places/place_field.dart';
 import '../places/places_repository.dart';
+import '../auth/auth_controller.dart';
+import '../trips/models.dart';
+import '../trips/search_results_screen.dart';
+import '../trips/trips_repository.dart';
 
-/// Écran d'accueil et de recherche. La saisie des lieux fonctionne ;
-/// la recherche de trajets sera branchée à l'étape 6.
+final popularRoutesProvider = FutureProvider.autoDispose<List<PopularRoute>>(
+  (ref) => ref.watch(tripsRepositoryProvider).popularRoutes().catchError((_) => <PopularRoute>[]),
+);
+
+/// Écran 4 : accueil et recherche, axes populaires, accès à l'espace conducteur.
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -21,14 +28,37 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   Place? _from;
   Place? _to;
-  DateTime _date = DateTime.now();
+  DateTime? _date = DateTime.now();
   int _seats = 1;
+  String? _error;
+
+  void _search() {
+    if (_from == null || _to == null) {
+      setState(() => _error = 'Choisissez le départ et l’arrivée dans la liste des suggestions.');
+      return;
+    }
+    if (_from!.id == _to!.id) return;
+    setState(() => _error = null);
+    final d = _date;
+    context.push(
+      resultsLocation(
+        SearchQuery(
+          fromId: _from!.id,
+          fromLabel: _from!.label,
+          toId: _to!.id,
+          toLabel: _to!.label,
+          date: d == null ? null : DateTime.utc(d.year, d.month, d.day),
+          seats: _seats,
+        ),
+      ),
+    );
+  }
 
   Future<void> _pickDate() async {
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
-      initialDate: _date,
+      initialDate: _date ?? now,
       firstDate: DateTime(now.year, now.month, now.day),
       lastDate: now.add(const Duration(days: 90)),
     );
@@ -43,7 +73,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('IvoireCovoit', style: TextStyle(color: AppColors.brand, fontWeight: FontWeight.bold)),
+        title: const Text(
+          'IvoireCovoit',
+          style: TextStyle(color: AppColors.brand, fontWeight: FontWeight.bold),
+        ),
         actions: [
           IconButton(
             tooltip: 'Mon compte',
@@ -66,11 +99,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 padding: const EdgeInsets.all(8),
                 margin: const EdgeInsets.only(bottom: 12),
                 decoration: BoxDecoration(color: AppColors.warningSoft, borderRadius: BorderRadius.circular(8)),
-                child: const Text('Environnement de développement : données de démonstration, aucun paiement réel.',
-                    textAlign: TextAlign.center),
+                child: const Text(
+                  'Environnement de développement : données de démonstration, aucun paiement réel.',
+                  textAlign: TextAlign.center,
+                ),
               ),
-            Text('Voyagez ensemble, partagez les frais.',
-                style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+            Text(
+              'Voyagez ensemble, partagez les frais.',
+              style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 16),
             Card(
               child: Padding(
@@ -84,8 +121,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     if (samePlace)
                       const Padding(
                         padding: EdgeInsets.only(top: 4),
-                        child: Text('Le départ et l’arrivée doivent être différents.',
-                            style: TextStyle(color: AppColors.danger)),
+                        child: Text(
+                          'Le départ et l’arrivée doivent être différents.',
+                          style: TextStyle(color: AppColors.danger),
+                        ),
                       ),
                     const SizedBox(height: 12),
                     Row(
@@ -94,7 +133,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           child: OutlinedButton.icon(
                             onPressed: _pickDate,
                             icon: const Icon(Icons.calendar_today_outlined),
-                            label: Text(DateFormat('EEE d MMM', 'fr').format(_date)),
+                            label: Text(_date == null ? 'Toutes dates' : DateFormat('EEE d MMM', 'fr').format(_date!)),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -112,13 +151,61 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    const FilledButton(onPressed: null, child: Text('Rechercher')),
-                    const SizedBox(height: 6),
-                    Text('La recherche de trajets sera disponible à l’étape 6 du développement.',
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textMuted)),
+                    if (_error != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(_error!, style: const TextStyle(color: AppColors.danger)),
+                      ),
+                    FilledButton(onPressed: samePlace ? null : _search, child: const Text('Rechercher')),
                   ],
                 ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text('Trajets populaires', style: theme.textTheme.titleSmall?.copyWith(color: AppColors.textMuted)),
+            const SizedBox(height: 8),
+            ref
+                .watch(popularRoutesProvider)
+                .when(
+                  loading: () => const LinearProgressIndicator(),
+                  error: (_, _) => const SizedBox.shrink(),
+                  data: (routes) => Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final r in routes)
+                        ActionChip(
+                          backgroundColor: AppColors.brandSoft,
+                          label: Text(
+                            '${r.fromLabel} → ${r.toLabel} · ${r.upcomingTrips == 0 ? 'aucun trajet' : '${r.upcomingTrips} trajet${r.upcomingTrips > 1 ? 's' : ''}'}',
+                          ),
+                          onPressed: () => context.push(
+                            resultsLocation(
+                              SearchQuery(fromId: r.fromId, fromLabel: r.fromLabel, toId: r.toId, toLabel: r.toLabel),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+            const SizedBox(height: 16),
+            Card(
+              child: ListTile(
+                title: const Text('Mes prochains trajets'),
+                subtitle: Text(
+                  ref.watch(authControllerProvider).value != null
+                      ? 'Aucune réservation à venir. La réservation arrive à la prochaine étape du développement.'
+                      : 'Connectez-vous pour retrouver vos réservations ici.',
+                ),
+              ),
+            ),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.directions_car_outlined),
+                title: const Text('Vous conduisez ?'),
+                subtitle: const Text('Proposez vos places libres et partagez les frais de route.'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push('/conducteur'),
               ),
             ),
           ],

@@ -8,6 +8,7 @@ class Me {
     required this.lastName,
     required this.displayName,
     required this.bio,
+    this.photoUrl,
     required this.preferences,
     required this.status,
     required this.profileComplete,
@@ -24,6 +25,7 @@ class Me {
         lastName: j['lastName'] as String?,
         displayName: j['displayName'] as String?,
         bio: j['bio'] as String?,
+        photoUrl: j['photoUrl'] as String?,
         preferences: Map<String, dynamic>.from((j['preferences'] as Map?) ?? {}),
         status: j['status'] as String,
         profileComplete: j['profileComplete'] as bool,
@@ -41,6 +43,8 @@ class Me {
   final String? lastName;
   final String? displayName;
   final String? bio;
+  /// URL signée temporaire (1 h) de la photo de profil, ou null.
+  final String? photoUrl;
   final Map<String, dynamic> preferences;
   final String status;
   final bool profileComplete;

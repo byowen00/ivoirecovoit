@@ -46,16 +46,16 @@ class AuthSession {
   }
 
   /// Appel authentifié : en cas de jeton expiré, un renouvellement puis une seule nouvelle tentative.
-  Future<Map<String, dynamic>> send(String method, String path, {Object? body}) async {
+  Future<Map<String, dynamic>> send(String method, String path, {Object? body, Map<String, String>? headers}) async {
     if (_accessToken == null && !await refresh()) {
       throw ApiException('UNAUTHENTICATED', 'Connectez-vous pour continuer.', status: 401);
     }
     try {
-      return await api.send(method, path, body: body, accessToken: _accessToken);
+      return await api.send(method, path, body: body, accessToken: _accessToken, headers: headers);
     } on ApiException catch (e) {
       if (e.status != 401) rethrow;
       if (e.code == 'TOKEN_EXPIRED' && await refresh()) {
-        return api.send(method, path, body: body, accessToken: _accessToken);
+        return api.send(method, path, body: body, accessToken: _accessToken, headers: headers);
       }
       if (e.code != 'TOKEN_EXPIRED') await clear();
       rethrow;

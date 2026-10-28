@@ -9,6 +9,9 @@ import '../../providers.dart';
 import '../auth/auth_controller.dart';
 import '../auth/models.dart';
 import '../auth/otp_field.dart';
+import '../../core/upload.dart';
+import '../driver/driver_screen.dart';
+import '../trips/trip_detail_screen.dart';
 
 const _optionalConsentVersion = '1';
 final _dateTime = DateFormat("d MMM y 'à' HH:mm", 'fr');
@@ -46,6 +49,7 @@ class AccountScreen extends ConsumerWidget {
                 Text('${formatE164(me.phone)}${me.isDemo ? '  [DEMO]' : ''}',
                     style: const TextStyle(color: AppColors.textMuted)),
                 const SizedBox(height: 12),
+                _PhotoCard(me: me),
                 _ProfileCard(me: me),
                 _PreferencesCard(me: me),
                 _ConsentsCard(me: me),
@@ -55,6 +59,65 @@ class AccountScreen extends ConsumerWidget {
               ],
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+/// Photo de profil : dépôt contrôlé par le serveur, visible des autres membres.
+class _PhotoCard extends ConsumerStatefulWidget {
+  const _PhotoCard({required this.me});
+  final Me me;
+  @override
+  ConsumerState<_PhotoCard> createState() => _PhotoCardState();
+}
+
+class _PhotoCardState extends ConsumerState<_PhotoCard> {
+  bool _busy = false;
+
+  Future<void> _run(Future<Map<String, dynamic>> Function() fn) async {
+    setState(() => _busy = true);
+    try {
+      ref.read(authControllerProvider.notifier).setMe(Me.fromJson(await fn()));
+    } on ApiException catch (e) {
+      if (mounted) _toast(context, e.message);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _change() async {
+    final session = ref.read(authSessionProvider);
+    try {
+      final file = await pickDocument(context, maxBytes: maxPhotoBytes, allowPdf: false);
+      if (file == null) return;
+      await _run(() async {
+        final res = await session.send('POST', '/me/photo/upload-url', body: file.meta);
+        await putSigned(res['upload'] as Map<String, dynamic>, file);
+        return session.send('POST', '/me/photo/complete');
+      });
+    } on ApiException catch (e) {
+      if (mounted) _toast(context, e.message);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final me = widget.me;
+    return Card(
+      child: ListTile(
+        leading: Avatar(name: me.displayName ?? '?', url: me.photoUrl, radius: 26),
+        title: const Text('Photo de profil'),
+        subtitle: const Text('Visible des autres membres. JPEG, PNG ou WebP, 5 Mo maximum.'),
+        trailing: PopupMenuButton<String>(
+          enabled: !_busy,
+          tooltip: 'Modifier la photo',
+          onSelected: (v) => v == 'change' ? _change() : _run(() => ref.read(authSessionProvider).send('DELETE', '/me/photo')),
+          itemBuilder: (_) => [
+            PopupMenuItem(value: 'change', child: Text(me.photoUrl == null ? 'Ajouter une photo' : 'Changer de photo')),
+            if (me.photoUrl != null) const PopupMenuItem(value: 'remove', child: Text('Retirer la photo')),
+          ],
         ),
       ),
     );

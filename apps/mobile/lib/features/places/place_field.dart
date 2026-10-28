@@ -14,12 +14,16 @@ class PlaceField extends StatefulWidget {
     required this.label,
     required this.repository,
     required this.onSelected,
+    this.initial,
     this.debounce = const Duration(milliseconds: 300),
   });
 
   final String label;
   final PlacesRepository repository;
   final ValueChanged<Place?> onSelected;
+
+  /// Lieu déjà choisi (brouillon, recherche précédente).
+  final Place? initial;
   final Duration debounce;
 
   @override
@@ -35,6 +39,15 @@ class _PlaceFieldState extends State<PlaceField> {
   String? _error;
   bool _searched = false;
   Place? _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initial case final p?) {
+      _selected = p;
+      _controller.text = p.label;
+    }
+  }
 
   @override
   void dispose() {
@@ -126,8 +139,10 @@ class _PlaceFieldState extends State<PlaceField> {
         if (_searched && _items.isEmpty && _error == null)
           Padding(
             padding: const EdgeInsets.only(top: 4),
-            child: Text('Aucun lieu trouvé. Essayez le nom de la ville ou de la commune.',
-                style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textMuted)),
+            child: Text(
+              'Aucun lieu trouvé. Essayez le nom de la ville ou de la commune.',
+              style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textMuted),
+            ),
           ),
         if (_items.isNotEmpty)
           Card(

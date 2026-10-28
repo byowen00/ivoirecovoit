@@ -13,3 +13,20 @@ String formatDuration(int seconds) {
   if (h == 0) return 'env. $m min';
   return m == 0 ? 'env. $h h' : 'env. $h h ${m.toString().padLeft(2, '0')}';
 }
+
+/// Distance indicative : « env. 240 km ».
+String formatDistance(int meters) =>
+    meters < 1000 ? 'env. ${(meters / 50).round() * 50} m' : 'env. ${(meters / 1000).round()} km';
+
+// Abidjan est à UTC+0 toute l'année : l'heure UTC est l'heure locale.
+final _time = DateFormat('HH:mm', 'fr');
+final _day = DateFormat('EEE d MMM', 'fr');
+
+/// Heure à Abidjan : « 07:30 ».
+String formatTime(DateTime d) => _time.format(d.toUtc());
+
+/// Jour à Abidjan : « jeu. 29 oct. ».
+String formatDay(DateTime d) => _day.format(d.toUtc());
+
+/// Date ISO (AAAA-MM-JJ) à l'heure d'Abidjan.
+String isoDay(DateTime d) => d.toUtc().toIso8601String().substring(0, 10);
