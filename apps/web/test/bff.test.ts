@@ -99,13 +99,20 @@ describe('relais authentifié /bff/api', () => {
       ctx(`trips/${id}`),
     );
     expect(fetchMock.mock.calls[1]![1].headers['if-match']).toBe('3');
-    for (const path of ['drivers/me', 'vehicles', `trips/${id}/manage`, 'trips/mine']) {
+    for (const path of ['drivers/me', 'vehicles', `trips/${id}/manage`, 'trips/mine', 'bookings/mine', `bookings/${id}`]) {
       expect((await GET(req(path, { cookies: { ic_access: 'AAA' } }), ctx(path))).status).toBe(200);
     }
   });
 
   it('ne relaie que les routes de l’espace personnel', async () => {
-    for (const path of ['admin/users', 'admin/verifications', 'trips/search', 'drivers/0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b']) {
+    for (const path of [
+      'admin/users',
+      'admin/verifications',
+      'trips/search',
+      'drivers/0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b',
+      'bookings/0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b/pay',
+      'admin/bookings',
+    ]) {
       const res = await GET(req(path, { cookies: { ic_access: 'AAA' } }), ctx(path));
       expect(res.status).toBe(404);
     }

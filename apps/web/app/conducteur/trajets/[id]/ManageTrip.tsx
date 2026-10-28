@@ -5,11 +5,15 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { todayInAbidjan } from '@/components/SearchForm';
 import { formatDay, formatTime } from '@/components/TripCard';
+import { BookingStatusBadge } from '@/components/BookingStatusBadge';
 import { type MapPoint, TripMap } from '@/components/TripMap';
 import { FieldErrors } from '@/lib/account';
 import { ApiRequestError } from '@/lib/api';
+import { type BookingStatus, bookings } from '@/lib/bookings';
 import { formatDistance, formatDuration, formatXof } from '@/lib/format';
 import { driverTrips, LUGGAGE_LABEL, type ManagedTrip, newIdempotencyKey, routeSourceNote, TRIP_STATUS_LABEL } from '@/lib/trips';
+
+const INACTIVE: BookingStatus[] = ['EXPIRED', 'REJECTED', 'CANCELLED_BY_PASSENGER', 'CANCELLED_BY_DRIVER', 'CANCELLED_BY_ADMIN'];
 
 const message = (err: unknown) => (err instanceof ApiRequestError ? err.message : 'Une erreur est survenue. Réessayez.');
 
@@ -45,11 +49,30 @@ export function ManageTrip({ id }: { id: string }) {
     }
   }
 
+  async function bookingAct(fn: () => Promise<unknown>, done: string) {
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await fn();
+      setTrip(await driverTrips.manage(id));
+      setNotice(done);
+    } catch (err) {
+      setError(message(err));
+      load();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const points = useMemo<MapPoint[]>(
     () =>
       (trip?.stops ?? []).map((s, i, all) => ({ lat: s.lat, lng: s.lng, label: s.label, tone: i === 0 ? 'origin' : i === all.length - 1 ? 'destination' : 'stop' })),
     [trip],
   );
+
+  const active = trip?.bookings.filter((b) => !INACTIVE.includes(b.status)) ?? [];
+  const closed = trip?.bookings.filter((b) => INACTIVE.includes(b.status)) ?? [];
 
   if (!trip) return error ? <p role="alert" className="card text-danger">{error}</p> : <p className="card text-ink-muted">Chargement…</p>;
   const a = trip.actions;
@@ -160,17 +183,79 @@ export function ManageTrip({ id }: { id: string }) {
         {trip.bookings.length === 0 ? (
           <p className="text-ink-muted">Aucune réservation pour l’instant.</p>
         ) : (
-          <ul className="divide-y divide-line">
-            {trip.bookings.map((b) => (
-              <li key={b.id} className="py-2">
-                {b.passenger.displayName ?? 'Passager'} · {b.seats} place{b.seats > 1 ? 's' : ''} · {b.pickup} → {b.dropoff} ·{' '}
-                <span className="text-ink-muted">{b.status}</span>
-              </li>
-            ))}
-          </ul>
+          <>
+            {active.length === 0 ? (
+              <p className="text-ink-muted">Aucune réservation en cours.</p>
+            ) : (
+              <ul className="divide-y divide-line">
+                {active.map((b) => (
+                  <BookingRow key={b.id} b={b} tripId={trip.id} busy={busy} act={bookingAct} />
+                ))}
+              </ul>
+            )}
+            {closed.length > 0 && (
+              <details className="mt-3 text-sm">
+                <summary className="cursor-pointer text-ink-muted">Demandes expirées, refusées ou annulées ({closed.length})</summary>
+                <ul className="divide-y divide-line">
+                  {closed.map((b) => (
+                    <BookingRow key={b.id} b={b} tripId={trip.id} busy={busy} act={bookingAct} />
+                  ))}
+                </ul>
+              </details>
+            )}
+          </>
         )}
       </section>
     </div>
+  );
+}
+
+type ManagedBooking = ManagedTrip['bookings'][number];
+
+/** Une réservation vue du conducteur, avec les actions permises par son statut. */
+function BookingRow({ b, tripId, busy, act }: { b: ManagedBooking; tripId: string; busy: boolean; act: (fn: () => Promise<unknown>, done: string) => Promise<void> }) {
+  return (
+    <li className="grid gap-2 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="font-medium">
+          {b.passenger.displayName ?? 'Passager'}
+          {b.passenger.ratingAvg !== null && <span className="ml-1 text-sm text-ink-muted">★ {b.passenger.ratingAvg.toFixed(1)}</span>}
+        </span>
+        <BookingStatusBadge status={b.status} role="DRIVER" />
+      </div>
+      <p className="text-sm text-ink-muted">
+        {b.seats} place{b.seats > 1 ? 's' : ''} · {b.pickup} → {b.dropoff}
+        {b.pickupAt && ` · montée à ${formatTime(b.pickupAt)}`} · vous recevrez {formatXof(b.driverNetXof)}
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {b.actions.canAccept && (
+          <button type="button" className="btn-primary" disabled={busy} onClick={() => void act(() => bookings.accept(b.id), 'Demande acceptée.')}>
+            Accepter
+          </button>
+        )}
+        {b.actions.canReject && (
+          <button type="button" className="btn-secondary" disabled={busy} onClick={() => void act(() => bookings.reject(b.id), 'Demande refusée.')}>
+            Refuser
+          </button>
+        )}
+        {b.actions.canMarkNoShow && (
+          <button
+            type="button"
+            className="btn-danger"
+            disabled={busy}
+            onClick={() => {
+              if (window.confirm('Confirmer que ce passager ne s’est pas présenté au point de montée ?'))
+                void act(() => bookings.noShow(tripId, b.id), 'Absence enregistrée.');
+            }}
+          >
+            Passager absent
+          </button>
+        )}
+        <Link href={`/reservations/${b.id}`} className="btn-secondary">
+          Détail{b.actions.canCancel ? ' et annulation' : ''}
+        </Link>
+      </div>
+    </li>
   );
 }
 
@@ -207,7 +292,7 @@ function EditPanel({ trip, onSaved, onConflict }: { trip: ManagedTrip; onSaved: 
   return (
     <form onSubmit={save} className="card grid gap-3" aria-label="Modifier le trajet">
       <p className="text-sm text-ink-muted">
-        L’itinéraire et l’horaire se modifient en créant un nouveau trajet (dupliquer) tant que la gestion des réservations n’est pas disponible.
+        L’itinéraire et les arrêts se modifient en créant un nouveau trajet (dupliquer). Les places ne peuvent pas descendre sous le nombre déjà réservé.
       </p>
       <div>
         <label htmlFor="e-seats" className="mb-1 block text-sm font-medium">
@@ -247,7 +332,7 @@ function CancelPanel({ busy, onConfirm }: { busy: boolean; onConfirm: (reason: s
   return (
     <div className="card grid gap-3" aria-label="Annuler le trajet">
       <label htmlFor="reason" className="text-sm font-medium">
-        Motif de l’annulation (visible des passagers)
+        Motif de l’annulation (visible des passagers, qui seront remboursés intégralement)
       </label>
       <textarea id="reason" rows={2} maxLength={300} className="field h-auto py-2" value={reason} onChange={(e) => setReason(e.target.value)} />
       <button type="button" className="btn-danger justify-self-start" disabled={busy || reason.trim().length < 5} onClick={() => onConfirm(reason.trim(), key)}>

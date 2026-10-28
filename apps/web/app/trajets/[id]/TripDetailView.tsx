@@ -193,16 +193,25 @@ export function TripDetailView({ id }: { id: string }) {
                 {availability.seatsAvailable} place{availability.seatsAvailable > 1 ? 's' : ''} libre
                 {availability.seatsAvailable > 1 ? 's' : ''} sur ce segment
               </p>
-              <p className="mt-1 text-xs text-ink-muted">Les frais de service éventuels seront affichés avant le paiement.</p>
+              <p className="mt-1 text-xs text-ink-muted">Les frais de service sont détaillés à l’étape suivante.</p>
             </div>
           ) : (
             <p className="text-sm text-ink-muted">Calcul du prix…</p>
           )}
-          <button type="button" className="btn-primary" disabled aria-describedby="book-soon">
-            {availability && !enoughSeats ? 'Plus assez de places' : 'Réserver'}
-          </button>
-          <p id="book-soon" className="text-center text-xs text-ink-muted">
-            La réservation et le paiement arrivent à l’étape 7 du développement.
+          {bookable && validSegment && availability && enoughSeats ? (
+            <Link
+              href={`/trajets/${trip.id}/reserver?pickup=${pickup}&dropoff=${dropoff}&seats=${seats}`}
+              className="btn-primary text-center"
+            >
+              Réserver
+            </Link>
+          ) : (
+            <button type="button" className="btn-primary" disabled>
+              {!bookable ? 'Réservation fermée' : availability && !enoughSeats ? 'Plus assez de places' : 'Réserver'}
+            </button>
+          )}
+          <p className="text-center text-xs text-ink-muted">
+            {trip.acceptanceMode === 'AUTO' ? 'Réservation confirmée dès le paiement.' : 'Le conducteur accepte chaque demande.'}
           </p>
         </section>
 

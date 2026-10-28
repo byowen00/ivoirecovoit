@@ -24,21 +24,34 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </div>
         )}
         <header className="border-b border-line bg-surface">
-          <nav className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4" aria-label="Navigation principale">
-            <Link href="/" className="text-lg font-bold text-brand">
+          <nav className="mx-auto flex min-h-14 max-w-5xl flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-2 sm:py-0" aria-label="Navigation principale">
+            <Link href="/" className="shrink-0 text-base font-bold text-brand sm:text-lg">
               IvoireCovoit
             </Link>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 whitespace-nowrap sm:gap-4">
               {signedIn && (
-                <Link href="/conducteur" className="text-sm text-ink-muted underline-offset-4 hover:underline">
-                  Espace conducteur
-                </Link>
+                <>
+                  <Link href="/reservations" className="text-sm text-ink-muted underline-offset-4 hover:underline">
+                    Réservations
+                  </Link>
+                  <Link href="/conducteur" className="text-sm text-ink-muted underline-offset-4 hover:underline">
+                    <span className="sm:hidden">Conducteur</span>
+                    <span className="hidden sm:inline">Espace conducteur</span>
+                  </Link>
+                </>
               )}
-              <Link href="/statut" className="text-sm text-ink-muted underline-offset-4 hover:underline">
+              <Link href="/statut" className={`text-sm text-ink-muted underline-offset-4 hover:underline ${signedIn ? 'hidden sm:inline' : ''}`}>
                 État du service
               </Link>
               <Link href={signedIn ? '/compte' : '/connexion'} className="text-sm font-semibold text-brand underline-offset-4 hover:underline">
-                {signedIn ? 'Mon compte' : 'Se connecter'}
+                {signedIn ? (
+                  <>
+                    <span className="sm:hidden">Compte</span>
+                    <span className="hidden sm:inline">Mon compte</span>
+                  </>
+                ) : (
+                  'Se connecter'
+                )}
               </Link>
             </div>
           </nav>

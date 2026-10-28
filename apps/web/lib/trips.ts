@@ -1,3 +1,4 @@
+import type { BookingStatus } from './bookings';
 import { send } from './account';
 import { apiGet } from './api';
 
@@ -264,7 +265,21 @@ export interface ManagedTrip {
   isDemo: boolean;
   vehicle: { id: string; make: string; model: string; color: string; plateNumber: string; seatsCapacity: number; status: string };
   stops: (TripStop & { placeId: string | null })[];
-  bookings: { id: string; reference: string; status: string; seats: number; passenger: { displayName: string | null }; pickup: string | null; dropoff: string | null }[];
+  bookings: {
+    id: string;
+    reference: string;
+    status: BookingStatus;
+    paymentStatus: string;
+    seats: number;
+    passenger: { displayName: string | null; ratingAvg: number | null };
+    pickup: string | null;
+    dropoff: string | null;
+    pickupAt: string | null;
+    holdExpiresAt: string | null;
+    subtotalXof: number;
+    driverNetXof: number;
+    actions: { canAccept: boolean; canReject: boolean; canCancel: boolean; canMarkNoShow: boolean };
+  }[];
   actions: { canEdit: boolean; canPublish: boolean; canCancel: boolean; canStart: boolean; canComplete: boolean; canDuplicate: boolean };
 }
 
