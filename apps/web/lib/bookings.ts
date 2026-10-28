@@ -55,6 +55,8 @@ export interface Booking {
   isDemo: boolean;
   viewerRole: 'PASSENGER' | 'DRIVER';
   cancellationPolicy: CancellationPolicy;
+  /** Dernier paiement mobile (passager uniquement). */
+  payment: { id: string; status: string; method: string; amountXof: number; failureMessage: string | null; createdAt: string } | null;
   trip: {
     id: string;
     publicRef: string;

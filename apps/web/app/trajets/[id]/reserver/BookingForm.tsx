@@ -147,9 +147,9 @@ export function BookingForm({ tripId }: { tripId: string }) {
         ) : (
           <p>Réservation instantanée : vos places sont bloquées {q.holdMinutes} min, le temps de payer.</p>
         )}
-        <p className="rounded-[var(--radius-control)] bg-warning-soft px-3 py-2">
-          Le paiement mobile (Wave, Orange Money, MTN MoMo, Moov Money) n’est pas encore branché : sans paiement, la réservation expire à la fin du
-          délai et les places sont libérées.
+        <p>
+          {q.acceptanceMode === 'MANUAL' ? 'Une fois la demande acceptée, vous payez' : 'Vous payez ensuite'} par Mobile Money (Wave, Orange Money, MTN MoMo, Moov
+          Money) ; sans paiement dans le délai, la réservation expire et les places sont libérées.
         </p>
         {q.cashAllowed && (
           <label className="flex items-start gap-2">

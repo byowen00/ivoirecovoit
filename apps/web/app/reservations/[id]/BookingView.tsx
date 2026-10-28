@@ -91,6 +91,12 @@ export function BookingView({ id }: { id: string }) {
 
       <StatusPanel b={b} holdLeft={holdLeft} />
 
+      {!isDriver && (b.actions.canPay || b.paymentStatus === 'PROCESSING') && b.status === 'PENDING_PAYMENT' && (
+        <Link href={`/reservations/${b.id}/payer`} className="btn-primary justify-self-start">
+          {b.actions.canPay ? `Payer ${formatXof(b.totalXof)}` : 'Suivre le paiement'}
+        </Link>
+      )}
+
       {isDriver && (b.actions.canAccept || b.actions.canReject) && (
         <div className="flex flex-wrap gap-2">
           {b.actions.canAccept && (
@@ -199,6 +205,14 @@ export function BookingView({ id }: { id: string }) {
   );
 }
 
+function refundStatusText(b: Booking): string {
+  if (!b.refundDueXof) return 'Aucun remboursement n’est dû.';
+  const amount = formatXof(b.refundDueXof);
+  if (b.paymentStatus === 'REFUNDED' || b.paymentStatus === 'PARTIALLY_REFUNDED') return `Remboursement de ${amount} effectué sur le numéro qui a payé.`;
+  if (b.paymentStatus === 'REFUND_PENDING') return `Remboursement de ${amount} en cours sur le numéro qui a payé.`;
+  return `Remboursement prévu : ${amount}.`;
+}
+
 function StatusPanel({ b, holdLeft }: { b: Booking; holdLeft: number | null }) {
   const isDriver = b.viewerRole === 'DRIVER';
   const until = (iso: string) => `${formatDay(iso)} à ${formatTime(iso)}`;
@@ -219,7 +233,9 @@ function StatusPanel({ b, holdLeft }: { b: Booking; holdLeft: number | null }) {
         <>
           {isDriver ? 'Le passager doit payer' : 'Places bloquées'} jusqu’à {b.holdExpiresAt && formatTime(b.holdExpiresAt)} ({holdLeft !== null && remaining(holdLeft)}).{' '}
           {!isDriver &&
-            'Le paiement mobile (Wave, Orange Money, MTN MoMo, Moov Money) n’est pas encore disponible dans cette version : sans paiement, la réservation expirera et les places seront libérées.'}
+            (b.paymentStatus === 'PROCESSING'
+              ? 'Paiement en cours de validation chez l’opérateur : les places restent bloquées le temps de la réponse.'
+              : 'Payez par Mobile Money (Wave, Orange Money, MTN MoMo, Moov Money) pour confirmer ; sans paiement, la réservation expirera et les places seront libérées.')}
         </>
       );
       break;
@@ -232,7 +248,11 @@ function StatusPanel({ b, holdLeft }: { b: Booking; holdLeft: number | null }) {
           : 'Réservation confirmée.';
       break;
     case 'EXPIRED':
-      text = isDriver ? 'Réservation expirée.' : 'Délai dépassé : la réservation a expiré et les places ont été libérées. Rien ne vous a été débité.';
+      text = isDriver
+        ? 'Réservation expirée.'
+        : b.refundDueXof
+          ? `Paiement reçu après la fin du délai : la réservation a expiré. ${refundStatusText(b)}`
+          : 'Délai dépassé : la réservation a expiré et les places ont été libérées. Rien ne vous a été débité.';
       break;
     case 'REJECTED':
       text = isDriver ? 'Demande refusée.' : 'Le conducteur n’a pas pu accepter votre demande. Rien ne vous a été débité.';
@@ -247,9 +267,7 @@ function StatusPanel({ b, holdLeft }: { b: Booking; holdLeft: number | null }) {
       text = (
         <>
           {b.cancellationReason && `Motif : ${b.cancellationReason}. `}
-          {b.refundDueXof
-            ? `Remboursement prévu : ${formatXof(b.refundDueXof)}. Les remboursements seront traités avec le paiement mobile (prochaine étape du développement).`
-            : 'Aucun remboursement n’est dû.'}
+          {refundStatusText(b)}
         </>
       );
   }

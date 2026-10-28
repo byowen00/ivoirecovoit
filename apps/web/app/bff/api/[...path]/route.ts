@@ -27,6 +27,9 @@ const ALLOWED_ROUTES = [
   'bookings/(quote|mine)',
   `bookings/${ID}(/(accept|reject|cancel|cancel/preview))?`,
   `trips/${ID}/bookings/${ID}/no-show`,
+  `bookings/${ID}/payments`,
+  'payments/methods',
+  `payments/${ID}`,
 ];
 const ALLOWED = new RegExp(`^(${ALLOWED_ROUTES.join('|')})$`);
 // En-têtes du client utiles à l'API : clé d'idempotence (création sans doublon) et version attendue (If-Match).

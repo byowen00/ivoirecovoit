@@ -47,7 +47,12 @@ export function MyBookings() {
 
   return (
     <div className="mx-auto grid max-w-2xl gap-4">
-      <h1 className="text-2xl font-bold">Mes réservations</h1>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h1 className="text-2xl font-bold">Mes réservations</h1>
+        <Link href="/paiements" className="text-sm font-semibold text-brand">
+          Historique des paiements
+        </Link>
+      </div>
       <div role="tablist" aria-label="Période" className="flex gap-1 border-b border-line">
         {(
           [

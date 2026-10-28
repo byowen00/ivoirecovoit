@@ -28,9 +28,19 @@ export default async function HomePage() {
             Mes prochains trajets
           </h2>
           <p className="mt-2 text-ink-muted">
-            {signedIn
-              ? 'Aucune réservation à venir. La réservation de places arrive à la prochaine étape du développement.'
-              : 'Connectez-vous pour retrouver vos réservations ici.'}
+            {signedIn ? (
+              <>
+                <Link href="/reservations" className="font-semibold text-brand">
+                  Mes réservations
+                </Link>{' '}
+                ·{' '}
+                <Link href="/paiements" className="font-semibold text-brand">
+                  Historique des paiements
+                </Link>
+              </>
+            ) : (
+              'Connectez-vous pour retrouver vos réservations ici.'
+            )}
           </p>
         </section>
         <section aria-labelledby="drive-title" className="card">

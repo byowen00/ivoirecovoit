@@ -61,7 +61,12 @@ export function DriverDashboard() {
   return (
     <div className="mx-auto grid max-w-2xl gap-4">
       <div>
-        <h1 className="text-2xl font-bold">Espace conducteur</h1>
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h1 className="text-2xl font-bold">Espace conducteur</h1>
+          <Link href="/paiements?onglet=gains" className="text-sm font-semibold text-brand">
+            Mes gains
+          </Link>
+        </div>
         {profile && (
           <p className="text-ink-muted">
             Dossier : <strong>{VERIFICATION_LABEL[profile.status]}</strong>

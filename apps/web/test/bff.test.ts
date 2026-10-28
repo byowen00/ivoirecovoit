@@ -99,7 +99,7 @@ describe('relais authentifié /bff/api', () => {
       ctx(`trips/${id}`),
     );
     expect(fetchMock.mock.calls[1]![1].headers['if-match']).toBe('3');
-    for (const path of ['drivers/me', 'vehicles', `trips/${id}/manage`, 'trips/mine', 'bookings/mine', `bookings/${id}`]) {
+    for (const path of ['drivers/me', 'vehicles', `trips/${id}/manage`, 'trips/mine', 'bookings/mine', `bookings/${id}`, 'payments/methods', `payments/${id}`, 'me/transactions', 'me/earnings']) {
       expect((await GET(req(path, { cookies: { ic_access: 'AAA' } }), ctx(path))).status).toBe(200);
     }
   });
@@ -112,6 +112,10 @@ describe('relais authentifié /bff/api', () => {
       'drivers/0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b',
       'bookings/0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b/pay',
       'admin/bookings',
+      // Les webhooks et la page du bac à sable ne passent jamais par le relais de l'application.
+      'webhooks/payments/sandbox',
+      'sandbox/pay/SBX-abc',
+      'payments/abc',
     ]) {
       const res = await GET(req(path, { cookies: { ic_access: 'AAA' } }), ctx(path));
       expect(res.status).toBe(404);
