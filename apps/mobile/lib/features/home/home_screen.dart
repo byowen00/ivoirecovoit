@@ -204,6 +204,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             Card(
               child: ListTile(
+                leading: const Icon(Icons.receipt_long_outlined),
+                title: const Text('Historique des paiements'),
+                subtitle: const Text('Paiements, remboursements et gains de conducteur.'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push('/paiements'),
+              ),
+            ),
+            Card(
+              child: ListTile(
                 leading: const Icon(Icons.directions_car_outlined),
                 title: const Text('Vous conduisez ?'),
                 subtitle: const Text('Proposez vos places libres et partagez les frais de route.'),

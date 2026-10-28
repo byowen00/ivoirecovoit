@@ -233,7 +233,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Total'), findsOneWidget);
-    expect(find.textContaining('n’est pas encore branché'), findsOneWidget);
+    expect(find.textContaining('Vous payez ensuite par Mobile Money'), findsOneWidget);
     final button = find.widgetWithText(FilledButton, 'Réserver');
     expect(tester.widget<FilledButton>(button).onPressed, isNull);
     await tester.scrollUntilVisible(find.text('J’accepte les conditions d’annulation'), 200);

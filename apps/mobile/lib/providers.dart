@@ -8,6 +8,7 @@ import 'features/auth/auth_repository.dart';
 import 'features/auth/auth_session.dart';
 import 'features/bookings/bookings_repository.dart';
 import 'features/driver/driver_repository.dart';
+import 'features/payments/payments_repository.dart';
 import 'features/places/places_repository.dart';
 import 'features/trips/trips_repository.dart';
 
@@ -39,4 +40,8 @@ final driverRepositoryProvider = Provider<DriverRepository>((ref) => DriverRepos
 
 final bookingsRepositoryProvider = Provider<BookingsRepository>(
   (ref) => ApiBookingsRepository(ref.watch(authSessionProvider)),
+);
+
+final paymentsRepositoryProvider = Provider<PaymentsRepository>(
+  (ref) => ApiPaymentsRepository(ref.watch(authSessionProvider)),
 );

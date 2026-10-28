@@ -101,18 +101,33 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
             ? 'Ce passager attend votre réponse${hold != null ? ' jusqu’au ${formatDay(hold)} à ${until(hold)}' : ''}. Sans réponse, la demande expire.'
             : 'Le conducteur doit accepter votre demande${hold != null ? ' avant le ${formatDay(hold)} à ${until(hold)}' : ''}. Vos places sont bloquées en attendant.';
       case 'PENDING_PAYMENT':
+        if (b.isDriver) return hold != null ? 'Le passager doit payer avant ${until(hold)}.' : null;
         return '${hold != null ? 'Places bloquées jusqu’à ${until(hold)}. ' : ''}'
-            'Le paiement mobile (Wave, Orange Money, MTN MoMo, Moov Money) n’est pas encore disponible dans cette version : '
-            'sans paiement, la réservation expirera et les places seront libérées.';
+            '${b.paymentStatus == 'PROCESSING' ? 'Paiement en cours de validation chez l’opérateur : les places restent bloquées le temps de la réponse.' : 'Payez par Mobile Money (Wave, Orange Money, MTN MoMo, Moov Money) pour confirmer ; sans paiement, la réservation expirera et les places seront libérées.'}';
       case 'CONFIRMED':
         return b.paymentMethod == 'CASH'
             ? 'Réservation confirmée. Paiement en espèces de ${formatXof(b.subtotalXof)} au conducteur le jour du trajet.'
             : 'Réservation confirmée.';
       default:
-        if (b.cancellationReason != null) return 'Motif : ${b.cancellationReason}';
-        if ((b.refundDueXof ?? 0) > 0) return 'Remboursement prévu : ${formatXof(b.refundDueXof!)}.';
-        return null;
+        final refund = _refundText(b);
+        if (b.cancellationReason != null) return 'Motif : ${b.cancellationReason}.${refund != null ? ' $refund' : ''}';
+        return refund;
     }
+  }
+
+  String? _refundText(Booking b) {
+    final due = b.refundDueXof ?? 0;
+    if (due == 0) return null;
+    return switch (b.paymentStatus) {
+      'REFUNDED' || 'PARTIALLY_REFUNDED' => 'Remboursement de ${formatXof(due)} effectué sur le numéro qui a payé.',
+      'REFUND_PENDING' => 'Remboursement de ${formatXof(due)} en cours sur le numéro qui a payé.',
+      _ => 'Remboursement prévu : ${formatXof(due)}.',
+    };
+  }
+
+  Future<void> _pay() async {
+    await context.push('/reservations/${widget.bookingId}/payer');
+    await _load();
   }
 
   @override
@@ -150,6 +165,15 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
             if (b.freeCancellation && b.can('canCancel') && !b.isDriver) ...[
               const SizedBox(height: 8),
               const NoticeBox('Le trajet a été modifié : vous pouvez annuler sans frais jusqu’au départ.'),
+            ],
+            if (!b.isDriver &&
+                b.status == 'PENDING_PAYMENT' &&
+                (b.can('canPay') || b.paymentStatus == 'PROCESSING')) ...[
+              const SizedBox(height: 12),
+              FilledButton(
+                onPressed: _pay,
+                child: Text(b.can('canPay') ? 'Payer ${formatXof(b.totalXof)}' : 'Suivre le paiement'),
+              ),
             ],
             if (b.can('canAccept') || b.can('canReject')) ...[
               const SizedBox(height: 12),

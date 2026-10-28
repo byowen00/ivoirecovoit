@@ -206,9 +206,10 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                         ),
                         const SizedBox(height: 8),
                         if (!_cash)
-                          const NoticeBox(
-                            'Le paiement mobile (Wave, Orange Money, MTN MoMo, Moov Money) n’est pas encore branché : '
-                            'sans paiement, la réservation expire à la fin du délai et les places sont libérées.',
+                          Text(
+                            '${q.manual ? 'Une fois la demande acceptée, vous payez' : 'Vous payez ensuite'} par Mobile Money '
+                            '(Wave, Orange Money, MTN MoMo, Moov Money) ; sans paiement dans le délai, '
+                            'la réservation expire et les places sont libérées.',
                           ),
                         if (q.cashAllowed)
                           CheckboxListTile(

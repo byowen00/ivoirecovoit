@@ -107,6 +107,11 @@ class BookingHistoryEntry {
   final String? reason;
 }
 
+String? _pendingPayment(Object? p) {
+  if (p is! Map<String, dynamic>) return null;
+  return p['status'] == 'CREATED' || p['status'] == 'PENDING' ? p['id'] as String : null;
+}
+
 class Booking {
   Booking.fromJson(Map<String, dynamic> j)
     : id = j['id'] as String,
@@ -141,6 +146,7 @@ class Booking {
       pickup = BookingPoint.fromJson(j['pickup'] as Map<String, dynamic>),
       dropoff = BookingPoint.fromJson(j['dropoff'] as Map<String, dynamic>),
       history = [for (final h in j['history'] as List) BookingHistoryEntry.fromJson(h as Map<String, dynamic>)],
+      pendingPaymentId = _pendingPayment(j['payment']),
       actions = Map<String, bool>.from(j['actions'] as Map);
   final String id;
   final String reference;
@@ -176,6 +182,8 @@ class Booking {
   final List<BookingHistoryEntry> history;
   final Map<String, bool> actions;
 
+  /// Paiement mobile en attente de validation chez l'opérateur (passager uniquement).
+  final String? pendingPaymentId;
   bool can(String action) => actions[action] ?? false;
 
   static String _vehicle(Map v) => '${v['make']} ${v['model']}, ${v['color']}';

@@ -14,6 +14,8 @@ import 'features/bookings/booking_detail_screen.dart';
 import 'features/bookings/booking_screen.dart';
 import 'features/bookings/my_bookings_screen.dart';
 import 'features/driver/driver_screen.dart';
+import 'features/payments/payment_history_screen.dart';
+import 'features/payments/payment_screen.dart';
 import 'features/trips/driver_profile_screen.dart';
 import 'features/trips/my_trips_screen.dart';
 import 'features/trips/publish_screen.dart';
@@ -88,6 +90,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/reservations/:id',
         builder: (_, state) => _RequireMe(builder: (_) => BookingDetailScreen(bookingId: state.pathParameters['id']!)),
+      ),
+      GoRoute(
+        path: '/reservations/:id/payer',
+        builder: (_, state) => _RequireMe(builder: (_) => PaymentScreen(bookingId: state.pathParameters['id']!)),
+      ),
+      GoRoute(
+        path: '/paiements',
+        builder: (_, state) => _RequireMe(
+          builder: (_) => PaymentHistoryScreen(earningsFirst: state.uri.queryParameters['onglet'] == 'gains'),
+        ),
       ),
       GoRoute(
         path: '/conducteurs/:id',

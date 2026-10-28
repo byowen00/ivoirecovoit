@@ -159,6 +159,10 @@ class _DriverScreenState extends ConsumerState<DriverScreen> {
                               onPressed: () => context.push('/conducteur/trajets'),
                               child: const Text('Mes trajets'),
                             ),
+                            OutlinedButton(
+                              onPressed: () => context.push('/paiements?onglet=gains'),
+                              child: const Text('Mes gains'),
+                            ),
                           ],
                         ),
                       ),
