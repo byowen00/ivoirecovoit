@@ -121,6 +121,9 @@ brancher le téléphone en USB (débogage USB activé) et lancer depuis `apps/mo
 | `docker compose` échoue | Docker Desktop n'est pas lancé |
 | `ports are not available ... 5432` | port déjà pris (souvent un PostgreSQL installé sur Windows) : dans `.env`, ajouter `POSTGRES_HOST_PORT=15432` et remplacer `localhost:5432` par `localhost:15432` dans `DATABASE_URL` et `TEST_DATABASE_URL` |
 | `pnpm dev:web` : port 3001 déjà pris | `pnpm --filter @ivoirecovoit/web exec next dev -p 4001`, et `localhost:4001` dans `WEB_BASE_URL` et `CORS_ORIGINS` de `.env` |
+| Port 3000 déjà pris (le code n'arrive pas ; `http://localhost:3000/api/v1/health` ne répond pas `"status":"ok"`) | dans `.env` : `PORT=4000` et `localhost:3000` → `localhost:4000` ; relancer `pnpm dev:backend`, puis lancer le site avec `$env:API_INTERNAL_URL="http://localhost:4000"` avant `next dev` (le site ne lit pas `.env`) |
+| `pnpm` non reconnu | `npm install -g pnpm@10.0.0`, puis rouvrir PowerShell |
+| `Connection terminated unexpectedly` au premier `pnpm db:migrate` | PostgreSQL finit de s'initialiser : attendre 30 secondes et relancer |
 | La carte reste grise | pas d'accès Internet (les fonds de carte viennent d'OpenStreetMap) |
 | Remettre les données à zéro | `docker compose -f infrastructure/docker-compose.yml down -v`, puis les commandes de la section 2 |
 
