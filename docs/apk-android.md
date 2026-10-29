@@ -4,8 +4,16 @@
 
 À chaque envoi sur `main`, la CI (tâche « Mobile ») produit l'artefact **ivoirecovoit-apk-test-signe** :
 version « release », signée, installable sur un téléphone Android (autoriser l'installation d'applications de
-sources inconnues). La CI vérifie la signature (`apksigner verify`) et que l'APK fait moins de 25 Mo (ENF-02) ;
-la taille et l'empreinte SHA-256 sont affichées dans le résumé de l'exécution.
+sources inconnues). Il contient **un APK par architecture** (`--split-per-abi`), car l'APK universel dépasse
+25 Mo (63,5 Mo mesurés) :
+
+- `app-arm64-v8a-release.apk` : la quasi-totalité des téléphones récents, **c'est celui à installer** ;
+- `app-armeabi-v7a-release.apk` : anciens téléphones 32 bits ;
+- `app-x86_64-release.apk` : émulateurs.
+
+La CI vérifie la signature (`apksigner verify`) et que chaque APK fait moins de 25 Mo (ENF-02) ; tailles et
+empreintes SHA-256 sont affichées dans le résumé de l'exécution. Sur le Play Store, l'App Bundle (`.aab`) fait
+ce découpage automatiquement.
 
 - Adresse de l'API intégrée à l'APK : variable de dépôt GitHub `STAGING_API_URL` (*Settings → Secrets and
   variables → Actions → Variables*), par exemple `https://api.preprod.exemple.ci`. Sans elle, l'APK pointe vers

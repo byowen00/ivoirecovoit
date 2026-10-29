@@ -114,23 +114,25 @@ jobs:
           fi
           printf 'storeFile=upload.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' "$PASS" "$ALIAS" "$PASS" > android/key.properties
       - name: APK signé de test
+        # Un APK par architecture : l'APK universel (3 architectures) dépasse 25 Mo.
         run: >-
-          flutter build apk --release
+          flutter build apk --release --split-per-abi
           --dart-define=API_BASE_URL=${{ vars.STAGING_API_URL || 'https://api.example.invalid' }}
           --dart-define=APP_ENV=staging
       - name: "Vérification de la signature et de la taille (ENF-02 : moins de 25 Mo)"
         run: |
-          APK=build/app/outputs/flutter-apk/app-release.apk
-          "$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n 1)/apksigner" verify --print-certs "$APK" | grep -E "Signer #1 certificate (DN|SHA-256)"
-          SIZE=$(stat -c %s "$APK")
-          echo "Taille de l'APK : $((SIZE / 1024 / 1024)) Mo ($SIZE octets)" | tee -a "$GITHUB_STEP_SUMMARY"
-          test "$SIZE" -lt 26214400
-          sha256sum "$APK" | tee -a "$GITHUB_STEP_SUMMARY"
+          APKSIGNER="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n 1)/apksigner"
+          for APK in build/app/outputs/flutter-apk/app-*-release.apk; do
+            "$APKSIGNER" verify --print-certs "$APK" | grep -E "Signer #1 certificate (DN|SHA-256)"
+            SIZE=$(stat -c %s "$APK")
+            echo "$(basename "$APK") : $((SIZE / 1024 / 1024)) Mo ($SIZE octets), SHA-256 $(sha256sum "$APK" | cut -d' ' -f1)" | tee -a "$GITHUB_STEP_SUMMARY"
+            test "$SIZE" -lt 26214400
+          done
           rm -f android/upload.jks android/key.properties
       - uses: actions/upload-artifact@v4
         with:
           name: ivoirecovoit-apk-test-signe
-          path: apps/mobile/build/app/outputs/flutter-apk/app-release.apk
+          path: apps/mobile/build/app/outputs/flutter-apk/app-*-release.apk
           retention-days: 14
 
   docker:
