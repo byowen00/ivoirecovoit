@@ -41,7 +41,8 @@ export function clearSessionCookies(res: NextResponse): void {
     [SIGNED_IN_COOKIE, '/'],
     [CSRF_COOKIE, '/'],
   ] as const) {
-    res.cookies.set(name, '', { path, maxAge: 0 });
+    // Mêmes attributs qu'à la création : un cookie effacé ne doit pas repartir sans HttpOnly, Secure ni SameSite.
+    res.cookies.set(name, '', { path, maxAge: 0, httpOnly: name !== CSRF_COOKIE, secure, sameSite: name === CSRF_COOKIE ? 'strict' : 'lax' });
   }
 }
 

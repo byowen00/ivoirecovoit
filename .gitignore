@@ -15,3 +15,13 @@ apps/mobile/build/
 apps/mobile/.flutter-plugins-dependencies
 dump.rdb
 apps/web/AGENTS.md
+!.env.prod.example
+# Production : sauvegardes, accès Caddy et configuration rclone restent sur le serveur
+infrastructure/backups/
+infrastructure/caddy/acces.d/*
+!infrastructure/caddy/acces.d/README.md
+infrastructure/rclone/
+# Signature Android : jamais dans le dépôt
+*.jks
+*.keystore
+apps/mobile/android/key.properties

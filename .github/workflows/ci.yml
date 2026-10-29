@@ -49,6 +49,8 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
+      - name: Dépendances vulnérables (gravité haute ou critique)
+        run: pnpm audit --prod --audit-level high
       - run: pnpm --filter @ivoirecovoit/backend lint
       - run: pnpm --filter @ivoirecovoit/backend typecheck
       - name: Attendre le stockage S3
@@ -91,6 +93,45 @@ jobs:
           name: ivoirecovoit-debug-apk
           path: apps/mobile/build/app/outputs/flutter-apk/app-debug.apk
           retention-days: 7
+      # APK « release » signé, pour les essais sur téléphone. Sans les secrets ANDROID_KEYSTORE_*, une clé de TEST
+      # jetable est créée pour l'occasion : l'APK s'installe, mais ne pourra pas être mis à jour par une version
+      # signée avec la vraie clé (à créer avant la publication sur le Play Store, voir docs/apk-android.md).
+      - name: Clé de signature (secrets du dépôt, sinon clé de test jetable)
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > android/upload.jks
+            PASS="$KEYSTORE_PASSWORD"; ALIAS="$KEY_ALIAS"
+            echo "Signature avec la clé fournie dans les secrets du dépôt."
+          else
+            PASS=$(openssl rand -hex 16); ALIAS=essai
+            keytool -genkeypair -keystore android/upload.jks -storetype PKCS12 -alias "$ALIAS" -keyalg RSA -keysize 3072 \
+              -validity 365 -storepass "$PASS" -keypass "$PASS" -dname "CN=IvoireCovoit essai, O=IvoireCovoit, C=CI"
+            echo "Signature avec une clé de TEST jetable (aucun secret de signature configuré)."
+          fi
+          printf 'storeFile=upload.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' "$PASS" "$ALIAS" "$PASS" > android/key.properties
+      - name: APK signé de test
+        run: >-
+          flutter build apk --release
+          --dart-define=API_BASE_URL=${{ vars.STAGING_API_URL || 'https://api.example.invalid' }}
+          --dart-define=APP_ENV=staging
+      - name: "Vérification de la signature et de la taille (ENF-02 : moins de 25 Mo)"
+        run: |
+          APK=build/app/outputs/flutter-apk/app-release.apk
+          "$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n 1)/apksigner" verify --print-certs "$APK" | grep -E "Signer #1 certificate (DN|SHA-256)"
+          SIZE=$(stat -c %s "$APK")
+          echo "Taille de l'APK : $((SIZE / 1024 / 1024)) Mo ($SIZE octets)" | tee -a "$GITHUB_STEP_SUMMARY"
+          test "$SIZE" -lt 26214400
+          sha256sum "$APK" | tee -a "$GITHUB_STEP_SUMMARY"
+          rm -f android/upload.jks android/key.properties
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ivoirecovoit-apk-test-signe
+          path: apps/mobile/build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 14
 
   docker:
     name: Images Docker

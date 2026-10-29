@@ -13,6 +13,13 @@ ENV NEXT_PUBLIC_ENVIRONMENT=$NEXT_PUBLIC_ENVIRONMENT
 # API_INTERNAL_URL est lu au build par les règles de réécriture de Next.js
 ARG API_INTERNAL_URL=http://backend:3000
 ENV API_INTERNAL_URL=$API_INTERNAL_URL
+# Origine du stockage des documents autorisée par la politique de sécurité du contenu (dépôt direct).
+ARG CSP_CONNECT_SRC=
+ENV CSP_CONNECT_SRC=$CSP_CONNECT_SRC
+# Fournisseur de tuiles de carte (inclus dans le code du navigateur au build) ; vide = tuiles OpenStreetMap
+ARG NEXT_PUBLIC_TILE_URL=
+ARG NEXT_PUBLIC_TILE_ATTRIBUTION=
+ENV NEXT_PUBLIC_TILE_URL=$NEXT_PUBLIC_TILE_URL NEXT_PUBLIC_TILE_ATTRIBUTION=$NEXT_PUBLIC_TILE_ATTRIBUTION
 RUN pnpm --filter @ivoirecovoit/web build
 
 FROM node:22-alpine

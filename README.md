@@ -2,20 +2,33 @@
 
 Plateforme de covoiturage pour la Côte d'Ivoire : application mobile (Flutter, Android en priorité), site web et administration (Next.js), API (NestJS), PostgreSQL + PostGIS. Nom provisoire.
 
-> **État : étape 9 sur 10** (paiement en bac à sable uniquement ; notifications sur le téléphone non branchées ; déploiement à l'étape 10). Voir [docs/etapes/etape-09.md](docs/etapes/etape-09.md) pour ce qui fonctionne, ce qui est simulé et ce qui reste à faire.
+> **État : étape 10 sur 10, prêt pour une pré-production** (paiement en bac à sable uniquement, codes de connexion de test). La production attend un fournisseur SMS, un agrégateur de paiement et les décisions listées dans [docs/avant-production.md](docs/avant-production.md). Rapport : [docs/etapes/etape-10.md](docs/etapes/etape-10.md).
 > Aucune clé d'API, aucun compte marchand et aucune intégration de paiement réelle ne sont inclus.
 
 ## Structure
 
 ```
 apps/backend         API NestJS, migrations SQL, données de référence et de démonstration
-apps/web             Site web et (à venir) administration, Next.js
+apps/web             Site web et console d'administration (/admin), Next.js
 apps/mobile          Application Flutter (Android / iOS)
-infrastructure/      docker compose, préparation OSRM
+infrastructure/      docker compose (développement et production), Caddy, sauvegardes, OSRM
+tests/charge         Tests de charge k6
 docs/specifications  Cahier des charges, architecture, schéma, API, règles, plan de tests
 docs/adr             Décisions d'architecture
 docs/etapes          Rapports d'étape
+docs/*.md            Installation (Linux, Windows), déploiement, sauvegardes, APK, coûts, avant production
 ```
+
+## Documentation d'exploitation
+
+| Guide | Pour |
+|---|---|
+| [installation-linux.md](docs/installation-linux.md), [installation-windows.md](docs/installation-windows.md) | poste de développement |
+| [deploiement.md](docs/deploiement.md) | serveur (pré-production aujourd'hui) |
+| [sauvegardes.md](docs/sauvegardes.md) | sauvegardes, test de restauration, reprise après incident |
+| [apk-android.md](docs/apk-android.md) | APK de test signé, clé de publication |
+| [couts-recurrents.md](docs/couts-recurrents.md) | estimation des coûts |
+| [avant-production.md](docs/avant-production.md) | ce qu'il faut obtenir et décider avant d'ouvrir |
 
 ## Prérequis
 

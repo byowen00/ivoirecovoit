@@ -13,6 +13,11 @@ export function setupApp(app: INestApplication): void {
   }
   app.use(requestId);
   app.use(helmet());
+  // Réponses personnelles (réservations, profil, jetons) : jamais gardées par un cache intermédiaire ou le navigateur.
+  app.use((_req: unknown, res: { setHeader(k: string, v: string): void }, next: () => void) => {
+    res.setHeader('Cache-Control', 'no-store');
+    next();
+  });
   app.enableCors({ origin: env.CORS_ORIGINS, credentials: true });
   app.setGlobalPrefix('api/v1');
   app.useGlobalFilters(new HttpExceptionFilter());

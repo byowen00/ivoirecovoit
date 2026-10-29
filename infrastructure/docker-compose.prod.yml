@@ -1,0 +1,226 @@
+# Déploiement d'IvoireCovoit sur un serveur Linux (Docker Engine + Compose v2). Guide : docs/deploiement.md
+#   cp infrastructure/.env.prod.example infrastructure/.env.prod   # puis remplir (jamais commité)
+#   docker compose -f infrastructure/docker-compose.prod.yml --env-file infrastructure/.env.prod up -d --build
+# Seul Caddy est exposé (80 et 443) ; il obtient et renouvelle les certificats TLS (Let's Encrypt).
+# Profils facultatifs :
+#   --profile storage : stockage S3 des documents sur ce serveur (RustFS), servi en HTTPS par Caddy
+#   --profile routing : OSRM (après infrastructure/osrm/prepare.sh)
+#   --profile offsite : copie des sauvegardes hors du serveur avec rclone (infrastructure/rclone/rclone.conf)
+#
+# Rappel : l'API REFUSE de démarrer avec NODE_ENV=production tant qu'aucun fournisseur SMS ni agrégateur de
+# paiement réel n'est intégré. En attendant, ce fichier sert une PRÉ-PRODUCTION (NODE_ENV=staging) : codes de
+# connexion de test et paiements simulés, à n'utiliser qu'avec des données de test.
+name: ivoirecovoit-prod
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "5" }
+
+x-backend-env: &backend-env
+  NODE_ENV: ${NODE_ENV:?Définir NODE_ENV (staging ou production)}
+  PORT: "3000"
+  API_BASE_URL: https://${API_DOMAIN}
+  WEB_BASE_URL: https://${WEB_DOMAIN}
+  CORS_ORIGINS: https://${WEB_DOMAIN}
+  DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+  DATABASE_POOL_MAX: ${DATABASE_POOL_MAX:-20}
+  REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+  # Caddy, puis le relais du site web pour les appels venant du navigateur.
+  TRUST_PROXY: "1"
+  SWAGGER_ENABLED: "false"
+  OTP_TEST_MODE: ${OTP_TEST_MODE:-false}
+  OTP_HMAC_SECRET: ${OTP_HMAC_SECRET:?}
+  REFRESH_TOKEN_PEPPER: ${REFRESH_TOKEN_PEPPER:?}
+  STAFF_TOTP_ENCRYPTION_KEY: ${STAFF_TOTP_ENCRYPTION_KEY:?}
+  PII_ENCRYPTION_KEY: ${PII_ENCRYPTION_KEY:?}
+  JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:?}
+  JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?}
+  SMS_PROVIDER: ${SMS_PROVIDER:-none}
+  PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-sandbox}
+  SANDBOX_WEBHOOK_SECRET: ${SANDBOX_WEBHOOK_SECRET:?}
+  PUSH_PROVIDER: ${PUSH_PROVIDER:-none}
+  FCM_PROJECT_ID: ${FCM_PROJECT_ID:-}
+  FCM_SERVICE_ACCOUNT_B64: ${FCM_SERVICE_ACCOUNT_B64:-}
+  S3_ENDPOINT: ${S3_ENDPOINT:-http://storage:9000}
+  S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-https://${FILES_DOMAIN:-localhost}}
+  S3_REGION: ${S3_REGION:-us-east-1}
+  S3_BUCKET_DOCUMENTS: ${S3_BUCKET_DOCUMENTS:-ivoirecovoit-documents}
+  S3_ACCESS_KEY: ${S3_ACCESS_KEY:?}
+  S3_SECRET_KEY: ${S3_SECRET_KEY:?}
+  OSRM_URL: ${OSRM_URL:-}
+  JOBS_ENABLED: "true"
+
+services:
+  caddy:
+    image: caddy:2.11.7-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL:?Adresse e-mail pour Let's Encrypt}
+      WEB_DOMAIN: ${WEB_DOMAIN:?}
+      API_DOMAIN: ${API_DOMAIN:?}
+      FILES_DOMAIN: ${FILES_DOMAIN:-localhost}
+      # « tls internal » = certificats signés par Caddy lui-même (essai local sans nom de domaine public).
+      # Vide en pré-production et en production : certificats Let's Encrypt.
+      CADDY_TLS: ${CADDY_TLS:-}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy/acces.d:/etc/caddy/acces.d:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [web, backend]
+    logging: *logging
+
+  web:
+    image: ${WEB_IMAGE:-ivoirecovoit-web:local}
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+      args:
+        API_INTERNAL_URL: http://backend:3000
+        NEXT_PUBLIC_ENVIRONMENT: ${NODE_ENV}
+        CSP_CONNECT_SRC: ${S3_PUBLIC_ENDPOINT:-https://${FILES_DOMAIN:-localhost}}
+        NEXT_PUBLIC_TILE_URL: ${TILE_URL:-}
+        NEXT_PUBLIC_TILE_ATTRIBUTION: ${TILE_ATTRIBUTION:-}
+    restart: unless-stopped
+    environment:
+      API_INTERNAL_URL: http://backend:3000
+      CSP_CONNECT_SRC: ${S3_PUBLIC_ENDPOINT:-https://${FILES_DOMAIN:-localhost}}
+    read_only: true
+    tmpfs: ["/tmp", "/app/apps/web/.next/cache:uid=1000,gid=1000"]
+    depends_on:
+      backend: { condition: service_healthy }
+    logging: *logging
+
+  backend:
+    image: ${BACKEND_IMAGE:-ivoirecovoit-backend:local}
+    build: { context: .., dockerfile: apps/backend/Dockerfile }
+    restart: unless-stopped
+    environment: *backend-env
+    read_only: true
+    tmpfs: ["/tmp"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    logging: *logging
+
+  # Migrations SQL appliquées avant chaque démarrage de l'API (sans effet si tout est déjà appliqué).
+  migrate:
+    image: ${BACKEND_IMAGE:-ivoirecovoit-backend:local}
+    build: { context: .., dockerfile: apps/backend/Dockerfile }
+    # Migrations puis données de référence (politiques d'annulation, rôles, lieux) ; les deux sont idempotentes.
+    command: ["sh", "-c", "node dist/database/migrate.js && node dist/database/seeds/run-seed.js reference"]
+    environment: *backend-env
+    restart: "no"
+    depends_on:
+      postgres: { condition: service_healthy }
+    logging: *logging
+
+  postgres:
+    image: postgis/postgis:16-3.4
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: ${POSTGRES_DB:?}
+    # Archivage continu des journaux (WAL) pour la restauration à un instant donné, 7 jours (ENF-04).
+    entrypoint: ["sh", "-c", "mkdir -p /backups/wal && chown postgres:postgres /backups/wal && exec docker-entrypoint.sh \"$$@\"", "--"]
+    command:
+      - postgres
+      - -c
+      - wal_level=replica
+      - -c
+      - archive_mode=on
+      - -c
+      - archive_command=test ! -f /backups/wal/%f && cp %p /backups/wal/%f
+      - -c
+      - archive_timeout=900
+      - -c
+      - shared_buffers=${PG_SHARED_BUFFERS:-512MB}
+      - -c
+      - effective_cache_size=${PG_EFFECTIVE_CACHE_SIZE:-1536MB}
+      - -c
+      - work_mem=${PG_WORK_MEM:-16MB}
+      - -c
+      - max_connections=100
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ${BACKUP_DIR:-./backups}:/backups
+      - ./postgres/10-replication.sh:/docker-entrypoint-initdb.d/10-replication.sh:ro
+    shm_size: 256mb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      retries: 20
+    logging: *logging
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:?}"]
+    volumes: [redisdata:/data]
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+      interval: 5s
+      retries: 20
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    logging: *logging
+
+  # Sauvegarde quotidienne : copie de base + export logique, rotation, vérification. Voir docs/sauvegardes.md
+  backup:
+    image: postgis/postgis:16-3.4
+    restart: unless-stopped
+    entrypoint: ["sh", "/scripts/backup-loop.sh"]
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+      BACKUP_HOUR_UTC: ${BACKUP_HOUR_UTC:-2}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-7}
+    volumes:
+      - ./backup:/scripts:ro
+      - ${BACKUP_DIR:-./backups}:/backups
+    depends_on:
+      postgres: { condition: service_healthy }
+    logging: *logging
+
+  storage:
+    profiles: [storage]
+    image: rustfs/rustfs:1.0.4
+    restart: unless-stopped
+    environment:
+      RUSTFS_ACCESS_KEY: ${S3_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${S3_SECRET_KEY}
+    volumes: [storagedata:/data]
+    logging: *logging
+
+  osrm:
+    profiles: [routing]
+    image: ghcr.io/project-osrm/osrm-backend:v5.27.1
+    restart: unless-stopped
+    command: ["osrm-routed", "--algorithm", "mld", "/data/ivory-coast-latest.osrm"]
+    volumes: ["./osrm/data:/data:ro"]
+    logging: *logging
+
+  offsite:
+    profiles: [offsite]
+    image: rclone/rclone:1.74
+    restart: unless-stopped
+    entrypoint: ["sh", "/scripts/offsite-loop.sh"]
+    environment:
+      RCLONE_DESTINATION: ${RCLONE_DESTINATION:-}
+      OFFSITE_EVERY_HOURS: ${OFFSITE_EVERY_HOURS:-6}
+    volumes:
+      - ./backup:/scripts:ro
+      - ${BACKUP_DIR:-./backups}:/backups:ro
+      - ./rclone:/config/rclone:ro
+    logging: *logging
+
+volumes:
+  pgdata:
+  redisdata:
+  storagedata:
+  caddy_data:
+  caddy_config:

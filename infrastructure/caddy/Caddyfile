@@ -1,0 +1,58 @@
+# Proxy d'entrée d'IvoireCovoit : TLS automatique (Let's Encrypt), HTTP/2 et HTTP/3, compression, en-têtes de
+# sécurité, limite de taille des requêtes. Les domaines viennent de infrastructure/.env.prod.
+{
+	email {$ACME_EMAIL}
+	# Les journaux d'accès masquent par défaut Authorization et Cookie.
+}
+
+(commun) {
+	{$CADDY_TLS}
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+		-X-Powered-By
+		defer
+	}
+	request_body {
+		max_size 12MB
+	}
+	log {
+		output stdout
+		format json
+	}
+	# Accès restreint facultatif (pré-production) : voir acces.d/README.md
+	import /etc/caddy/acces.d/*.caddy
+}
+
+# Site web et console d'administration (/admin). Le navigateur ne parle qu'à ce domaine.
+{$WEB_DOMAIN} {
+	import commun
+	reverse_proxy web:3001
+}
+
+# API publique : application mobile, page de paiement simulée (hors production), webhooks du prestataire.
+{$API_DOMAIN} {
+	import commun
+	# La documentation OpenAPI n'est jamais servie publiquement.
+	respond /api/docs* 404
+	reverse_proxy backend:3000
+}
+
+# Documents (stockage S3 sur ce serveur, profil « storage ») : URL signées valables 5 minutes.
+{$FILES_DOMAIN} {
+	{$CADDY_TLS}
+	encode gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		-Server
+		defer
+	}
+	request_body {
+		max_size 12MB
+	}
+	reverse_proxy storage:9000
+}

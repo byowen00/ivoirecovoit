@@ -103,6 +103,9 @@ describe('relais de la console /bff/admin/api', () => {
     const res = await GET(rel('me', { cookies: { ic_admin_access: 'STAFF', ic_admin_session: 'R1-admin-other' } }), ctx('me'));
     expect(res.status).toBe(401);
     expect(res.cookies.get('ic_admin_session')?.value).toBe('');
+    // L'effacement garde les attributs de sécurité (analyse ZAP de l'étape 10).
+    expect(res.cookies.get('ic_admin_session')).toMatchObject({ httpOnly: true, sameSite: 'strict' });
+    expect(res.cookies.get('ic_admin_csrf')).toMatchObject({ httpOnly: false, sameSite: 'strict' });
   });
 });
 

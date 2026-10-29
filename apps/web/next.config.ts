@@ -3,6 +3,7 @@ import type { NextConfig } from 'next';
 // URL de l'API vue depuis le serveur Next.js (réseau interne en production).
 const apiInternalUrl = process.env.API_INTERNAL_URL ?? 'http://localhost:3000';
 
+// La politique de sécurité du contenu (à nonce, donc par requête) est posée par proxy.ts.
 const securityHeaders = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },

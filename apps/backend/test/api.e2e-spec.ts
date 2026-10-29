@@ -47,5 +47,6 @@ describe('API (HTTP)', () => {
     const res = await request(app.getHttpServer()).get('/api/v1/health');
     expect(res.headers['x-content-type-options']).toBe('nosniff');
     expect(res.headers['x-powered-by']).toBeUndefined();
+    expect(res.headers['cache-control']).toBe('no-store');
   });
 });
