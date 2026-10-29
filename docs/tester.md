@@ -119,6 +119,8 @@ brancher le téléphone en USB (débogage USB activé) et lancer depuis `apps/mo
 | L'application affiche « impossible de joindre le serveur » | adresse de l'APK différente de celle de l'ordinateur ; `pnpm dev:backend` arrêté |
 | La page de paiement simulée ne s'ouvre pas sur le téléphone | `API_BASE_URL` / `WEB_BASE_URL` encore sur `localhost` dans `.env` |
 | `docker compose` échoue | Docker Desktop n'est pas lancé |
+| `ports are not available ... 5432` | port déjà pris (souvent un PostgreSQL installé sur Windows) : dans `.env`, ajouter `POSTGRES_HOST_PORT=15432` et remplacer `localhost:5432` par `localhost:15432` dans `DATABASE_URL` et `TEST_DATABASE_URL` |
+| `pnpm dev:web` : port 3001 déjà pris | `pnpm --filter @ivoirecovoit/web exec next dev -p 4001`, et `localhost:4001` dans `WEB_BASE_URL` et `CORS_ORIGINS` de `.env` |
 | La carte reste grise | pas d'accès Internet (les fonds de carte viennent d'OpenStreetMap) |
 | Remettre les données à zéro | `docker compose -f infrastructure/docker-compose.yml down -v`, puis les commandes de la section 2 |
 
