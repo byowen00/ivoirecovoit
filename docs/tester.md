@@ -16,7 +16,7 @@ par une page simulée.
 cd $HOME
 git clone https://github.com/byowen00/ivoirecovoit.git
 cd ivoirecovoit
-corepack enable
+npm install -g pnpm@10.0.0      # puis fermer et rouvrir PowerShell, et revenir dans ce dossier
 pnpm install
 Copy-Item .env.example .env
 ```
