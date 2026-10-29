@@ -92,6 +92,7 @@ export class SearchService {
     const dayEnd = q.date ? new Date(`${q.date}T${q.timeTo ?? '23:59'}:59.999Z`) : new Date(Date.now() + 90 * 86_400_000);
     const windowStart = dayStart > notBefore ? dayStart : notBefore;
     const radius = q.radiusKm ? q.radiusKm * 1000 : null;
+    const maxRadius = radius ?? Math.max(DEFAULT_RADIUS_M.URBAN, DEFAULT_RADIUS_M.INTERCITY);
     const offset = decodeOffset(q.cursor);
 
     const order = {
@@ -125,6 +126,10 @@ export class SearchService {
          WHERE tr.status IN ('PUBLISHED','FULL')
            AND p.is_pickup
            AND p.planned_at >= ${windowStart} AND p.planned_at <= ${dayEnd}
+           -- Préfiltre au rayon maximal, à valeur constante pour que les index spatiaux servent ; le rayon exact
+           -- selon le type de trajet est appliqué juste après.
+           AND (ST_DWithin(p.location, qp.f, ${maxRadius}::float) OR p.place_id = ANY(${fromIds}::uuid[]))
+           AND (ST_DWithin(d.location, qp.t, ${maxRadius}::float) OR d.place_id = ANY(${toIds}::uuid[]))
            AND (ST_DWithin(p.location, qp.f, coalesce(${radius}::float, CASE tr.kind WHEN 'URBAN' THEN ${DEFAULT_RADIUS_M.URBAN}::float ELSE ${DEFAULT_RADIUS_M.INTERCITY}::float END))
                 OR p.place_id = ANY(${fromIds}::uuid[]))
            AND (ST_DWithin(d.location, qp.t, coalesce(${radius}::float, CASE tr.kind WHEN 'URBAN' THEN ${DEFAULT_RADIUS_M.URBAN}::float ELSE ${DEFAULT_RADIUS_M.INTERCITY}::float END))
