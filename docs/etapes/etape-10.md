@@ -72,7 +72,7 @@ infrastructure/backup/restaurer-export.sh
 | ZAP, API (analyse active) | **0 échec**, 1 avertissement, 113 réussis. L'avertissement « injection SQL » sur `places/autocomplete` est un faux positif : la valeur est passée en paramètre par Kysely |
 | Pile de production locale | Démarrée derrière Caddy : HTTPS, HTTP/2, redirection HTTP → HTTPS, HSTS, `/api/docs` en 404 ; migrations 0001 à 0017 et référentiel appliqués. Dans Chromium : le site s'affiche sous la CSP, la carte s'initialise, connexion jusqu'au code, console sans en-tête public |
 | Sauvegarde et restauration | Sauvegarde réussie (base de 8 Mo + export). Test de restauration : « **restauration réussie, mêmes nombres de lignes** » ; un compte créé *après* la sauvegarde est retrouvé, donc les WAL sont bien rejoués. Export restauré dans une base séparée (6 trajets) |
-| CI GitHub | Commit 11f38e9 : les 5 tâches réussies. Commit c4a6f40 : échec de la tâche mobile, APK universel de 63,5 Mo > 25 Mo. Commit 8d2695e : APK découpés, **19,8 Mo** (armeabi-v7a), **22,0 Mo** (arm64-v8a), **23,5 Mo** (x86_64), mais filtre de la sortie d’apksigner trop strict ; corrigé ensuite (résultat ci-dessous) |
+| CI GitHub | Commit 11f38e9 : les 5 tâches réussies. Commit c4a6f40 : échec de la tâche mobile, APK universel de 63,5 Mo > 25 Mo. Commit 8d2695e : APK découpés, **19,8 Mo** (armeabi-v7a), **22,0 Mo** (arm64-v8a), **23,5 Mo** (x86_64), mais filtre de la sortie d’apksigner trop strict ; commit 8e80735 : **les 5 tâches réussies**, signature des 3 APK vérifiée, artefact `ivoirecovoit-apk-test-signe` publié |
 
 ## 6. Problèmes encore présents
 
