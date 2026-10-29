@@ -1,0 +1,39 @@
+name: APK d'essai
+
+# Lancement à la main (onglet Actions → « APK d'essai » → Run workflow) : APK qui se connecte à l'API lancée
+# sur un ordinateur du même Wi-Fi que le téléphone (HTTP permis dans ce mode uniquement). Voir docs/tester.md.
+on:
+  workflow_dispatch:
+    inputs:
+      api_url:
+        description: "Adresse de l'API, par exemple http://192.168.1.20:3000"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run: { working-directory: apps/mobile }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "17" }
+      - uses: subosito/flutter-action@v2
+        with: { flutter-version: "3.47.8", channel: stable, cache: true }
+      - run: flutter pub get
+      - name: Construction
+        env:
+          API_URL: ${{ inputs.api_url }}
+        run: |
+          case "$API_URL" in http://*|https://*) ;; *) echo "Adresse invalide : $API_URL"; exit 1 ;; esac
+          flutter build apk --profile --split-per-abi --target-platform android-arm,android-arm64 \
+            --dart-define=API_BASE_URL="$API_URL" --dart-define=APP_ENV=development
+          echo "APK pour $API_URL : installer app-arm64-v8a-profile.apk (ou armeabi-v7a sur un ancien téléphone)." >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ivoirecovoit-apk-essai
+          path: apps/mobile/build/app/outputs/flutter-apk/app-*-profile.apk
+          retention-days: 7

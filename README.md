@@ -23,6 +23,7 @@ docs/*.md            Installation (Linux, Windows), déploiement, sauvegardes, A
 
 | Guide | Pour |
 |---|---|
+| [tester.md](docs/tester.md) | **essayer la plateforme sur son ordinateur et son téléphone** |
 | [installation-linux.md](docs/installation-linux.md), [installation-windows.md](docs/installation-windows.md) | poste de développement |
 | [deploiement.md](docs/deploiement.md) | serveur (pré-production aujourd'hui) |
 | [sauvegardes.md](docs/sauvegardes.md) | sauvegardes, test de restauration, reprise après incident |

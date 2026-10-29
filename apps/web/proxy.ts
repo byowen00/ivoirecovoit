@@ -19,7 +19,8 @@ export function proxy(request: NextRequest) {
   const csp = [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isProd ? '' : " 'unsafe-eval'"}`,
-    `style-src 'self' 'nonce-${nonce}'`,
+    // En développement, Next.js injecte des balises <style> sans nonce : 'unsafe-inline' (ignoré si un nonce est présent).
+    isProd ? `style-src 'self' 'nonce-${nonce}'` : "style-src 'self' 'unsafe-inline'",
     "style-src-attr 'unsafe-inline'",
     // Tuiles de carte : seulement le fournisseur configuré (NEXT_PUBLIC_TILE_URL).
     `img-src 'self' data: blob: ${tileOrigin()}`,
