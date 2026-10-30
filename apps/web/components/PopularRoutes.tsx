@@ -20,7 +20,7 @@ export function PopularRoutes() {
 
   if (routes === null) {
     return (
-      <ul className="mt-6 flex flex-wrap gap-2" aria-busy="true" aria-label="Trajets populaires">
+      <ul className="mt-3 flex flex-wrap gap-2" aria-busy="true" aria-label="Trajets populaires">
         {[0, 1, 2, 3].map((i) => (
           <li key={i} className="h-8 w-40 animate-pulse rounded-full bg-line" />
         ))}
@@ -29,7 +29,7 @@ export function PopularRoutes() {
   }
   if (routes.length === 0) return null;
   return (
-    <ul className="mt-6 flex flex-wrap gap-2" aria-label="Trajets populaires">
+    <ul className="mt-3 flex flex-wrap gap-2" aria-label="Trajets populaires">
       {routes.map((r) => (
         <li key={`${r.from.id}-${r.to.id}`}>
           <Link

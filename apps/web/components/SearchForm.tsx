@@ -65,7 +65,7 @@ export function SearchForm({ initial = {}, compact = false }: { initial?: Search
     <form
       aria-label="Rechercher un trajet"
       noValidate
-      className={`grid gap-2 rounded-[var(--radius-card)] bg-surface shadow-sm ${compact ? 'p-3 sm:grid-cols-[1fr_auto_1fr_10rem_7rem_auto] sm:items-start sm:gap-3' : 'p-4 sm:p-6'}`}
+      className={`grid gap-2 rounded-[var(--radius-card)] bg-surface shadow-[0_12px_32px_rgb(17_24_28/0.10)] ${compact ? 'p-3 sm:grid-cols-[1fr_auto_1fr_10rem_7rem_auto] sm:items-start sm:gap-3' : 'p-4 sm:p-6'}`}
       onSubmit={submit}
     >
       <PlaceInput key={`from-${swaps}`} label="Départ" placeholder="Ville, commune ou quartier" value={from} onChange={setFrom} />

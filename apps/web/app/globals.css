@@ -1,29 +1,35 @@
 @import 'tailwindcss';
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/manrope';
 
 /*
  * Système de design IvoireCovoit : jetons de couleur.
  * Les couleurs de marque rappellent le drapeau ivoirien (orange, blanc, vert), assombries
  * là où elles portent du texte pour respecter un contraste WCAG AA (≥ 4,5:1).
- * Le mode sombre est préparé : il suffit de compléter le bloc [data-theme='dark'].
+ * Modifier une valeur ici change tout le site ; l'application mobile a les mêmes dans lib/core/theme.dart.
+ * Le mode sombre est préparé : il suffit de compléter le bloc data-theme « dark » plus bas.
  */
 :root {
-  --color-brand: #b85400;          /* boutons principaux, texte blanc dessus : 5,0:1 */
-  --color-brand-strong: #8f4100;   /* survol / pression */
-  --color-brand-soft: #fff1e5;     /* fonds d'accent */
-  --color-accent: #f77f00;         /* éléments décoratifs uniquement, jamais du texte */
-  --color-success: #00704a;        /* vert, texte sur blanc : 6,3:1 */
-  --color-success-soft: #e6f4ee;
+  --color-brand: #c0560a;          /* boutons principaux, texte blanc dessus : 4,6:1 */
+  --color-brand-strong: #9a4407;   /* survol / pression, texte orange sur blanc */
+  --color-brand-soft: #fff0e3;     /* fonds d'accent */
+  --color-accent: #f08a2c;         /* décoratif (logo sur fond sombre), jamais du texte sur blanc */
+  --color-success: #0b6b45;        /* vert confiance, texte sur blanc : 6,4:1 */
+  --color-success-soft: #e3f2ea;
+  --color-online: #22c55e;         /* pastille « connecté » */
   --color-danger: #b42318;
   --color-danger-soft: #fdecea;
   --color-warning-soft: #fff7d6;
-  --color-text: #1b1f24;
-  --color-text-muted: #545c66;     /* 6,9:1 sur blanc */
+  --color-text: #11181c;
+  --color-text-muted: #4a555c;     /* 7,4:1 sur blanc */
+  --color-night: #11181c;          /* en-tête et bandeaux sombres */
+  --color-night-muted: #c9d0d4;    /* texte secondaire sur fond sombre */
   --color-surface: #ffffff;
-  --color-surface-muted: #f5f6f8;
-  --color-border: #d5d9de;
+  --color-surface-muted: #f4f5f2;
+  --color-border: #dde1dc;
   --color-focus: #1d5fd6;
-  --radius-card: 14px;
-  --radius-control: 10px;
+  --radius-card: 20px;
+  --radius-control: 14px;
 }
 
 [data-theme='dark'] {
@@ -40,12 +46,16 @@
   --color-danger: var(--color-danger);
   --color-danger-soft: var(--color-danger-soft);
   --color-warning-soft: var(--color-warning-soft);
+  --color-online: var(--color-online);
+  --color-night: var(--color-night);
+  --color-night-muted: var(--color-night-muted);
   --color-ink: var(--color-text);
   --color-ink-muted: var(--color-text-muted);
   --color-surface: var(--color-surface);
   --color-surface-muted: var(--color-surface-muted);
   --color-line: var(--color-border);
-  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Manrope Variable', 'Manrope', 'Inter Variable', system-ui, sans-serif;
 }
 
 html {
@@ -60,17 +70,30 @@ body {
   line-height: 1.5;
 }
 
+/* Titres en Manrope, chiffres alignés pour les prix et les heures. */
+h1,
+h2,
+h3,
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.015em;
+}
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
 :focus-visible {
   outline: 3px solid var(--color-focus);
   outline-offset: 2px;
 }
 
+@layer components {
 /* Composants partagés des formulaires (étape 5). */
 .btn-primary,
 .btn-secondary,
 .btn-danger {
   display: inline-flex;
-  min-height: 3rem;
+  min-height: 3.25rem;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
@@ -86,7 +109,7 @@ body {
   background: var(--color-brand-strong);
 }
 .btn-secondary {
-  border: 1px solid var(--color-border);
+  border: 1.5px solid var(--color-text);
   background: var(--color-surface);
   color: var(--color-text);
 }
@@ -104,10 +127,10 @@ body {
 .field {
   height: 3rem;
   width: 100%;
-  border: 1px solid var(--color-border);
+  border: 1.5px solid var(--color-border);
   border-radius: var(--radius-control);
   background: var(--color-surface);
-  padding: 0 0.75rem;
+  padding: 0 0.875rem;
 }
 .field[aria-invalid='true'] {
   border-color: var(--color-danger);
@@ -115,11 +138,35 @@ body {
 .card {
   border-radius: var(--radius-card);
   background: var(--color-surface);
-  padding: 1rem;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.06);
+  padding: 1.125rem;
+  box-shadow: 0 1px 2px rgb(17 24 28 / 0.04), 0 4px 16px rgb(17 24 28 / 0.04);
 }
 @media (min-width: 640px) {
   .card {
     padding: 1.5rem;
   }
+}
+
+/* Pastilles (vérifié, places, réservation immédiate). */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  border-radius: 999px;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+.chip-success {
+  background: var(--color-success-soft);
+  color: #0b5a3a;
+}
+.chip-brand {
+  background: var(--color-brand-soft);
+  color: #8a3c05;
+}
+.chip-neutral {
+  background: #f0f1ee;
+  color: #3a454b;
+}
 }

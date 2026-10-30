@@ -127,7 +127,7 @@ export function PaymentFlow({ bookingId, paymentId }: { bookingId: string; payme
 
       <section className="card flex items-center justify-between" aria-label="Montant à payer">
         <span>Total à payer</span>
-        <strong className="text-xl tabular-nums text-brand-strong">{formatXof(booking.totalXof)}</strong>
+        <strong className="font-display text-2xl font-extrabold tabular-nums">{formatXof(booking.totalXof)}</strong>
       </section>
 
       {error && (
@@ -145,9 +145,15 @@ export function PaymentFlow({ bookingId, paymentId }: { bookingId: string; payme
             <legend className="mb-1 font-semibold">Moyen de paiement</legend>
             {methods.methods.length === 0 && <p className="text-sm text-danger">Aucun moyen de paiement n’est disponible pour le moment.</p>}
             {methods.methods.map((m) => (
-              <label key={m.code} className="flex min-h-11 items-center gap-2 rounded-[var(--radius-control)] border border-line px-3">
-                <input type="radio" name="method" value={m.code} checked={method === m.code} onChange={() => setMethod(m.code)} />
-                <span>{m.label}</span>
+              <label
+                key={m.code}
+                className={`flex min-h-14 cursor-pointer items-center gap-3 rounded-2xl border-2 bg-surface px-3 font-semibold ${method === m.code ? 'border-brand' : 'border-line'}`}
+              >
+                <span className="font-display inline-flex size-10 items-center justify-center rounded-xl bg-night text-sm font-extrabold text-white" aria-hidden="true">
+                  {m.label.slice(0, 2).toUpperCase()}
+                </span>
+                <span className="flex-1">{m.label}</span>
+                <input type="radio" name="method" value={m.code} checked={method === m.code} onChange={() => setMethod(m.code)} className="size-5 accent-[var(--color-brand)]" />
               </label>
             ))}
           </fieldset>
