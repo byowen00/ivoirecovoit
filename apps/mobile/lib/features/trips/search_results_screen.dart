@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/api_client.dart';
 import '../../core/format.dart';
 import '../../core/theme.dart';
+import '../../core/ui.dart';
 import '../../providers.dart';
 import 'models.dart';
 import 'trip_map.dart';
@@ -146,13 +147,34 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              SegmentedButton<bool>(
-                segments: const [
-                  ButtonSegment(value: false, label: Text('Liste'), icon: Icon(Icons.list)),
-                  ButtonSegment(value: true, label: Text('Carte'), icon: Icon(Icons.map_outlined)),
-                ],
-                selected: {_map},
-                onSelectionChanged: (s) => setState(() => _map = s.first),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (final (sort, label) in const [
+                      ('departure', 'Plus tôt'),
+                      ('price', 'Moins cher'),
+                      ('rating', 'Mieux noté'),
+                    ]) ...[
+                      ChoiceButton(
+                        label: label,
+                        selected: q.sort == sort,
+                        onTap: () {
+                          if (q.sort == sort) return;
+                          _query = q.copyWith(sort: sort);
+                          _load();
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    ChoiceButton(
+                      label: _map ? 'Liste' : 'Carte',
+                      icon: _map ? Icons.list : Icons.map_outlined,
+                      selected: false,
+                      onTap: () => setState(() => _map = !_map),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 12),
               if (_error != null)
@@ -223,84 +245,121 @@ class TripResultCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final r = result;
-    final theme = Theme.of(context);
     String? walk(int m) => m < 300 ? null : 'à ${formatDistance(m).replaceFirst('env. ', '')} du point demandé';
-    final muted = theme.textTheme.bodySmall?.copyWith(color: AppColors.textMuted);
+    const muted = TextStyle(fontSize: 12, color: AppColors.textMuted);
+    const time = TextStyle(
+      fontFamily: AppTheme.displayFont,
+      fontWeight: FontWeight.w800,
+      fontSize: 17,
+      fontFeatures: [FontFeature.tabularFigures()],
+    );
+    const place = TextStyle(fontSize: 15, fontWeight: FontWeight.w600);
     return Card(
       margin: const EdgeInsets.only(top: 12),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(formatTime(r.pickupAt), style: time),
+                        Text(formatTime(r.dropoffAt), style: time.copyWith(color: AppColors.textMuted)),
+                      ],
+                    ),
+                    const SizedBox(width: 12),
+                    const RouteLine(),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(r.pickupLabel, style: place, maxLines: 2, overflow: TextOverflow.ellipsis),
+                          if (walk(r.pickupDistanceM) case final w?) Text(w, style: muted),
+                          const SizedBox(height: 14),
+                          Text(r.dropoffLabel, style: place, maxLines: 2, overflow: TextOverflow.ellipsis),
+                          if (walk(r.dropoffDistanceM) case final w?) Text(w, style: muted),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        PriceText(r.unitPriceXof, size: 18),
+                        const Text('par place', style: muted),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Durée estimée ${formatDuration(r.durationS)} · '
+                '${r.stopsCount == 0 ? 'direct' : '${r.stopsCount} arrêt${r.stopsCount > 1 ? 's' : ''}'} · ${r.vehicle}',
+                style: muted,
+              ),
+              const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1)),
               Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: AppColors.brandSoft,
+                    child: Text(
+                      r.driverName.isEmpty ? '?' : r.driverName.substring(0, 1).toUpperCase(),
+                      style: const TextStyle(color: Color(0xFF8A3C05), fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${formatTime(r.pickupAt)}  ${r.pickupLabel}',
-                          style: const TextStyle(fontWeight: FontWeight.w600),
+                          r.driverName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                         ),
-                        if (walk(r.pickupDistanceM) case final w?) Text(w, style: muted),
-                        Text(formatDuration(r.durationS), style: muted),
                         Text(
-                          '${formatTime(r.dropoffAt)}  ${r.dropoffLabel}',
-                          style: const TextStyle(fontWeight: FontWeight.w600),
+                          r.driverRating != null
+                              ? '★ ${r.driverRating!.toStringAsFixed(1)} (${r.driverRatingCount})'
+                              : 'Nouveau conducteur',
+                          style: muted,
                         ),
-                        if (walk(r.dropoffDistanceM) case final w?) Text(w, style: muted),
                       ],
                     ),
                   ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    alignment: WrapAlignment.end,
                     children: [
-                      Text(
-                        formatXof(r.unitPriceXof),
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: AppColors.brandStrong,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      const Pill('Vérifié', tone: PillTone.success),
+                      Pill(
+                        '${r.seatsAvailable} place${r.seatsAvailable > 1 ? 's' : ''}',
+                        tone: r.seatsAvailable <= 1 ? PillTone.brand : PillTone.neutral,
                       ),
-                      Text('par place', style: muted),
+                      if (r.isDemo) const Pill('[DEMO]', tone: PillTone.warning),
                     ],
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 12,
-                runSpacing: 4,
-                children: [
-                  Text('${r.driverName} ✓', style: const TextStyle(fontWeight: FontWeight.w500)),
-                  Text(
-                    r.driverRating != null
-                        ? '★ ${r.driverRating!.toStringAsFixed(1)} (${r.driverRatingCount})'
-                        : 'Nouveau conducteur',
-                    style: muted,
-                  ),
-                  Text(r.vehicle, style: muted),
-                  Text(
-                    r.stopsCount == 0 ? 'Direct' : '${r.stopsCount} arrêt${r.stopsCount > 1 ? 's' : ''}',
-                    style: muted,
-                  ),
-                  Text(
-                    '${r.seatsAvailable} place${r.seatsAvailable > 1 ? 's' : ''} libre${r.seatsAvailable > 1 ? 's' : ''}',
-                    style: muted?.copyWith(color: r.seatsAvailable <= 1 ? AppColors.danger : null),
-                  ),
-                  if (r.isDemo)
-                    Container(
-                      color: AppColors.warningSoft,
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: const Text('[DEMO]', style: TextStyle(fontSize: 12)),
-                    ),
-                ],
-              ),
+              if (r.autoAccept)
+                const Padding(
+                  padding: EdgeInsets.only(top: 10),
+                  child: Pill('Réservation immédiate', icon: Icons.bolt, tone: PillTone.brand),
+                ),
             ],
           ),
         ),

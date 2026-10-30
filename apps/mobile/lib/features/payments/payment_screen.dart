@@ -193,14 +193,14 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           if (p == null && b.can('canPay')) ...[
             Text('Places bloquées encore ${_countdown(holdLeft)}.'),
             const SizedBox(height: 12),
-            Text('Moyen de paiement', style: theme.textTheme.titleSmall),
-            RadioGroup<String>(
-              groupValue: _method,
-              onChanged: (v) => setState(() => _method = v),
+            Text('Payer avec', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 10),
+            Semantics(
+              label: 'Moyen de paiement',
               child: Column(
                 children: [
                   for (final m in methods.methods)
-                    RadioListTile<String>(value: m, title: Text(methodLabel[m] ?? m), contentPadding: EdgeInsets.zero),
+                    _OperatorTile(method: m, selected: _method == m, onTap: () => setState(() => _method = m)),
                 ],
               ),
             ),
@@ -212,13 +212,30 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             TextField(
               controller: _phone,
               keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(labelText: 'Numéro qui paie', hintText: '07 07 07 07 07'),
+              decoration: const InputDecoration(
+                labelText: 'Numéro qui paie',
+                hintText: '07 07 07 07 07',
+                prefixText: '+225 ',
+              ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              'Vous validerez le paiement sur ce téléphone, chez votre opérateur. '
-              'IvoireCovoit ne vous demandera jamais votre code secret Mobile Money.',
-              style: muted,
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(color: AppColors.successSoft, borderRadius: BorderRadius.circular(14)),
+              child: const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.lock_outline, size: 20, color: Color(0xFF0B5A3A)),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Vous validerez le paiement sur ce téléphone, chez votre opérateur. '
+                      'IvoireCovoit ne vous demandera jamais votre code secret Mobile Money.',
+                      style: TextStyle(fontSize: 13, height: 1.45, color: Color(0xFF0B4A31)),
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 12),
             FilledButton(
@@ -276,4 +293,74 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       ),
     );
   }
+}
+
+/// Choix d'un opérateur : carte avec initiales, bordure orange quand il est choisi.
+class _OperatorTile extends StatelessWidget {
+  const _OperatorTile({required this.method, required this.selected, required this.onTap});
+  final String method;
+  final bool selected;
+  final VoidCallback onTap;
+
+  static const _initials = {'WAVE': 'W', 'ORANGE_MONEY': 'OM', 'MTN_MOMO': 'M', 'MOOV_MONEY': 'MV'};
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 10),
+    child: Semantics(
+      inMutuallyExclusiveGroup: true,
+      checked: selected,
+      child: Material(
+        color: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: selected ? AppColors.brand : AppColors.border, width: 2),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(color: AppColors.night, borderRadius: BorderRadius.circular(12)),
+                  child: Text(
+                    _initials[method] ?? method.substring(0, 1),
+                    style: const TextStyle(
+                      fontFamily: AppTheme.displayFont,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 15,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    methodLabel[method] ?? method,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
+                ),
+                Container(
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: selected ? AppColors.brand : const Color(0xFFB8BEB8),
+                      width: selected ? 7 : 2,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 }

@@ -62,13 +62,18 @@ class AppTheme {
         foregroundColor: AppColors.text,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        titleTextStyle: TextStyle(fontFamily: displayFont, fontSize: 19, fontWeight: FontWeight.w700, color: AppColors.text),
+        titleTextStyle: TextStyle(
+          fontFamily: displayFont,
+          fontSize: 19,
+          fontWeight: FontWeight.w700,
+          color: AppColors.text,
+        ),
       ),
       cardTheme: CardThemeData(
         color: AppColors.surface,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        margin: EdgeInsets.zero,
+        margin: const EdgeInsets.symmetric(vertical: 6), // espace entre cartes empilées
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusCard)),
       ),
       chipTheme: const ChipThemeData(

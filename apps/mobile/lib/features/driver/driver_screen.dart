@@ -136,51 +136,97 @@ class _DriverScreenState extends ConsumerState<DriverScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  if (p != null)
-                    Text('Dossier : ${verificationLabel[p.status]}', style: Theme.of(context).textTheme.titleMedium),
                   if (p != null && p.canPublish)
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            const Text(
-                              '✓ Vous pouvez publier des trajets.',
-                              style: TextStyle(color: AppColors.success),
-                            ),
-                            FilledButton(
-                              onPressed: () => context.push('/conducteur/publier'),
-                              child: const Text('Publier un trajet'),
-                            ),
-                            OutlinedButton(
-                              onPressed: () => context.push('/conducteur/trajets'),
-                              child: const Text('Mes trajets'),
-                            ),
-                            OutlinedButton(
-                              onPressed: () => context.push('/paiements?onglet=gains'),
-                              child: const Text('Mes gains'),
-                            ),
-                          ],
-                        ),
+                    Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(color: AppColors.success, borderRadius: BorderRadius.circular(22)),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(Icons.verified_outlined, color: Colors.white),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Dossier vérifié',
+                                  style: TextStyle(
+                                    fontFamily: AppTheme.displayFont,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 20,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            '✓ Vous pouvez publier des trajets.',
+                            style: TextStyle(color: Color(0xFFCDEBDD), fontSize: 14),
+                          ),
+                          const SizedBox(height: 14),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _DriverShortcut(
+                                  icon: Icons.route_outlined,
+                                  label: 'Mes trajets',
+                                  onTap: () => context.push('/conducteur/trajets'),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: _DriverShortcut(
+                                  icon: Icons.account_balance_wallet_outlined,
+                                  label: 'Mes gains',
+                                  onTap: () => context.push('/paiements?onglet=gains'),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          FilledButton.icon(
+                            onPressed: () => context.push('/conducteur/publier'),
+                            icon: const Icon(Icons.add),
+                            label: const Text('Publier un trajet'),
+                          ),
+                        ],
                       ),
                     )
                   else if (p != null)
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Avant de publier :'),
-                            for (final b in p.publishBlockers)
-                              Text('• ${blockerLabel[b] ?? b}', style: const TextStyle(color: AppColors.textMuted)),
-                          ],
-                        ),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.brandSoft,
+                        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Dossier : ${verificationLabel[p.status]}',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 8),
+                          const Text('Avant de publier :', style: TextStyle(fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 4),
+                          for (final b in p.publishBlockers)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Icon(Icons.radio_button_unchecked, size: 18, color: AppColors.brand),
+                                  const SizedBox(width: 8),
+                                  Expanded(child: Text(blockerLabel[b] ?? b)),
+                                ],
+                              ),
+                            ),
+                        ],
                       ),
                     ),
+                  const SizedBox(height: 12),
                   _LicenseCard(profile: p, onSaved: _load),
                   if (p != null) _documentsCard(p),
                   if (p != null) ...[for (final v in _vehicles) _vehicleCard(v), _AddVehicle(onAdded: _load)],
@@ -562,4 +608,37 @@ class _AddVehicleState extends ConsumerState<_AddVehicle> {
       ),
     );
   }
+}
+
+/// Raccourci sur la carte verte de l'espace conducteur.
+class _DriverShortcut extends StatelessWidget {
+  const _DriverShortcut({required this.icon, required this.label, required this.onTap});
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: const Color(0xFF0F7F53),
+    borderRadius: BorderRadius.circular(14),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        child: Row(
+          children: [
+            Icon(icon, color: Colors.white, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }

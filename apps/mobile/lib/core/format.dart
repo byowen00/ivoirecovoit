@@ -2,6 +2,9 @@ import 'package:intl/intl.dart';
 
 final _xof = NumberFormat.decimalPattern('fr');
 
+/// Montant sans l'unité, pour les affichages où « FCFA » est stylé à part.
+String formatXofDigits(int amount) => _xof.format(amount);
+
 /// Montant en francs CFA : « 5 300 FCFA ». Les montants sont toujours des entiers.
 String formatXof(int amount) => '${_xof.format(amount)} FCFA';
 

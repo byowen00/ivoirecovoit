@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/api_client.dart';
 import '../../core/format.dart';
 import '../../core/theme.dart';
+import '../../core/ui.dart';
 import '../../providers.dart';
 import 'models.dart';
 import 'trip_map.dart';
@@ -98,7 +99,7 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
       appBar: AppBar(title: Text('${t.stops.first.label} → ${t.stops.last.label}', overflow: TextOverflow.ellipsis)),
       bottomNavigationBar: SafeArea(
         child: Container(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
           decoration: const BoxDecoration(
             color: AppColors.surface,
             border: Border(top: BorderSide(color: AppColors.border)),
@@ -110,13 +111,10 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      a == null ? '—' : formatXof(a.unitPriceXof * widget.seats),
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        color: AppColors.brandStrong,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                    if (a == null)
+                      const Text('—', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800))
+                    else
+                      PriceText(a.unitPriceXof * widget.seats, size: 24),
                     Text(
                       a == null
                           ? 'Calcul du prix…'
@@ -238,41 +236,20 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
           ),
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(18),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Itinéraire et arrêts', style: theme.textTheme.titleMedium),
-                  const SizedBox(height: 8),
-                  for (final s in t.stops)
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.only(left: 10),
-                      decoration: BoxDecoration(
-                        border: Border(
-                          left: BorderSide(
-                            width: 4,
-                            color: _validSegment && s.seq >= pickupSeq && s.seq <= dropoffSeq
-                                ? AppColors.brand
-                                : AppColors.border,
-                          ),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${formatTime(s.plannedAt)}  ${s.label}',
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          if (s.meetingPoint != null) Text(s.meetingPoint!, style: muted),
-                          Text(
-                            '${s.seq == 0 ? 'Départ' : '${formatXof(s.priceFromOriginXof)} depuis le départ'}${s.approximate ? ' · point approximatif' : ''}',
-                            style: muted,
-                          ),
-                        ],
-                      ),
+                  const SizedBox(height: 14),
+                  for (final (i, s) in t.stops.indexed)
+                    _StopRow(
+                      stop: s,
+                      first: i == 0,
+                      last: i == t.stops.length - 1,
+                      inSegment: _validSegment && s.seq >= pickupSeq && s.seq <= dropoffSeq,
                     ),
+                  const SizedBox(height: 6),
                   Text('Heures de passage estimées, susceptibles de varier selon la circulation.', style: muted),
                 ],
               ),
@@ -280,14 +257,38 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
           ),
           if (t.driver case final d?)
             Card(
-              child: ListTile(
-                leading: Avatar(name: d.displayName, url: d.photoUrl),
-                title: Text('${d.displayName}  ✓ vérifié'),
-                subtitle: Text(
-                  '${d.ratingAvg != null ? '★ ${d.ratingAvg!.toStringAsFixed(1)} · ${d.ratingCount} avis' : 'Pas encore d’avis'} · ${d.completedTrips} trajet(s)',
-                ),
-                trailing: const Icon(Icons.chevron_right),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
                 onTap: () => context.push('/conducteurs/${d.id}'),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Avatar(name: d.displayName, url: d.photoUrl, radius: 26),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(d.displayName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                                Text(
+                                  '${d.ratingAvg != null ? '★ ${d.ratingAvg!.toStringAsFixed(1)} · ${d.ratingCount} avis' : 'Pas encore d’avis'} · ${d.completedTrips} trajet(s)',
+                                  style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.chevron_right, color: AppColors.textMuted),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      const Pill('Conducteur vérifié', icon: Icons.verified_outlined, tone: PillTone.success),
+                    ],
+                  ),
+                ),
               ),
             ),
           Card(
@@ -306,6 +307,83 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
                   if (t.description != null)
                     Padding(padding: const EdgeInsets.only(top: 6), child: Text(t.description!)),
                   if (t.instructions != null) Text('Consignes : ${t.instructions}', style: muted),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Une étape de la frise : heure estimée, repère, lieu et prix depuis le départ.
+class _StopRow extends StatelessWidget {
+  const _StopRow({required this.stop, required this.first, required this.last, required this.inSegment});
+  final TripStop stop;
+  final bool first;
+  final bool last;
+  final bool inSegment;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = stop;
+    final Widget mark = first
+        ? const RouteMark.origin(size: 12)
+        : last
+        ? const RouteMark.destination(size: 12)
+        : Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(color: inSegment ? AppColors.brand : AppColors.border, shape: BoxShape.circle),
+          );
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            width: 56,
+            child: Text(
+              first ? formatTime(s.plannedAt) : '≈ ${formatTime(s.plannedAt)}',
+              style: TextStyle(
+                fontFamily: AppTheme.displayFont,
+                fontWeight: first ? FontWeight.w800 : FontWeight.w700,
+                fontSize: first ? 16 : 14,
+                color: first ? AppColors.text : AppColors.textMuted,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ),
+          SizedBox(
+            width: 20,
+            child: Column(
+              children: [
+                Padding(padding: const EdgeInsets.only(top: 4), child: mark),
+                if (!last)
+                  Expanded(
+                    child: Container(
+                      width: 2,
+                      margin: const EdgeInsets.symmetric(vertical: 3),
+                      color: inSegment ? AppColors.brand.withValues(alpha: 0.5) : AppColors.border,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(bottom: last ? 0 : 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(s.label, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                  if (s.meetingPoint != null)
+                    Text(s.meetingPoint!, style: const TextStyle(fontSize: 13, color: AppColors.textMuted)),
+                  Text(
+                    '${s.seq == 0 ? 'Départ' : '${formatXof(s.priceFromOriginXof)} depuis le départ'}${s.approximate ? ' · point approximatif' : ''}',
+                    style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                  ),
                 ],
               ),
             ),

@@ -216,8 +216,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('1+ trajet'), findsOneWidget);
     expect(find.text('[DEMO]'), findsOneWidget);
-    expect(find.text('Awa K. ✓'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('Voir plus de trajets'), 200);
+    expect(find.text('Awa K.'), findsOneWidget);
+    expect(find.text('Vérifié'), findsOneWidget);
+    final list = find.byType(Scrollable).first; // la rangée de tri défile aussi
+    await tester.scrollUntilVisible(find.text('Voir plus de trajets'), 200, scrollable: list);
     await tester.tap(find.text('Voir plus de trajets'));
     await tester.pumpAndSettle();
     expect(fake.calls.last.$2, 'c2');
