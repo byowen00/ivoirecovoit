@@ -71,29 +71,63 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final repo = ref.watch(placesRepositoryProvider);
     final theme = Theme.of(context);
     final samePlace = _from != null && _to != null && _from!.id == _to!.id;
+    final signedIn = ref.watch(authControllerProvider).value != null;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'IvoireCovoit',
-          style: TextStyle(color: AppColors.brand, fontWeight: FontWeight.bold),
+        backgroundColor: AppColors.night,
+        foregroundColor: Colors.white,
+        title: const Text.rich(
+          TextSpan(
+            text: 'Ivoire',
+            children: [TextSpan(text: 'Covoit', style: TextStyle(color: AppColors.accent))],
+          ),
+          style: TextStyle(fontFamily: AppTheme.displayFont, fontWeight: FontWeight.w800, fontSize: 22, color: Colors.white),
         ),
         actions: [
-          if (ref.watch(authControllerProvider).value != null) const NotificationBell(),
+          if (signedIn) const NotificationBell(),
           IconButton(
             tooltip: 'Aide et urgence',
             icon: const Icon(Icons.help_outline),
             onPressed: () => context.push('/aide'),
           ),
           IconButton(
-            tooltip: 'Mon compte',
-            icon: const Icon(Icons.account_circle_outlined),
-            onPressed: () => context.push('/compte'),
-          ),
-          IconButton(
             tooltip: 'État du service',
             icon: const Icon(Icons.monitor_heart_outlined),
             onPressed: () => context.push('/statut'),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: IconButton(
+              tooltip: signedIn ? 'Mon compte (connecté)' : 'Se connecter',
+              onPressed: () => context.push('/compte'),
+              icon: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  CircleAvatar(
+                    radius: 16,
+                    backgroundColor: signedIn ? AppColors.accent : Colors.white24,
+                    foregroundColor: AppColors.night,
+                    child: Icon(Icons.person, size: 20, color: signedIn ? AppColors.night : Colors.white),
+                  ),
+                  if (signedIn)
+                    Positioned(
+                      right: -1,
+                      bottom: -1,
+                      child: Container(
+                        key: const Key('online-dot'),
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: AppColors.online,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: AppColors.night, width: 2),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
