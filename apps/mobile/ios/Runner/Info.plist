@@ -66,5 +66,15 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>IvoireCovoit utilise l'appareil photo pour photographier vos pièces justificatives et votre véhicule.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>IvoireCovoit accède à vos photos pour joindre vos pièces justificatives et la photo de votre véhicule.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<!-- Essais uniquement : HTTP vers une API du réseau local. Internet reste en HTTPS obligatoire. -->
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 </dict>
 </plist>
