@@ -428,3 +428,22 @@ describe('Profil, consentements et suppression', () => {
     expect(res.body.error.code).toBe('OTP_INVALID');
   });
 });
+
+describe('Connexion rapide pour les essais (mode OTP de test)', () => {
+  let t: TestApp;
+  beforeAll(async () => {
+    t = await createTestApp([], { OTP_TEST_QUICK_LOGIN: 'true' });
+  });
+  afterAll(async () => {
+    await t.app.close();
+    process.env.OTP_TEST_QUICK_LOGIN = 'false';
+  });
+
+  it('enchaîne les demandes de code sans délai ni plafond, et le code reste vérifié', async () => {
+    const phone = uniquePhone();
+    let last: { otpRequestId: string; testCode: string } | undefined;
+    for (let i = 0; i < 5; i++) last = (await t.http().post(`${OTP}/request`).send({ phone }).expect(200)).body;
+    await t.http().post(`${OTP}/verify`).send({ otpRequestId: last!.otpRequestId, code: '000000' === last!.testCode ? '111111' : '000000' }).expect(400);
+    await t.http().post(`${OTP}/verify`).send({ otpRequestId: last!.otpRequestId, code: last!.testCode }).expect(200);
+  });
+});

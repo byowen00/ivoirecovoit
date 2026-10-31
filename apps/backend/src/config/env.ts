@@ -37,6 +37,12 @@ export const envSchema = z
     DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(100).default(10),
     REDIS_URL: z.string().min(1).default('redis://localhost:6379'),
     OTP_TEST_MODE: booleanString,
+    // Connexion rapide pour les essais : avec OTP_TEST_MODE seulement, plus de délai ni de plafond de demandes de
+    // code, et les applis valident le code de test toute seules. Sans effet hors mode test (interdit en production).
+    OTP_TEST_QUICK_LOGIN: z
+      .enum(['true', 'false'])
+      .default('true')
+      .transform((v) => v === 'true'),
     // Prestataire de paiement. « sandbox » : bac à sable interne, aucun argent réel (interdit en production).
     // « aggregator » : squelette d'adaptateur, pas encore intégré (contrat et documentation à obtenir).
     PAYMENT_PROVIDER: z.enum(['sandbox', 'aggregator']).default('sandbox'),

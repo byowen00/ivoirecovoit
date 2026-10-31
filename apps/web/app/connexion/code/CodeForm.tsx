@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useMemo, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { OtpInput } from '@/components/OtpInput';
 import { auth, browserDeviceLabel, FieldErrors, formatLocalPhone } from '@/lib/account';
 import { ApiRequestError } from '@/lib/api';
@@ -27,6 +27,15 @@ export function CodeForm() {
   const [busy, setBusy] = useState(false);
   const [info, setInfo] = useState<string | null>(null);
   const now = useNow();
+  const autoTried = useRef<string | null>(null);
+
+  // Mode test (développement seulement) : le code affiché est validé tout seul, pour tester sans le saisir.
+  const testCode = pending?.testCode;
+  useEffect(() => {
+    if (!testCode || autoTried.current === pending?.otpRequestId) return;
+    autoTried.current = pending?.otpRequestId ?? null;
+    void verify(testCode);
+  });
 
   if (!pending) {
     return (
@@ -109,7 +118,7 @@ export function CodeForm() {
 
       {pending.testCode && (
         <p role="note" className="rounded-[var(--radius-control)] bg-warning-soft px-3 py-2 text-sm">
-          Mode test (développement) : aucun SMS n’est envoyé. Code : <strong className="tabular-nums">{pending.testCode}</strong>
+          Mode test (développement) : aucun SMS n’est envoyé, connexion automatique avec le code <strong className="tabular-nums">{pending.testCode}</strong>.
         </p>
       )}
 

@@ -21,7 +21,11 @@ class OtpArgs {
 
 String deviceLabel() {
   try {
-    return Platform.isAndroid ? 'Application Android' : Platform.isIOS ? 'Application iOS' : 'Application';
+    return Platform.isAndroid
+        ? 'Application Android'
+        : Platform.isIOS
+        ? 'Application iOS'
+        : 'Application';
   } catch (_) {
     return 'Application';
   }
@@ -49,6 +53,18 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   void initState() {
     super.initState();
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) => setState(() {}));
+    _autoFill();
+  }
+
+  /// Mode test (développement seulement) : le code affiché est validé tout seul, pour tester sans le saisir.
+  void _autoFill() {
+    final code = _request.testCode;
+    if (code == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _code.text = code;
+      _verify(code);
+    });
   }
 
   @override
@@ -102,6 +118,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
         _request = otp;
         _info = 'Un nouveau code vous a été envoyé.';
       });
+      _autoFill();
     } on ApiException catch (e) {
       setState(() => _error = e.message);
     } finally {
@@ -129,7 +146,9 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(color: AppColors.warningSoft, borderRadius: BorderRadius.circular(8)),
-                child: Text('Mode test (développement) : aucun SMS n’est envoyé. Code : ${_request.testCode}'),
+                child: Text(
+                  'Mode test (développement) : aucun SMS n’est envoyé, connexion automatique avec le code ${_request.testCode}.',
+                ),
               ),
             ],
             const SizedBox(height: 16),
@@ -153,8 +172,10 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
               child: Text(_resendIn > 0 ? 'Renvoyer le code dans $_resendIn s' : 'Renvoyer le code'),
             ),
             const SizedBox(height: 12),
-            const Text('Ne communiquez jamais ce code, même à une personne qui se présente comme le support.',
-                style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+            const Text(
+              'Ne communiquez jamais ce code, même à une personne qui se présente comme le support.',
+              style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+            ),
           ],
         ),
       ),

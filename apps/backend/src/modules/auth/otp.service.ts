@@ -64,26 +64,8 @@ export class OtpService {
   async request(input: OtpRequestInput): Promise<OtpRequestResult> {
     const { phone, purpose, ip } = input;
 
-    const cooldownKey = `otp:cool:${purpose}:${phone}`;
-    const acquired = await this.redis.set(cooldownKey, '1', 'EX', OTP_RESEND_AFTER_S, 'NX');
-    if (!acquired) {
-      const ttl = await this.redis.ttl(cooldownKey);
-      await this.logAttempt(phone, ip, purpose, 'BLOCKED');
-      throw rateLimited(Math.max(ttl, 1), 'Un code vient d’être envoyé. Patientez avant d’en demander un nouveau.');
-    }
-
-    const rules = [
-      { key: `otp:phone:${phone}`, limit: 3, windowS: 15 * 60 },
-      { key: `otp:phone-day:${phone}`, limit: 10, windowS: 24 * 3600 },
-    ];
-    if (ip) rules.push({ key: `otp:ip:${ip}`, limit: 20, windowS: 3600 });
-    if (input.deviceId) rules.push({ key: `otp:device:${input.deviceId}`, limit: 10, windowS: 3600 });
-    try {
-      await this.rateLimit.consumeOrThrow(rules, 'Trop de codes demandés. Réessayez plus tard.');
-    } catch (err) {
-      await this.logAttempt(phone, ip, purpose, 'BLOCKED');
-      throw err;
-    }
+    // Essais en local : connexion rapide, sans délai ni plafond (jamais hors mode test, refusé en production).
+    if (!(this.sms.isTestMode && this.env.OTP_TEST_MODE && this.env.OTP_TEST_QUICK_LOGIN)) await this.enforceLimits(input);
 
     const otpRequestId = uuidv7();
     const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
@@ -105,7 +87,7 @@ export class OtpService {
         `IvoireCovoit : votre code est ${code}. Il expire dans 5 minutes. Ne le communiquez à personne, même au support.`,
       );
     } catch (err) {
-      await this.redis.del(`otp:req:${otpRequestId}`, cooldownKey);
+      await this.redis.del(`otp:req:${otpRequestId}`, `otp:cool:${purpose}:${phone}`);
       throw err;
     }
     await this.logAttempt(phone, ip, purpose, 'SENT');
@@ -119,6 +101,29 @@ export class OtpService {
   }
 
   /** Vérifie un code ; à usage unique. Lève une erreur explicite sinon. */
+  private async enforceLimits({ phone, purpose, ip, deviceId }: OtpRequestInput): Promise<void> {
+    const cooldownKey = `otp:cool:${purpose}:${phone}`;
+    const acquired = await this.redis.set(cooldownKey, '1', 'EX', OTP_RESEND_AFTER_S, 'NX');
+    if (!acquired) {
+      const ttl = await this.redis.ttl(cooldownKey);
+      await this.logAttempt(phone, ip, purpose, 'BLOCKED');
+      throw rateLimited(Math.max(ttl, 1), 'Un code vient d’être envoyé. Patientez avant d’en demander un nouveau.');
+    }
+
+    const rules = [
+      { key: `otp:phone:${phone}`, limit: 3, windowS: 15 * 60 },
+      { key: `otp:phone-day:${phone}`, limit: 10, windowS: 24 * 3600 },
+    ];
+    if (ip) rules.push({ key: `otp:ip:${ip}`, limit: 20, windowS: 3600 });
+    if (deviceId) rules.push({ key: `otp:device:${deviceId}`, limit: 10, windowS: 3600 });
+    try {
+      await this.rateLimit.consumeOrThrow(rules, 'Trop de codes demandés. Réessayez plus tard.');
+    } catch (err) {
+      await this.logAttempt(phone, ip, purpose, 'BLOCKED');
+      throw err;
+    }
+  }
+
   async verify(otpRequestId: string, code: string, ip: string | null): Promise<VerifiedOtp> {
     const key = `otp:req:${otpRequestId}`;
     const res = (await this.redis.eval(ATTEMPT_SCRIPT, 1, key)) as [number, string, string, string, string] | null;

@@ -23,13 +23,13 @@ void main() {
   late DateTime now;
   late MemoryTokenStore store;
 
-  Widget harness(MockClient client) {
+  Widget harness(MockClient client, {String? testCode}) {
     final args = OtpArgs(
       phone: '0707070707',
       next: '/compte',
       request: OtpRequest(
         id: 'otp-1', expiresIn: const Duration(minutes: 5), resendAfter: const Duration(seconds: 60),
-        sentAt: now, testCode: '123456',
+        sentAt: now, testCode: testCode,
       ),
     );
     final router = GoRouter(initialLocation: '/code', routes: [
@@ -53,7 +53,7 @@ void main() {
 
   testWidgets('affiche le code de test, compte à rebours et renvoi bloqué 60 s', (tester) async {
     await tester.pumpWidget(harness(MockClient((_) async => http.Response('{}', 200))));
-    expect(find.textContaining('Code : 123456'), findsOneWidget);
+    expect(find.textContaining('Mode test'), findsNothing);
     expect(find.text('Code valable encore 5:00.'), findsOneWidget);
     expect(find.text('Renvoyer le code dans 60 s'), findsOneWidget);
 
@@ -92,5 +92,24 @@ void main() {
     expect(sentCode, '123456');
     expect(find.text('ÉCRAN PROFIL'), findsOneWidget);
     expect(store.token, 'R');
+  });
+
+  testWidgets('mode test : le code affiché est validé tout seul', (tester) async {
+    String? sentCode;
+    await tester.pumpWidget(harness(testCode: '654321', MockClient((req) async {
+      if (req.url.path.endsWith('/me')) {
+        return http.Response(jsonEncode(meJson(complete: true)), 200, headers: {'content-type': 'application/json; charset=utf-8'});
+      }
+      if (!req.url.path.endsWith('/otp/verify')) return http.Response('{}', 401);
+      sentCode = (jsonDecode(req.body) as Map)['code'] as String;
+      return http.Response(
+          jsonEncode({'accessToken': 'A', 'refreshToken': 'R', 'accessTokenExpiresInS': 900, 'isNewUser': false, 'user': meJson(complete: true)}),
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'});
+    })));
+    expect(find.textContaining('connexion automatique avec le code 654321'), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(sentCode, '654321');
+    expect(find.text('ÉCRAN COMPTE'), findsOneWidget);
   });
 }

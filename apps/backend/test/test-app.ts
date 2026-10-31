@@ -27,16 +27,18 @@ export interface TestApp {
   http: () => ReturnType<typeof request>;
 }
 
-export async function createTestApp(extraControllers: Type[] = []): Promise<TestApp> {
+export async function createTestApp(extraControllers: Type[] = [], env: Record<string, string> = {}): Promise<TestApp> {
   process.env.DATABASE_URL = TEST_DATABASE_URL;
   process.env.REDIS_URL = TEST_REDIS_URL;
   process.env.NODE_ENV = 'test';
   process.env.OTP_TEST_MODE = 'true';
+  process.env.OTP_TEST_QUICK_LOGIN = 'false';
   Object.assign(process.env, TEST_S3);
   // Pas d'OSRM dans les tests d'API : estimation de repli (les tests du client OSRM utilisent un faux serveur).
   delete process.env.OSRM_URL;
   // Les échéances sont déclenchées explicitement par les tests (BookingsMaintenanceService).
   process.env.JOBS_ENABLED = 'false';
+  Object.assign(process.env, env);
   const moduleRef = await Test.createTestingModule({
     imports: [AppModule],
     controllers: [ActiveOnlyController, ...extraControllers],
