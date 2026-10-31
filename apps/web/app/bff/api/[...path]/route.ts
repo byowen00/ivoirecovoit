@@ -22,7 +22,7 @@ const ALLOWED_ROUTES = [
   `documents/${ID}/download-url`,
   'trips',
   'trips/(mine|preview)',
-  `trips/${ID}(/(manage|publish|duplicate|cancel|start|complete))?`,
+  `trips/${ID}(/(manage|publish|duplicate|cancel|start|complete|location))?`,
   'routing/estimate',
   'bookings',
   'bookings/(quote|mine)',

@@ -12,6 +12,7 @@ import '../trips/trips_repository.dart';
 import '../trust/booking_trust.dart';
 import 'models.dart';
 import 'widgets.dart';
+import '../trips/live_location.dart';
 
 const _byLabel = {'PASSENGER': 'passager', 'DRIVER': 'conducteur', 'SYSTEM': 'automatique', 'STAFF': 'IvoireCovoit'};
 
@@ -163,6 +164,10 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
               ],
             ),
             if (status != null) ...[const SizedBox(height: 8), NoticeBox(status, color: AppColors.surfaceMuted)],
+            if (!b.isDriver && b.status == 'CONFIRMED' && b.tripStatus == 'IN_PROGRESS') ...[
+              const SizedBox(height: 8),
+              LiveTripCard(tripId: b.tripId),
+            ],
             if (b.freeCancellation && b.can('canCancel') && !b.isDriver) ...[
               const SizedBox(height: 8),
               const NoticeBox('Le trajet a été modifié : vous pouvez annuler sans frais jusqu’au départ.'),

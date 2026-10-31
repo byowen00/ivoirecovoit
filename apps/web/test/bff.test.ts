@@ -99,7 +99,7 @@ describe('relais authentifié /bff/api', () => {
       ctx(`trips/${id}`),
     );
     expect(fetchMock.mock.calls[1]![1].headers['if-match']).toBe('3');
-    for (const path of ['drivers/me', 'vehicles', `trips/${id}/manage`, 'trips/mine', 'bookings/mine', `bookings/${id}`, 'payments/methods', `payments/${id}`, 'me/transactions', 'me/earnings']) {
+    for (const path of ['drivers/me', 'vehicles', `trips/${id}/manage`, `trips/${id}/location`, 'trips/mine', 'bookings/mine', `bookings/${id}`, 'payments/methods', `payments/${id}`, 'me/transactions', 'me/earnings']) {
       expect((await GET(req(path, { cookies: { ic_access: 'AAA' } }), ctx(path))).status).toBe(200);
     }
   });

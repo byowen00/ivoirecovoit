@@ -11,6 +11,7 @@ import '../bookings/widgets.dart';
 import 'models.dart';
 import 'trip_map.dart';
 import 'trips_repository.dart';
+import 'live_location.dart';
 
 const _tabs = [('upcoming', 'À venir'), ('in_progress', 'En cours'), ('past', 'Passés'), ('draft', 'Brouillons')];
 const _empty = {
@@ -392,6 +393,7 @@ class _ManageTripScreenState extends ConsumerState<ManageTripScreen> {
                 ),
             ],
           ),
+          if (t.status == 'IN_PROGRESS') ...[const SizedBox(height: 12), ShareLocationCard(tripId: t.id)],
           const SizedBox(height: 12),
           TripMap(
             height: 200,

@@ -5,7 +5,7 @@ import 'package:latlong2/latlong.dart';
 import '../../core/config.dart';
 import '../../core/theme.dart';
 
-enum PointTone { origin, destination, stop, result }
+enum PointTone { origin, destination, stop, result, vehicle }
 
 class MapPoint {
   const MapPoint(this.point, this.label, this.tone, {this.id});
@@ -20,6 +20,7 @@ const _toneColor = {
   PointTone.destination: AppColors.brand,
   PointTone.stop: AppColors.textMuted,
   PointTone.result: Color(0xFF1D5FD6),
+  PointTone.vehicle: AppColors.night, // position du conducteur partagée pendant le trajet
 };
 
 /// Carte du trajet (tuiles configurables, attribution OpenStreetMap). Le tracé est une estimation, pas un suivi GPS.
@@ -31,6 +32,7 @@ class TripMap extends StatelessWidget {
     this.height = 240,
     this.onSelect,
     required this.semanticLabel,
+    this.note = 'Tracé indicatif, ce n’est pas un suivi GPS.',
   });
 
   final List<MapPoint> points;
@@ -38,6 +40,9 @@ class TripMap extends StatelessWidget {
   final double height;
   final ValueChanged<String>? onSelect;
   final String semanticLabel;
+
+  /// Mention sous la carte (estimation, ou fraîcheur de la position partagée).
+  final String note;
 
   @override
   Widget build(BuildContext context) {
@@ -91,13 +96,24 @@ class TripMap extends StatelessWidget {
                               message: p.label,
                               child: Center(
                                 child: Container(
-                                  width: p.tone == PointTone.stop ? 14 : 18,
-                                  height: p.tone == PointTone.stop ? 14 : 18,
+                                  width: switch (p.tone) {
+                                    PointTone.stop => 14,
+                                    PointTone.vehicle => 24,
+                                    _ => 18,
+                                  },
+                                  height: switch (p.tone) {
+                                    PointTone.stop => 14,
+                                    PointTone.vehicle => 24,
+                                    _ => 18,
+                                  },
                                   decoration: BoxDecoration(
                                     color: _toneColor[p.tone],
                                     shape: BoxShape.circle,
                                     border: Border.all(color: Colors.white, width: 2),
                                   ),
+                                  child: p.tone == PointTone.vehicle
+                                      ? const Icon(Icons.directions_car, size: 14, color: Colors.white)
+                                      : null,
                                 ),
                               ),
                             ),
@@ -110,12 +126,9 @@ class TripMap extends StatelessWidget {
               ),
             ),
           ),
-          const Padding(
-            padding: EdgeInsets.only(top: 4),
-            child: Text(
-              'Tracé indicatif, ce n’est pas un suivi GPS.',
-              style: TextStyle(fontSize: 12, color: AppColors.textMuted),
-            ),
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(note, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
           ),
         ],
       ),

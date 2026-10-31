@@ -98,6 +98,15 @@ export const duplicateSchema = z.object({
 });
 export type DuplicateInput = z.infer<typeof duplicateSchema>;
 
+/** Position du conducteur pendant le trajet (suivi par les passagers confirmés). */
+export const liveLocationSchema = z.object({
+  lat: latitude,
+  lng: longitude,
+  accuracyM: z.number().min(0).max(10_000).optional(),
+  heading: z.number().min(0).max(360).optional(),
+});
+export type LiveLocationInput = z.infer<typeof liveLocationSchema>;
+
 export const cancelSchema = z.object({ reason: z.string().trim().min(5, 'Indiquez un motif (5 caractères minimum).').max(300) });
 export type CancelInput = z.infer<typeof cancelSchema>;
 

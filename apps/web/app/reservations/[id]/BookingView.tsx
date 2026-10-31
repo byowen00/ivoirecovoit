@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { BookingStatusBadge } from '@/components/BookingStatusBadge';
+import { LiveTripMap } from '@/components/LiveTrip';
 import { formatDay, formatTime } from '@/components/TripCard';
 import { ApiRequestError } from '@/lib/api';
 import { type Booking, BOOKING_STATUS_LABEL, bookings, type CancelPreview, refundText } from '@/lib/bookings';
@@ -112,6 +113,8 @@ export function BookingView({ id }: { id: string }) {
           )}
         </div>
       )}
+
+      {!isDriver && b.status === 'CONFIRMED' && b.trip.status === 'IN_PROGRESS' && <LiveTripMap tripId={b.trip.id} />}
 
       <section className="card grid gap-2" aria-labelledby="trip-title">
         <h2 id="trip-title" className="text-lg font-semibold">

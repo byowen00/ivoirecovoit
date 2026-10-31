@@ -357,3 +357,19 @@ String priceProblemText(Map<String, dynamic> p, List<String> labels, int minXof,
       return 'Le prix au point de départ doit être 0.';
   }
 }
+
+/// Position du conducteur pendant le trajet ([position] null tant qu'il n'a rien partagé).
+class LiveLocation {
+  LiveLocation.fromJson(Map<String, dynamic> j)
+    : tripStatus = j['status'] as String,
+      position = j['position'] == null
+          ? null
+          : LatLng(_d((j['position'] as Map)['lat']), _d((j['position'] as Map)['lng'])),
+      ageS = (j['ageS'] as num?)?.toInt(),
+      stale = (j['stale'] as bool?) ?? false;
+
+  final String tripStatus;
+  final LatLng? position;
+  final int? ageS;
+  final bool stale;
+}

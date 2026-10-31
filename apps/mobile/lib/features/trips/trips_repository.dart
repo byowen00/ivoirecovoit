@@ -139,6 +139,28 @@ class ApiTripsRepository implements TripsRepository {
     );
   }
 
+  /// Conducteur : envoie sa position pendant le trajet (dernière position seulement, effacée à la fin).
+  Future<void> shareLocation(
+    String id, {
+    required double lat,
+    required double lng,
+    double? accuracyM,
+    double? heading,
+  }) => _session.send(
+    'POST',
+    '/trips/$id/location',
+    body: {
+      'lat': lat,
+      'lng': lng,
+      if (accuracyM != null) 'accuracyM': accuracyM.clamp(0, 10000),
+      if (heading != null && heading >= 0) 'heading': heading.clamp(0, 360),
+    },
+  );
+
+  /// Conducteur ou passager confirmé : dernière position partagée par le conducteur.
+  Future<LiveLocation> liveLocation(String id) async =>
+      LiveLocation.fromJson(await _session.send('GET', '/trips/$id/location'));
+
   Future<ManagedTrip> manage(String id) async => ManagedTrip.fromJson(await _session.send('GET', '/trips/$id/manage'));
 
   Future<ManagedTrip> action(String id, String action) async =>

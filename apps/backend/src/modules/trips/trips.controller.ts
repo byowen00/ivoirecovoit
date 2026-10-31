@@ -6,6 +6,7 @@ import { IdempotencyService, requireIdempotencyKey } from '../../infra/idempoten
 import { RateLimitService } from '../../infra/rate-limit.service';
 import { CurrentAuth, MaybeAuth, OptionalAuth, Public } from '../auth/decorators';
 import { type AppRequest, type AuthContext, requestContext } from '../auth/request-context';
+import { LiveLocationService } from './live-location.service';
 import { SearchService } from './search.service';
 import {
   type AvailabilityQuery,
@@ -16,6 +17,8 @@ import {
   createTripSchema,
   type DuplicateInput,
   duplicateSchema,
+  type LiveLocationInput,
+  liveLocationSchema,
   type MineQuery,
   mineQuery,
   type PreviewTripInput,
@@ -36,6 +39,7 @@ export class TripsController {
     private readonly search: SearchService,
     private readonly idempotency: IdempotencyService,
     private readonly rateLimit: RateLimitService,
+    private readonly live: LiveLocationService,
   ) {}
 
   // Les routes à chemin fixe sont déclarées avant « :id ».
@@ -146,6 +150,7 @@ export class TripsController {
     const result = await this.idempotency.run(auth.userId, requireIdempotencyKey(key), `POST /trips/${id}/cancel`, body, 200, () =>
       this.trips.cancel(auth.userId, id, body, requestContext(req)),
     );
+    await this.live.clear(id);
     res.status(result.status);
     return result.body;
   }
@@ -158,7 +163,26 @@ export class TripsController {
 
   @Post(':id/complete')
   @HttpCode(HttpStatus.OK)
-  complete(@CurrentAuth() auth: AuthContext, @Param('id', new ParseUUIDPipe()) id: string, @Req() req: AppRequest) {
-    return this.trips.complete(auth.userId, id, requestContext(req));
+  async complete(@CurrentAuth() auth: AuthContext, @Param('id', new ParseUUIDPipe()) id: string, @Req() req: AppRequest) {
+    const view = await this.trips.complete(auth.userId, id, requestContext(req));
+    await this.live.clear(id);
+    return view;
+  }
+
+  @Post(':id/location')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Conducteur : partage sa position pendant le trajet (dernière position seulement, effacée à la fin)' })
+  shareLocation(
+    @CurrentAuth() auth: AuthContext,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodValidationPipe(liveLocationSchema)) body: LiveLocationInput,
+  ) {
+    return this.live.share(auth.userId, id, body);
+  }
+
+  @Get(':id/location')
+  @ApiOperation({ summary: 'Conducteur ou passager confirmé : dernière position du conducteur pendant le trajet' })
+  readLocation(@CurrentAuth() auth: AuthContext, @Param('id', new ParseUUIDPipe()) id: string) {
+    return this.live.read(auth.userId, id);
   }
 }

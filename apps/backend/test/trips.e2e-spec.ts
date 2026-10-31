@@ -334,6 +334,41 @@ describe('Trajets : publication, modification, cycle de vie', () => {
     await t.http().patch(`/api/v1/trips/${trip.id}`).set(bearer(d.token)).set('If-Match', String(done.body.version)).send({ description: 'x' }).expect(409);
   });
 
+  it('suivi du conducteur : partage pendant le trajet, lecture par les passagers confirmés seulement', async () => {
+    const d = await approvedDriver(t, db);
+    const trip = (await createTrip(d, { publish: true }).expect(201)).body;
+    const passenger = await loginActive(t);
+    const stranger = await loginActive(t);
+    await createBooking(db, asFixture(trip, d), passenger.userId, { status: 'CONFIRMED' });
+    const point = { lat: 5.3364, lng: -4.0267, accuracyM: 25, heading: 90 };
+
+    // Avant le départ : rien à partager ni à lire.
+    const early = await t.http().post(`/api/v1/trips/${trip.id}/location`).set(bearer(d.token)).send(point).expect(409);
+    expect(early.body.error.code).toBe('TRIP_NOT_IN_PROGRESS');
+    const before = await t.http().get(`/api/v1/trips/${trip.id}/location`).set(bearer(passenger.accessToken)).expect(200);
+    expect(before.body).toMatchObject({ status: 'PUBLISHED', position: null });
+
+    await db.query(`UPDATE trips SET departure_at = now() + interval '20 minutes', estimated_arrival_at = now() + interval '4 hours' WHERE id = $1`, [trip.id]);
+    await t.http().post(`/api/v1/trips/${trip.id}/start`).set(bearer(d.token)).expect(200);
+    const none = await t.http().get(`/api/v1/trips/${trip.id}/location`).set(bearer(passenger.accessToken)).expect(200);
+    expect(none.body).toMatchObject({ status: 'IN_PROGRESS', position: null });
+
+    await t.http().post(`/api/v1/trips/${trip.id}/location`).set(bearer(d.token)).send(point).expect(200);
+    const seen = await t.http().get(`/api/v1/trips/${trip.id}/location`).set(bearer(passenger.accessToken)).expect(200);
+    expect(seen.body).toMatchObject({ status: 'IN_PROGRESS', stale: false, position: { lat: 5.3364, lng: -4.0267, accuracyM: 25, heading: 90 } });
+    expect(seen.body.ageS).toBeLessThan(5);
+
+    // Ni un autre membre, ni un passager qui n'est pas du trajet, ni un passager qui voudrait écrire.
+    await t.http().get(`/api/v1/trips/${trip.id}/location`).set(bearer(stranger.accessToken)).expect(404);
+    await t.http().post(`/api/v1/trips/${trip.id}/location`).set(bearer(passenger.accessToken)).send(point).expect(404);
+    await t.http().post(`/api/v1/trips/${trip.id}/location`).set(bearer(d.token)).send({ lat: 95, lng: 0 }).expect(400);
+
+    // Fin du trajet : la position est effacée.
+    await t.http().post(`/api/v1/trips/${trip.id}/complete`).set(bearer(d.token)).expect(200);
+    const after = await t.http().get(`/api/v1/trips/${trip.id}/location`).set(bearer(passenger.accessToken)).expect(200);
+    expect(after.body).toMatchObject({ status: 'COMPLETED', position: null });
+  });
+
   it('annulation (idempotente) et onglets « mes trajets »', async () => {
     const d = await approvedDriver(t, db);
     const a = (await createTrip(d, { publish: true, departureAt: at(2) }).expect(201)).body;

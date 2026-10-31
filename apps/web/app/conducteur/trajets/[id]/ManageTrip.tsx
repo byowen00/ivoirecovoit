@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { todayInAbidjan } from '@/components/SearchForm';
 import { formatDay, formatTime } from '@/components/TripCard';
 import { BookingStatusBadge } from '@/components/BookingStatusBadge';
+import { ShareLocation } from '@/components/LiveTrip';
 import { type MapPoint, TripMap } from '@/components/TripMap';
 import { FieldErrors } from '@/lib/account';
 import { ApiRequestError } from '@/lib/api';
@@ -95,6 +96,8 @@ export function ManageTrip({ id }: { id: string }) {
 
       {notice && <p role="status" className="card text-success">{notice}</p>}
       {error && <p role="alert" className="card text-danger">{error}</p>}
+
+      {trip.status === 'IN_PROGRESS' && <ShareLocation tripId={trip.id} />}
 
       <div className="flex flex-wrap gap-2">
         {a.canPublish && (

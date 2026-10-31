@@ -1,8 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Accès à l'API IvoireCovoit -->
     <uses-permission android:name="android.permission.INTERNET"/>
-    <!-- « Ma position » comme point de départ d'une recherche ; position approximative suffisante. -->
+    <!-- « Ma position » dans la recherche (approximative) et suivi du conducteur pendant le trajet (précise),
+         seulement appli ouverte. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <application
         android:label="IvoireCovoit"
         android:name="${applicationName}"

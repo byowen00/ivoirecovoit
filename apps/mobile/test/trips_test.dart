@@ -178,6 +178,20 @@ void main() {
     });
   });
 
+  group('suivi du conducteur', () {
+    test('position partagée, ancienne ou absente', () {
+      final l = LiveLocation.fromJson({
+        'status': 'IN_PROGRESS',
+        'position': {'lat': 5.33, 'lng': -4.02, 'accuracyM': 20, 'heading': null, 'recordedAt': '2026-11-02T07:00:00Z'},
+        'ageS': 150,
+        'stale': true,
+      });
+      expect([l.tripStatus, l.position?.latitude, l.ageS, l.stale], ['IN_PROGRESS', 5.33, 150, true]);
+      final none = LiveLocation.fromJson({'status': 'COMPLETED', 'position': null, 'ageS': null, 'stale': false});
+      expect([none.position, none.ageS, none.stale], [null, null, false]);
+    });
+  });
+
   group('trajet régulier', () {
     test('du lundi au vendredi pendant deux semaines, premier départ exclu', () {
       // Lundi 2 novembre 2026, 7 h : les copies vont du mardi 3 au lundi 16 (14 jours suivants).

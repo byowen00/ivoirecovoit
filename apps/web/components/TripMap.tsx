@@ -9,8 +9,8 @@ export interface MapPoint {
   lat: number;
   lng: number;
   label: string;
-  /** Couleur selon le rôle : départ, arrivée, arrêt intermédiaire, résultat de recherche. */
-  tone: 'origin' | 'destination' | 'stop' | 'result';
+  /** Couleur selon le rôle : départ, arrivée, arrêt intermédiaire, résultat de recherche, voiture suivie. */
+  tone: 'origin' | 'destination' | 'stop' | 'result' | 'vehicle';
   id?: string;
 }
 
@@ -24,6 +24,7 @@ const TONE: Record<MapPoint['tone'], string> = {
   destination: '#b85400',
   stop: '#545c66',
   result: '#1d5fd6',
+  vehicle: '#11181c',
 };
 
 type Leaflet = typeof import('leaflet');
@@ -40,13 +41,15 @@ interface Props {
   label: string;
   onSelect?: (id: string) => void;
   className?: string;
+  /** Légende sous la carte. */
+  caption?: string;
 }
 
 /**
  * Carte Leaflet chargée à la demande (pas de rendu serveur). L'itinéraire affiché est une estimation :
  * la légende le rappelle, et la liste textuelle reste la référence pour les lecteurs d'écran.
  */
-export function TripMap({ points, route = [], label, onSelect, className = 'h-72' }: Props) {
+export function TripMap({ points, route = [], label, onSelect, className = 'h-72', caption = 'Tracé indicatif, ce n’est pas un suivi GPS.' }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<LeafletMap | null>(null);
   const layer = useRef<LayerGroup | null>(null);
@@ -79,7 +82,7 @@ export function TripMap({ points, route = [], label, onSelect, className = 'h-72
       layer.current.clearLayers();
       if (route.length > 1) L.polyline(route, { color: '#b85400', weight: 4, opacity: 0.8, dashArray: '6 6' }).addTo(layer.current);
       for (const p of points) {
-        const m = L.circleMarker([p.lat, p.lng], { radius: p.tone === 'stop' ? 6 : 8, color: '#fff', weight: 2, fillColor: TONE[p.tone], fillOpacity: 1 })
+        const m = L.circleMarker([p.lat, p.lng], { radius: p.tone === 'stop' ? 6 : p.tone === 'vehicle' ? 11 : 8, color: '#fff', weight: 2, fillColor: TONE[p.tone], fillOpacity: 1 })
           .bindTooltip(p.label)
           .addTo(layer.current);
         if (onSelect && p.id) m.on('click', () => onSelect(p.id!));
@@ -97,7 +100,7 @@ export function TripMap({ points, route = [], label, onSelect, className = 'h-72
   return (
     <figure className="overflow-hidden rounded-[var(--radius-card)] border border-line bg-surface">
       <div ref={container} className={`${className} w-full`} role="region" aria-label={label} />
-      <figcaption className="px-3 py-2 text-xs text-ink-muted">Tracé indicatif, ce n’est pas un suivi GPS.</figcaption>
+      <figcaption className="px-3 py-2 text-xs text-ink-muted">{caption}</figcaption>
     </figure>
   );
 }
