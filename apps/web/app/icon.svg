@@ -1,0 +1,11 @@
+<!-- Icône de l'application (modèle D) : repère orange (départ) et repère vert (arrivée) sur fond sombre.
+     Copie arrondie de apps/mobile/design/icone.svg (onglet du navigateur). -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="64" height="64">
+  <rect width="160" height="160" rx="36" fill="#11181C"/>
+  <g transform="translate(80 80) scale(1.12) translate(-80 -83)">
+    <path d="M62 118 C40 92 34 80 34 66 A28 28 0 0 1 90 66 C90 80 84 92 62 118 Z" fill="#F08A2C"/>
+    <circle cx="62" cy="66" r="10" fill="#11181C"/>
+    <path d="M100 128 C80 104 74 93 74 80 A26 26 0 0 1 126 80 C126 93 120 104 100 128 Z" fill="#22C55E" stroke="#11181C" stroke-width="5"/>
+    <circle cx="100" cy="80" r="9" fill="#11181C"/>
+  </g>
+</svg>

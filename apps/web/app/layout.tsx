@@ -32,8 +32,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {!inConsole && (
           <header className="bg-night text-white">
             <nav className="mx-auto flex min-h-16 max-w-5xl flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-2" aria-label="Navigation principale">
-              <Link href="/" className="font-display shrink-0 text-xl font-extrabold tracking-tight">
-                Ivoire<span className="text-accent">Covoit</span>
+              <Link href="/" className="font-display flex shrink-0 items-center gap-2 text-xl font-extrabold tracking-tight">
+                {/* eslint-disable-next-line @next/next/no-img-element -- icône SVG statique */}
+                <img src="/icon.svg" alt="" width={28} height={28} className="rounded-lg" />
+                <span>
+                  Ivoire<span className="text-accent">Covoit</span>
+                </span>
               </Link>
               <div className="flex items-center gap-0.5 whitespace-nowrap sm:gap-2">
                 {signedIn && (
