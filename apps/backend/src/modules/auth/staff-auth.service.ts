@@ -5,10 +5,14 @@ import { ENV, type Env } from '../../config/env';
 import { DB, type Db } from '../../database/database.module';
 import { AuditService, type RequestContext } from '../../infra/audit.service';
 import { rateLimited, RateLimitService } from '../../infra/rate-limit.service';
-import { decryptSecret } from './crypto';
+import { uuidv7 } from '../../common/ids';
+import { decryptSecret, encryptSecret } from './crypto';
 import { hashPassword, verifyPassword } from './password';
 import { SessionsService, type TokenPair } from './sessions.service';
-import { verifyTotp } from './totp';
+import { generateTotpSecret, verifyTotp } from './totp';
+
+/** Compte d'essai de la console, créé à la première entrée directe (données de démonstration). */
+export const TEST_STAFF_EMAIL = 'admin.essai@ivoirecovoit.test';
 
 export interface StaffView {
   id: string;
@@ -85,6 +89,40 @@ export class StaffAuthService implements OnModuleInit {
     });
     await this.rateLimit.reset(failures);
     return { ...tokens, staff: await this.view(account.id) };
+  }
+
+  /** Entrée directe pour les essais en local : jamais en pré-production ni en production. */
+  get testLoginEnabled(): boolean {
+    return (
+      this.env.STAFF_TEST_LOGIN && this.env.OTP_TEST_MODE && (this.env.NODE_ENV === 'development' || this.env.NODE_ENV === 'test')
+    );
+  }
+
+  async testLogin(ctx: RequestContext): Promise<TokenPair & { staff: StaffView }> {
+    if (!this.testLoginEnabled) throw new ApiError(HttpStatus.NOT_FOUND, 'NOT_FOUND', 'Ressource introuvable.');
+    const tokens = await this.db.transaction().execute(async (trx) => {
+      let user = await trx.selectFrom('users').select('id').where('email', '=', TEST_STAFF_EMAIL).executeTakeFirst();
+      if (!user) {
+        const id = uuidv7();
+        await trx
+          .insertInto('users')
+          .values({ id, email: TEST_STAFF_EMAIL, email_verified_at: new Date(), first_name: 'Admin', last_name: 'Essai',
+                    status: 'ACTIVE', is_passenger: false, is_demo: true })
+          .execute();
+        // Mot de passe et secret aléatoires jamais affichés : ce compte ne s'ouvre que par l'entrée directe.
+        await trx
+          .insertInto('staff_accounts')
+          .values({ user_id: id, password_hash: await hashPassword(randomBytes(24).toString('hex')),
+                    totp_secret_enc: encryptSecret(generateTotpSecret(), this.env.STAFF_TOTP_ENCRYPTION_KEY) })
+          .execute();
+        await trx.insertInto('staff_role_assignments').values({ user_id: id, role_code: 'SUPER_ADMIN' }).execute();
+        user = { id };
+      }
+      const pair = await this.sessions.create(user.id, 'STAFF', 'Administration (essai)', ctx, trx);
+      await this.audit.log({ actorId: user.id, action: 'staff.test_login', targetType: 'user', targetId: user.id, ctx }, trx);
+      return { pair, id: user.id };
+    });
+    return { ...tokens.pair, staff: await this.view(tokens.id) };
   }
 
   async view(userId: string): Promise<StaffView> {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { adminAuth } from '@/lib/admin';
 import { useSetStaff } from '../_components/AdminShell';
 import { errText } from '../_components/ui';
@@ -15,6 +15,27 @@ export function StaffLogin({ next }: { next: string }) {
   const [totp, setTotp] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [testLogin, setTestLogin] = useState(false);
+
+  useEffect(() => {
+    adminAuth.testLoginStatus().then(
+      (r) => setTestLogin(r.enabled),
+      () => setTestLogin(false),
+    );
+  }, []);
+
+  async function enterTest() {
+    setBusy(true);
+    setError(null);
+    try {
+      const { staff } = await adminAuth.testLogin();
+      setMe(staff);
+      router.replace(next);
+    } catch (err) {
+      setError(errText(err));
+      setBusy(false);
+    }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -37,6 +58,14 @@ export function StaffLogin({ next }: { next: string }) {
         Console d’administration
       </h1>
       <p className="text-sm text-ink-muted">Réservée au personnel d’IvoireCovoit. Chaque action est journalisée.</p>
+      {testLogin && (
+        <div className="grid gap-2 rounded-[var(--radius-control)] bg-warning-soft px-3 py-2 text-sm">
+          <p>Mode essai (ordinateur local) : entrée directe, sans mot de passe ni code, avec un compte d’essai.</p>
+          <button type="button" className="btn-primary" disabled={busy} onClick={() => void enterTest()}>
+            Entrer sans mot de passe
+          </button>
+        </div>
+      )}
       <label className="grid gap-1 text-sm font-medium">
         Adresse e-mail
         <input type="email" autoComplete="username" required className="field" value={email} onChange={(e) => setEmail(e.target.value)} />

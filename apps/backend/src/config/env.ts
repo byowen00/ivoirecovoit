@@ -43,6 +43,12 @@ export const envSchema = z
       .enum(['true', 'false'])
       .default('true')
       .transform((v) => v === 'true'),
+    // Entrée directe dans la console d'administration pour les essais en local (sans mot de passe ni code) :
+    // seulement avec NODE_ENV development ou test ET OTP_TEST_MODE. Jamais en pré-production ni en production.
+    STAFF_TEST_LOGIN: z
+      .enum(['true', 'false'])
+      .default('true')
+      .transform((v) => v === 'true'),
     // Prestataire de paiement. « sandbox » : bac à sable interne, aucun argent réel (interdit en production).
     // « aggregator » : squelette d'adaptateur, pas encore intégré (contrat et documentation à obtenir).
     PAYMENT_PROVIDER: z.enum(['sandbox', 'aggregator']).default('sandbox'),

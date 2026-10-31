@@ -36,6 +36,8 @@ export interface Page<T> {
 export const adminAuth = {
   login: (email: string, password: string, totp: string) =>
     send<{ staff: StaffMe }>('/bff/admin/login', 'POST', { email, password, totp }, {}, 'ic_admin_csrf'),
+  testLoginStatus: () => send<{ enabled: boolean }>('/bff/admin/test-login', 'GET'),
+  testLogin: () => send<{ staff: StaffMe }>('/bff/admin/test-login', 'POST', {}, {}, 'ic_admin_csrf'),
   logout: () => send<void>('/bff/admin/logout', 'POST', undefined, {}, 'ic_admin_csrf'),
   me: () => adminCall<StaffMe>('me'),
 };

@@ -118,4 +118,19 @@ export class AuthController {
   staffLogin(@Body(new ZodValidationPipe(staffLoginSchema)) body: z.infer<typeof staffLoginSchema>, @Req() req: AppRequest) {
     return this.staff.login(body.email, body.password, body.totp, requestContext(req));
   }
+
+  @Public()
+  @Get('staff/test-login')
+  @ApiOperation({ summary: 'Essais en local : l’entrée directe dans la console est-elle ouverte ?' })
+  staffTestLoginStatus() {
+    return { enabled: this.staff.testLoginEnabled };
+  }
+
+  @Public()
+  @Post('staff/test-login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Essais en local : entrée directe dans la console, sans mot de passe ni code' })
+  staffTestLogin(@Req() req: AppRequest) {
+    return this.staff.testLogin(requestContext(req));
+  }
 }

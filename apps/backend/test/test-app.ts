@@ -33,6 +33,7 @@ export async function createTestApp(extraControllers: Type[] = [], env: Record<s
   process.env.NODE_ENV = 'test';
   process.env.OTP_TEST_MODE = 'true';
   process.env.OTP_TEST_QUICK_LOGIN = 'false';
+  process.env.STAFF_TEST_LOGIN = 'false';
   Object.assign(process.env, TEST_S3);
   // Pas d'OSRM dans les tests d'API : estimation de repli (les tests du client OSRM utilisent un faux serveur).
   delete process.env.OSRM_URL;

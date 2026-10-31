@@ -231,3 +231,37 @@ describe('Personnel : connexion et permissions', () => {
     await t.http().get('/api/v1/admin/me').set(bearer(res.body.accessToken)).expect(401);
   });
 });
+
+describe('Entrée directe dans la console pour les essais en local', () => {
+  afterEach(() => {
+    process.env.STAFF_TEST_LOGIN = 'false';
+    process.env.NODE_ENV = 'test';
+  });
+
+  it('ouvre une session SUPER_ADMIN sans mot de passe ni code, sur le même compte d’essai', async () => {
+    const t = await createTestApp([], { STAFF_TEST_LOGIN: 'true' });
+    try {
+      await t.http().get('/api/v1/auth/staff/test-login').expect(200, { enabled: true });
+      const first = await t.http().post('/api/v1/auth/staff/test-login').expect(200);
+      expect(first.body.staff).toMatchObject({ email: 'admin.essai@ivoirecovoit.test', roles: ['SUPER_ADMIN'] });
+      const again = await t.http().post('/api/v1/auth/staff/test-login').expect(200);
+      expect(again.body.staff.id).toBe(first.body.staff.id);
+      await t.http().get('/api/v1/admin/users').set('Authorization', `Bearer ${first.body.accessToken}`).expect(200);
+    } finally {
+      await t.app.close();
+    }
+  });
+
+  it('reste fermée quand elle est désactivée ou hors développement', async () => {
+    const cases: Record<string, string>[] = [{ STAFF_TEST_LOGIN: 'false' }, { STAFF_TEST_LOGIN: 'true', NODE_ENV: 'staging' }];
+    for (const env of cases) {
+      const t = await createTestApp([], env);
+      try {
+        await t.http().get('/api/v1/auth/staff/test-login').expect(200, { enabled: false });
+        await t.http().post('/api/v1/auth/staff/test-login').expect(404);
+      } finally {
+        await t.app.close();
+      }
+    }
+  });
+});
