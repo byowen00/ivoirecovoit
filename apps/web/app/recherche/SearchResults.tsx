@@ -30,7 +30,22 @@ const SORT_LABEL: Record<Sort, string> = {
 /** Écran 5 : résultats en liste ou sur carte, filtres, pagination. */
 export function SearchResults() {
   const params = useSearchParams();
-  const from = params.get('from');
+  const fromPlace = params.get('from');
+  const rawLat = params.get('fromLat');
+  const rawLng = params.get('fromLng');
+  const fromPoint = useMemo(() => {
+    const lat = Number(rawLat);
+    const lng = Number(rawLng);
+    return rawLat && rawLng && Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
+  }, [rawLat, rawLng]);
+  const from = fromPlace ?? (fromPoint ? 'position' : null);
+  // « Partir maintenant » : plage horaire transmise par le formulaire.
+  const urlFrom = params.get('timeFrom');
+  const urlTo = params.get('timeTo');
+  const nowWindow = useMemo(() => {
+    const hhmm = /^\d{2}:\d{2}$/;
+    return urlFrom && urlTo && hhmm.test(urlFrom) && hhmm.test(urlTo) ? ([urlFrom, urlTo] as [string, string]) : null;
+  }, [urlFrom, urlTo]);
   const to = params.get('to');
   const fromLabel = params.get('fromLabel') ?? '';
   const toLabel = params.get('toLabel') ?? '';
@@ -51,10 +66,10 @@ export function SearchResults() {
 
   const query = useMemo<SearchParams | null>(() => {
     if (!from || !to) return null;
-    const window = PERIODS[period];
+    const window = PERIODS[period] ?? nowWindow;
     const price = Number(maxPrice);
     return {
-      fromPlaceId: from,
+      ...(fromPoint ? { fromLat: fromPoint.lat, fromLng: fromPoint.lng } : { fromPlaceId: from }),
       toPlaceId: to,
       date: date || undefined,
       timeFrom: date && window ? window[0] : undefined,
@@ -64,7 +79,7 @@ export function SearchResults() {
       directOnly,
       maxPriceXof: maxPrice && Number.isInteger(price) && price > 0 ? price : undefined,
     };
-  }, [from, to, date, seats, sort, period, maxPrice, directOnly]);
+  }, [from, to, date, seats, sort, period, maxPrice, directOnly, fromPoint, nowWindow]);
 
   useEffect(() => {
     if (!query) return;
@@ -131,7 +146,10 @@ export function SearchResults() {
 
   return (
     <div className="grid gap-4">
-      <SearchForm compact initial={{ from: { id: from, label: fromLabel }, to: { id: to, label: toLabel }, date, seats }} />
+      <SearchForm
+        compact
+        initial={{ from: fromPoint ? null : { id: from, label: fromLabel }, fromPoint, to: { id: to, label: toLabel }, date, seats, now: !!nowWindow }}
+      />
 
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
@@ -141,7 +159,7 @@ export function SearchResults() {
           <p className="text-sm text-ink-muted" aria-live="polite">
             {results === null
               ? 'Recherche en cours…'
-              : `${results.length}${cursor ? '+' : ''} trajet${results.length > 1 ? 's' : ''} · ${seats} place${seats > 1 ? 's' : ''}`}
+              : `${results.length}${cursor ? '+' : ''} trajet${results.length > 1 ? 's' : ''} · ${seats} place${seats > 1 ? 's' : ''}${nowWindow && period === 'all' ? ` · entre ${nowWindow[0]} et ${nowWindow[1]}` : ''}`}
           </p>
         </div>
         <div role="group" aria-label="Affichage" className="flex overflow-hidden rounded-[var(--radius-control)] border border-line">
@@ -227,7 +245,7 @@ export function SearchResults() {
           ))}
         </div>
       ) : results && results.length === 0 ? (
-        <EmptyState date={date} filtered={directOnly || !!maxPrice || period !== 'all'} />
+        <EmptyState date={date} soon={!!nowWindow && period === 'all'} filtered={directOnly || !!maxPrice || period !== 'all'} />
       ) : (
         <ul className="grid gap-3">
           {results?.map((r) => (
@@ -248,14 +266,16 @@ export function SearchResults() {
   );
 }
 
-function EmptyState({ date, filtered }: { date: string; filtered: boolean }) {
+function EmptyState({ date, soon, filtered }: { date: string; soon: boolean; filtered: boolean }) {
   return (
     <div className="card grid gap-2 text-center">
       <p className="text-lg font-semibold">Aucun trajet trouvé</p>
       <p className="text-ink-muted">
         {filtered
           ? 'Essayez d’assouplir les filtres (prix, horaire, trajets directs).'
-          : date
+          : soon
+            ? 'Aucun départ dans les prochaines heures. Essayez plus tard dans la journée ou demain.'
+            : date
             ? 'Aucun conducteur ne propose ce trajet ce jour-là. Essayez une autre date ou une ville proche.'
             : 'Aucun trajet à venir sur cet axe pour le moment.'}
       </p>

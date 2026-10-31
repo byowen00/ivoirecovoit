@@ -10,7 +10,19 @@ import { formatTime } from '@/components/TripCard';
 import { ApiRequestError } from '@/lib/api';
 import { driver, type VehicleView } from '@/lib/driver';
 import { formatDistance, formatDuration, formatXof } from '@/lib/format';
-import { clearDraft, draftDepartureIso, draftPoints, emptyDraft, loadDraft, saveDraft, stepErrors, type TripDraft } from '@/lib/trip-draft';
+import {
+  clearDraft,
+  draftDepartureIso,
+  draftPoints,
+  emptyDraft,
+  loadDraft,
+  REPEAT_HORIZON_DAYS,
+  repeatDates,
+  repeatDaysLabel,
+  saveDraft,
+  stepErrors,
+  type TripDraft,
+} from '@/lib/trip-draft';
 import { driverTrips, LUGGAGE_LABEL, type LuggagePolicy, newIdempotencyKey, priceProblemText, routeSourceNote, type TripPreview } from '@/lib/trips';
 
 const STEPS = ['Itinéraire', 'Véhicule et places', 'Prix', 'Vérification'] as const;
@@ -206,7 +218,53 @@ function RouteStep({ draft, update }: StepProps) {
           <input id="dep-time" type="time" step={300} className="field" value={draft.time} onChange={(e) => update({ time: e.target.value })} />
         </div>
       </div>
+      <RepeatDays days={draft.repeatDays ?? []} onChange={(repeatDays) => update({ repeatDays })} />
     </section>
+  );
+}
+
+const DAY_LETTERS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+const DAY_NAMES = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
+
+/** Trajet régulier (domicile-travail, par exemple) : jours où le trajet est aussi publié. */
+function RepeatDays({ days, onChange }: { days: number[]; onChange: (d: number[]) => void }) {
+  const toggle = (d: number) => onChange(days.includes(d) ? days.filter((x) => x !== d) : [...days, d]);
+  return (
+    <fieldset className="grid gap-2 rounded-[var(--radius-card)] bg-surface-muted p-4">
+      <legend className="sr-only">Trajet régulier</legend>
+      <p className="font-display font-bold">Trajet régulier</p>
+      <p className="text-sm text-ink-muted">
+        Vous faites ce trajet souvent ? Cochez les jours : il sera aussi publié ces jours-là, à la même heure, pendant les deux semaines suivantes.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {DAY_LETTERS.map((letter, i) => {
+          const d = i + 1;
+          const on = days.includes(d);
+          return (
+            <button
+              key={d}
+              type="button"
+              aria-pressed={on}
+              aria-label={DAY_NAMES[i]}
+              onClick={() => toggle(d)}
+              className={`size-10 rounded-full border-[1.5px] font-bold ${on ? 'border-brand bg-brand text-white' : 'border-line bg-surface'}`}
+            >
+              {letter}
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex gap-3 text-sm font-semibold">
+        <button type="button" className="text-brand underline-offset-4 hover:underline" onClick={() => onChange([1, 2, 3, 4, 5])}>
+          Du lundi au vendredi
+        </button>
+        {days.length > 0 && (
+          <button type="button" className="text-ink-muted underline-offset-4 hover:underline" onClick={() => onChange([])}>
+            Aucun
+          </button>
+        )}
+      </div>
+    </fieldset>
   );
 }
 
@@ -456,6 +514,17 @@ function ReviewStep({
         // Clé distincte pour un brouillon, pour pouvoir ensuite publier depuis le même assistant.
         publish ? draft.idempotencyKey : `${draft.idempotencyKey.slice(0, 30)}-draft`,
       );
+      const dates = publish ? repeatDates(draft.date, draft.repeatDays ?? []) : [];
+      if (dates.length) {
+        // Trajet régulier : un refus sur une date (chevauchement…) n'annule pas les autres ni le premier trajet.
+        try {
+          const res = await driverTrips.duplicate(trip.id, dates, true, `${draft.idempotencyKey.slice(0, 30)}-rep`);
+          const refused = res.data.filter((r) => !r.tripId).length;
+          if (refused) window.alert(`Trajet publié. ${res.data.length - refused} répétition(s) publiée(s), ${refused} refusée(s) (conflit d’horaire).`);
+        } catch (err) {
+          window.alert(`Le premier trajet est publié, mais pas les répétitions : ${message(err)}`);
+        }
+      }
       onDone(trip.id);
     } catch (err) {
       setError(message(err));
@@ -479,6 +548,11 @@ function ReviewStep({
       <Row onEdit={onEdit} label="Départ" step={1}>
         {draft.date.split('-').reverse().join('/')} à {draft.time}
       </Row>
+      {(draft.repeatDays ?? []).length > 0 && (
+        <Row onEdit={onEdit} label="Trajet régulier" step={1}>
+          {repeatDaysLabel(draft.repeatDays!)}, {repeatDates(draft.date, draft.repeatDays!).length} autre(s) départ(s) sur les {REPEAT_HORIZON_DAYS} jours suivants
+        </Row>
+      )}
       <Row onEdit={onEdit} label="Véhicule et places" step={2}>
         {vehicle ? `${vehicle.make} ${vehicle.model}` : '—'} · {draft.seats} place{draft.seats > 1 ? 's' : ''} ·{' '}
         {draft.acceptanceMode === 'AUTO' ? 'acceptation automatique' : 'acceptation manuelle'} · {LUGGAGE_LABEL[draft.luggagePolicy]}

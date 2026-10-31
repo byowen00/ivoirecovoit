@@ -22,20 +22,30 @@ const _sortLabel = {
 String resultsLocation(SearchQuery q) => Uri(
   path: '/recherche',
   queryParameters: {
-    'from': q.fromId,
+    if (q.fromPosition) ...{'fromLat': '${q.fromLat}', 'fromLng': '${q.fromLng}'} else 'from': q.fromId,
     'fromLabel': q.fromLabel,
     'to': q.toId,
     'toLabel': q.toLabel,
     'seats': '${q.seats}',
     if (q.date != null) 'date': isoDay(q.date!),
+    'timeFrom': ?q.timeFrom,
+    'timeTo': ?q.timeTo,
   },
 ).toString();
 
 SearchQuery? queryFromUri(Uri uri) {
   final p = uri.queryParameters;
-  if (p['from'] == null || p['to'] == null) return null;
+  final lat = double.tryParse(p['fromLat'] ?? '');
+  final lng = double.tryParse(p['fromLng'] ?? '');
+  final position = lat != null && lng != null;
+  if ((p['from'] == null && !position) || p['to'] == null) return null;
+  final hhmm = RegExp(r'^\d{2}:\d{2}$');
   return SearchQuery(
-    fromId: p['from']!,
+    fromId: position ? '' : p['from']!,
+    fromLat: position ? lat : null,
+    fromLng: position ? lng : null,
+    timeFrom: hhmm.hasMatch(p['timeFrom'] ?? '') ? p['timeFrom'] : null,
+    timeTo: hhmm.hasMatch(p['timeTo'] ?? '') ? p['timeTo'] : null,
     fromLabel: p['fromLabel'] ?? 'Départ',
     toId: p['to']!,
     toLabel: p['toLabel'] ?? 'Arrivée',
@@ -134,7 +144,9 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
           children: [
             Text('${q.fromLabel} → ${q.toLabel}', overflow: TextOverflow.ellipsis),
             Text(
-              '${q.date == null ? 'Toutes dates' : formatDay(q.date!)} · ${q.seats} place${q.seats > 1 ? 's' : ''}',
+              '${q.date == null ? 'Toutes dates' : formatDay(q.date!)}'
+              '${q.timeFrom != null && q.timeTo != null ? ', ${q.timeFrom}–${q.timeTo}' : ''}'
+              ' · ${q.seats} place${q.seats > 1 ? 's' : ''}',
               style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
             ),
           ],
@@ -188,6 +200,8 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
                 _Message(
                   text: q.maxPriceXof != null || q.directOnly
                       ? 'Aucun trajet trouvé. Essayez d’assouplir les filtres.'
+                      : q.timeFrom != null
+                      ? 'Aucun départ dans les prochaines heures. Essayez « Aujourd’hui » ou « Demain ».'
                       : q.date != null
                       ? 'Aucun conducteur ne propose ce trajet ce jour-là. Essayez une autre date ou une ville proche.'
                       : 'Aucun trajet à venir sur cet axe pour le moment.',

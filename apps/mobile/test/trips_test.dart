@@ -120,6 +120,27 @@ void main() {
       expect(queryFromUri(Uri.parse('/recherche?from=a&to=b&seats=99'))!.seats, 8);
     });
 
+    test('« Ma position » et « Partir maintenant » : point de départ et plage horaire', () {
+      final q = SearchQuery(
+        fromId: '',
+        fromLabel: 'Ma position',
+        fromLat: 5.35,
+        fromLng: -4.0,
+        toId: 'b',
+        toLabel: 'Plateau',
+        date: DateTime.utc(2026, 11, 2),
+        timeFrom: '07:10',
+        timeTo: '10:10',
+      );
+      final p = q.toParams();
+      expect(p, isNot(contains('fromPlaceId')));
+      expect([p['fromLat'], p['fromLng'], p['timeFrom'], p['timeTo']], ['5.35', '-4.0', '07:10', '10:10']);
+      final back = queryFromUri(Uri.parse(resultsLocation(q)))!;
+      expect([back.fromPosition, back.fromLat, back.timeFrom, back.timeTo], [true, 5.35, '07:10', '10:10']);
+      expect(queryFromUri(Uri.parse('/recherche?to=b&fromLat=5.3&fromLng=-4&timeFrom=7h')), isNotNull);
+      expect(queryFromUri(Uri.parse('/recherche?to=b&fromLat=5.3&fromLng=-4&timeFrom=7h'))!.timeFrom, isNull);
+    });
+
     test('clé d’idempotence au format UUID v4', () {
       final k = newIdempotencyKey(Random(1));
       expect(k, matches(RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$')));
@@ -154,6 +175,27 @@ void main() {
         'sizeBytes': 4,
         'sha256': sha256.convert(pdf).toString(),
       });
+    });
+  });
+
+  group('trajet régulier', () {
+    test('du lundi au vendredi pendant deux semaines, premier départ exclu', () {
+      // Lundi 2 novembre 2026, 7 h : les copies vont du mardi 3 au lundi 16 (14 jours suivants).
+      final dates = repeatDates(DateTime.utc(2026, 11, 2, 7), {1, 2, 3, 4, 5});
+      expect(dates.first, '2026-11-03');
+      expect(dates.last, '2026-11-16');
+      expect(dates, hasLength(10));
+      expect(dates, isNot(contains('2026-11-07'))); // samedi
+    });
+
+    test('tous les jours : 14 copies au plus (limite de l’API)', () {
+      expect(repeatDates(DateTime.utc(2026, 11, 2), {1, 2, 3, 4, 5, 6, 7}), hasLength(14));
+      expect(repeatDates(DateTime.utc(2026, 11, 2), {}), isEmpty);
+    });
+
+    test('les jours choisis sont gardés dans le brouillon', () {
+      final d = TripDraft(idempotencyKey: 'k' * 36, departure: DateTime.utc(2026, 11, 2, 7), repeatDays: {1, 3});
+      expect(TripDraft.fromJson(d.toJson())!.repeatDays, {1, 3});
     });
   });
 

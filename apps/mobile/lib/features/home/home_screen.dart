@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/config.dart';
+import '../../core/location.dart';
 import '../../core/theme.dart';
 import '../../core/ui.dart';
 import '../trust/notifications_screen.dart';
@@ -35,32 +36,64 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   String? _error;
   int _swaps = 0; // recrée les champs après une inversion départ / arrivée
 
+  /// « Partir maintenant » : départs des prochaines heures (utile en ville).
+  bool _now = false;
+
+  /// « Ma position » comme départ, à la place d'un lieu de la liste.
+  ({double lat, double lng})? _myPos;
+  bool _locating = false;
+
   static DateTime _day(DateTime d) => DateTime(d.year, d.month, d.day);
-  bool _isDay(int offset) => _date != null && _day(_date!) == _day(DateTime.now().add(Duration(days: offset)));
+  bool _isDay(int offset) => !_now && _date != null && _day(_date!) == _day(DateTime.now().add(Duration(days: offset)));
 
   void _search() {
-    if (_from == null || _to == null) {
+    final pos = _myPos;
+    if ((_from == null && pos == null) || _to == null) {
       setState(() => _error = 'Choisissez le départ et l’arrivée dans la liste des suggestions.');
       return;
     }
-    if (_from!.id == _to!.id) return;
+    if (pos == null && _from!.id == _to!.id) return;
     setState(() => _error = null);
-    final d = _date;
+    // Heure d'Abidjan = UTC. La plage s'arrête à minuit : l'API cherche dans une seule journée.
+    final now = DateTime.now().toUtc();
+    final d = _now ? now : _date;
+    String hhmm(DateTime t) => '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+    final end = now.add(nowWindow);
     context.push(
       resultsLocation(
         SearchQuery(
-          fromId: _from!.id,
-          fromLabel: _from!.label,
+          fromId: pos == null ? _from!.id : '',
+          fromLabel: pos == null ? _from!.label : 'Ma position',
+          fromLat: pos?.lat,
+          fromLng: pos?.lng,
           toId: _to!.id,
           toLabel: _to!.label,
           date: d == null ? null : DateTime.utc(d.year, d.month, d.day),
+          timeFrom: _now ? hhmm(now) : null,
+          timeTo: _now ? (end.day == now.day ? hhmm(end) : '23:59') : null,
           seats: _seats,
         ),
       ),
     );
   }
 
+  Future<void> _useMyPosition() async {
+    setState(() {
+      _locating = true;
+      _error = null;
+    });
+    try {
+      final p = await currentPosition();
+      if (mounted) setState(() => _myPos = p);
+    } on LocationUnavailable catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
+  }
+
   void _swap() => setState(() {
+    if (_myPos != null) return; // « Ma position » ne peut servir que de départ
     final from = _from;
     _from = _to;
     _to = from;
@@ -75,17 +108,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       firstDate: DateTime(now.year, now.month, now.day),
       lastDate: now.add(const Duration(days: 90)),
     );
-    if (picked != null) setState(() => _date = picked);
+    if (picked != null) {
+      setState(() {
+        _now = false;
+        _date = picked;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final repo = ref.watch(placesRepositoryProvider);
-    final samePlace = _from != null && _to != null && _from!.id == _to!.id;
+    final samePlace = _myPos == null && _from != null && _to != null && _from!.id == _to!.id;
     final me = ref.watch(authControllerProvider).value;
     final signedIn = me != null;
     final firstName = me?.firstName?.trim();
-    final otherDate = _date != null && !_isDay(0) && !_isDay(1);
+    final otherDate = !_now && _date != null && !_isDay(0) && !_isDay(1);
 
     return Scaffold(
       bottomNavigationBar: const _BottomNav(),
@@ -177,15 +215,40 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             children: [
                               _MarkedField(
                                 mark: const RouteMark.origin(size: 12),
-                                child: PlaceField(
-                                  key: ValueKey('from-$_swaps'),
-                                  label: 'Départ',
-                                  initial: _from,
-                                  repository: repo,
-                                  onSelected: (p) => setState(() => _from = p),
-                                ),
+                                child: _myPos != null
+                                    ? _MyPositionField(onClear: () => setState(() => _myPos = null))
+                                    : PlaceField(
+                                        key: ValueKey('from-$_swaps'),
+                                        label: 'Départ',
+                                        initial: _from,
+                                        repository: repo,
+                                        onSelected: (p) => setState(() => _from = p),
+                                      ),
                               ),
-                              const SizedBox(height: 10),
+                              if (_myPos == null)
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: TextButton.icon(
+                                    onPressed: _locating ? null : _useMyPosition,
+                                    icon: _locating
+                                        ? const SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(strokeWidth: 2),
+                                          )
+                                        : const Icon(Icons.my_location, size: 18),
+                                    label: Text(_locating ? 'Localisation…' : 'Partir de ma position'),
+                                    style: TextButton.styleFrom(
+                                      padding: const EdgeInsets.only(left: 22),
+                                      textStyle: const TextStyle(
+                                        fontFamily: 'Inter',
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              SizedBox(height: _myPos == null ? 0 : 10),
                               _MarkedField(
                                 mark: const RouteMark.destination(size: 12),
                                 child: PlaceField(
@@ -204,7 +267,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           child: RoundButton(
                             icon: Icons.swap_vert,
                             tooltip: 'Inverser départ et arrivée',
-                            onPressed: _swap,
+                            onPressed: _myPos == null ? _swap : null,
                           ),
                         ),
                       ],
@@ -218,13 +281,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         ),
                       ),
                     const SizedBox(height: 14),
+                    ChoiceButton(
+                      label: 'Partir maintenant',
+                      icon: Icons.bolt,
+                      selected: _now,
+                      onTap: () => setState(() => _now = !_now),
+                    ),
+                    const SizedBox(height: 8),
                     Row(
                       children: [
                         Expanded(
                           child: ChoiceButton(
                             label: 'Aujourd’hui',
                             selected: _isDay(0),
-                            onTap: () => setState(() => _date = DateTime.now()),
+                            onTap: () => setState(() {
+                              _now = false;
+                              _date = DateTime.now();
+                            }),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -232,7 +305,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           child: ChoiceButton(
                             label: 'Demain',
                             selected: _isDay(1),
-                            onTap: () => setState(() => _date = DateTime.now().add(const Duration(days: 1))),
+                            onTap: () => setState(() {
+                              _now = false;
+                              _date = DateTime.now().add(const Duration(days: 1));
+                            }),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -246,6 +322,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         ),
                       ],
                     ),
+                    if (_now)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 8),
+                        child: Text(
+                          'Départs des 3 prochaines heures, réservables au plus tard 30 minutes avant.',
+                          style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                        ),
+                      ),
                     const SizedBox(height: 14),
                     Row(
                       children: [
@@ -423,6 +507,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
     );
   }
+}
+
+/// Durée couverte par « Partir maintenant ».
+const nowWindow = Duration(hours: 3);
+
+/// Départ fixé à la position du téléphone, à la place du champ de lieu.
+class _MyPositionField extends StatelessWidget {
+  const _MyPositionField({required this.onClear});
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    height: 54,
+    padding: const EdgeInsets.only(left: 14),
+    decoration: BoxDecoration(color: AppColors.brandSoft, borderRadius: BorderRadius.circular(AppTheme.radiusControl)),
+    child: Row(
+      children: [
+        const Icon(Icons.my_location, size: 18, color: AppColors.brandStrong),
+        const SizedBox(width: 10),
+        const Expanded(
+          child: Text('Ma position', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+        ),
+        IconButton(tooltip: 'Choisir un lieu à la place', icon: const Icon(Icons.close), onPressed: onClear),
+      ],
+    ),
+  );
 }
 
 /// Champ de lieu précédé de son repère sur la frise départ → arrivée.

@@ -66,6 +66,8 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>IvoireCovoit utilise votre position, seulement quand vous le demandez, pour trouver les conducteurs qui partent près de vous.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>IvoireCovoit utilise l'appareil photo pour photographier vos pièces justificatives et votre véhicule.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

@@ -1,4 +1,4 @@
-import { clearDraft, DRAFT_KEY, draftDepartureIso, draftPoints, emptyDraft, loadDraft, saveDraft, stepErrors } from '@/lib/trip-draft';
+import { clearDraft, DRAFT_KEY, draftDepartureIso, draftPoints, emptyDraft, loadDraft, repeatDates, repeatDaysLabel, saveDraft, stepErrors } from '@/lib/trip-draft';
 import type { PlaceSuggestion } from '@/lib/places';
 
 const place = (id: string, label: string): PlaceSuggestion => ({ id, label, name: label, kind: 'CITY', parentName: null, lat: 6, lng: -5, locationPrecision: 'APPROX' });
@@ -55,5 +55,22 @@ describe('brouillon de publication', () => {
     const d = { ...emptyDraft('k', '2026-11-02'), origin: abidjan, stops: [place('t', 'Toumodi')], destination: yakro, time: '07:30' };
     expect(draftPoints(d).map((p) => p.label)).toEqual(['Abidjan', 'Toumodi', 'Yamoussoukro']);
     expect(draftDepartureIso(d)).toBe('2026-11-02T07:30:00.000Z');
+  });
+});
+
+describe('trajet régulier', () => {
+  it('du lundi au vendredi sur les 14 jours suivant le premier départ (lundi 2 novembre)', () => {
+    const dates = repeatDates('2026-11-02', [1, 2, 3, 4, 5]);
+    expect(dates[0]).toBe('2026-11-03');
+    expect(dates.at(-1)).toBe('2026-11-16');
+    expect(dates).toHaveLength(10);
+    expect(dates).not.toContain('2026-11-08'); // dimanche
+    expect(repeatDaysLabel([5, 1, 2, 3, 4])).toBe('du lundi au vendredi');
+  });
+
+  it('tous les jours : 14 copies au plus, aucune sans jour choisi', () => {
+    expect(repeatDates('2026-11-02', [1, 2, 3, 4, 5, 6, 7])).toHaveLength(14);
+    expect(repeatDates('2026-11-02', [])).toEqual([]);
+    expect(repeatDaysLabel([1, 3])).toBe('lundi, mercredi');
   });
 });

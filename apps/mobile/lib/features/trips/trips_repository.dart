@@ -15,6 +15,10 @@ class SearchQuery {
     this.sort = 'departure',
     this.maxPriceXof,
     this.directOnly = false,
+    this.fromLat,
+    this.fromLng,
+    this.timeFrom,
+    this.timeTo,
   });
 
   final String fromId;
@@ -27,6 +31,16 @@ class SearchQuery {
   final int? maxPriceXof;
   final bool directOnly;
 
+  /// Départ = position du téléphone (« Ma position ») : [fromId] est alors vide.
+  final double? fromLat;
+  final double? fromLng;
+
+  /// Plage horaire (HH:MM, heure d'Abidjan) dans la journée [date] : « Partir maintenant ».
+  final String? timeFrom;
+  final String? timeTo;
+
+  bool get fromPosition => fromLat != null && fromLng != null;
+
   SearchQuery copyWith({String? sort, int? maxPriceXof, bool clearMaxPrice = false, bool? directOnly}) => SearchQuery(
     fromId: fromId,
     fromLabel: fromLabel,
@@ -37,13 +51,19 @@ class SearchQuery {
     sort: sort ?? this.sort,
     maxPriceXof: clearMaxPrice ? null : (maxPriceXof ?? this.maxPriceXof),
     directOnly: directOnly ?? this.directOnly,
+    fromLat: fromLat,
+    fromLng: fromLng,
+    timeFrom: timeFrom,
+    timeTo: timeTo,
   );
 
   /// Paramètres de GET /trips/search (dates à l'heure d'Abidjan, UTC+0).
   Map<String, String> toParams({String? cursor}) => {
-    'fromPlaceId': fromId,
+    if (fromPosition) ...{'fromLat': '$fromLat', 'fromLng': '$fromLng'} else 'fromPlaceId': fromId,
     'toPlaceId': toId,
     if (date != null) 'date': date!.toIso8601String().substring(0, 10),
+    if (date != null && timeFrom != null) 'timeFrom': timeFrom!,
+    if (date != null && timeTo != null) 'timeTo': timeTo!,
     'seats': '$seats',
     'sort': sort,
     if (maxPriceXof != null) 'maxPriceXof': '$maxPriceXof',

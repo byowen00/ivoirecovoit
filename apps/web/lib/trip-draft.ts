@@ -21,12 +21,38 @@ export interface TripDraft {
   instructions: string;
   /** Prix cumulés depuis le départ, un par point (départ = 0). Vide tant que l'aperçu n'a pas été calculé. */
   stopPrices: number[];
+  /** Trajet régulier : jours (1 = lundi … 7 = dimanche) où le trajet est aussi publié. Absent des anciens brouillons. */
+  repeatDays?: number[];
   /** Clé d'idempotence de la future création : un double envoi ne crée qu'un trajet. */
   idempotencyKey: string;
   savedAt: number;
 }
 
 export const DRAFT_KEY = 'ic_trip_draft_v1';
+
+/** Jours couverts par un trajet régulier après le premier départ (l'API accepte 14 copies au plus). */
+export const REPEAT_HORIZON_DAYS = 14;
+
+/** Dates (AAAA-MM-JJ) des copies d'un trajet régulier : les jours choisis sur les 14 jours suivant [date], celle-ci exclue. */
+export function repeatDates(date: string, days: readonly number[]): string[] {
+  const first = Date.parse(`${date}T00:00:00Z`);
+  const out: string[] = [];
+  for (let i = 1; i <= REPEAT_HORIZON_DAYS; i++) {
+    const d = new Date(first + i * 86_400_000);
+    if (days.includes(d.getUTCDay() || 7)) out.push(d.toISOString().slice(0, 10));
+  }
+  return out;
+}
+
+const DAY_NAMES = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
+
+/** « du lundi au vendredi », « tous les jours » ou la liste des jours. */
+export function repeatDaysLabel(days: readonly number[]): string {
+  const sorted = [...days].sort((a, b) => a - b);
+  if (sorted.join() === '1,2,3,4,5') return 'du lundi au vendredi';
+  if (sorted.length === 7) return 'tous les jours';
+  return sorted.map((d) => DAY_NAMES[d - 1]).join(', ');
+}
 const MAX_AGE_MS = 14 * 86_400_000;
 
 export function emptyDraft(idempotencyKey: string, date: string): TripDraft {

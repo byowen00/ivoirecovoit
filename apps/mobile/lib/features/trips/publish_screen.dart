@@ -171,8 +171,26 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
         if (_d.description.trim().isNotEmpty) 'description': _d.description.trim(),
         'publish': publish,
       }, key);
+      final dates = publish ? repeatDates(_d.departure, _d.repeatDays) : const <String>[];
+      String? repeated;
+      if (dates.isNotEmpty) {
+        // Trajet régulier : copies publiées sur les jours choisis. Un refus (chevauchement…) n'annule pas le reste.
+        try {
+          final res = await ref
+              .read(apiTripsRepositoryProvider)
+              .duplicate(trip.id, dates, true, '${_d.idempotencyKey.substring(0, 30)}-rep');
+          final ok = res.where((r) => r['tripId'] != null).length;
+          repeated =
+              'Trajet régulier : $ok autre${ok > 1 ? 's' : ''} départ${ok > 1 ? 's' : ''} publié${ok > 1 ? 's' : ''}'
+              '${ok < res.length ? ', ${res.length - ok} refusé(s) (conflit d’horaire)' : ''}.';
+        } on ApiException catch (e) {
+          repeated = 'Le premier trajet est publié, mais pas les répétitions : ${e.message}';
+        }
+      }
       await clearDraft(ref.read(sharedPreferencesProvider));
-      if (mounted) context.pushReplacement('/conducteur/trajets/${trip.id}');
+      if (!mounted) return;
+      if (repeated != null) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(repeated)));
+      context.pushReplacement('/conducteur/trajets/${trip.id}');
     } on ApiException catch (e) {
       if (mounted) setState(() => _errors = [e.message]);
     } finally {
@@ -406,6 +424,8 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
             ),
           ],
         ),
+        const SizedBox(height: 16),
+        _RepeatDays(days: _d.repeatDays, onChanged: (d) => _change(() => _d.repeatDays = d)),
       ],
     );
   }
@@ -566,6 +586,13 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
           1,
         ),
         row('Départ', '${formatDay(_d.departure)} à ${formatTime(_d.departure)}', 1),
+        if (_d.repeatDays.isNotEmpty)
+          row(
+            'Trajet régulier',
+            '${repeatDaysLabel(_d.repeatDays)}, ${repeatDates(_d.departure, _d.repeatDays).length} autre(s) départ(s) '
+                'sur les $repeatHorizonDays jours suivants',
+            1,
+          ),
         row(
           'Véhicule et places',
           '${vehicle != null ? '${vehicle.make} ${vehicle.model}' : '—'} · ${_d.seats} place(s) · ${_d.autoAccept ? 'acceptation automatique' : 'acceptation manuelle'}',
@@ -586,4 +613,83 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
       ],
     );
   }
+}
+
+const _dayLetters = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+const _dayNames = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
+
+/// « lun., mar., ven. » ou « du lundi au vendredi ».
+String repeatDaysLabel(Set<int> days) {
+  final sorted = days.toList()..sort();
+  if (sorted.length == 5 && sorted.first == 1 && sorted.last == 5) return 'du lundi au vendredi';
+  if (sorted.length == 7) return 'tous les jours';
+  return sorted.map((d) => _dayNames[d - 1]).join(', ');
+}
+
+/// Choix des jours d'un trajet régulier (domicile-travail, par exemple).
+class _RepeatDays extends StatelessWidget {
+  const _RepeatDays({required this.days, required this.onChanged});
+  final Set<int> days;
+  final ValueChanged<Set<int>> onChanged;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Trajet régulier', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 4),
+          const Text(
+            'Vous faites ce trajet souvent ? Cochez les jours : il sera aussi publié ces jours-là, '
+            'à la même heure, pendant les deux semaines suivantes.',
+            style: TextStyle(fontSize: 13, color: AppColors.textMuted),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              for (var d = 1; d <= 7; d++)
+                Semantics(
+                  label: _dayNames[d - 1],
+                  selected: days.contains(d),
+                  button: true,
+                  excludeSemantics: true,
+                  child: InkResponse(
+                    onTap: () => onChanged(days.contains(d) ? ({...days}..remove(d)) : {...days, d}),
+                    radius: 24,
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: days.contains(d) ? AppColors.brand : AppColors.surface,
+                        border: Border.all(color: days.contains(d) ? AppColors.brand : AppColors.border, width: 1.5),
+                      ),
+                      child: Text(
+                        _dayLetters[d - 1],
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: days.contains(d) ? Colors.white : AppColors.text,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children: [
+              TextButton(onPressed: () => onChanged({1, 2, 3, 4, 5}), child: const Text('Du lundi au vendredi')),
+              if (days.isNotEmpty) TextButton(onPressed: () => onChanged({}), child: const Text('Aucun')),
+            ],
+          ),
+        ],
+      ),
+    ),
+  );
 }

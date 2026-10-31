@@ -22,9 +22,11 @@ class TripDraft {
     this.allowsCash = false,
     this.description = '',
     List<int>? stopPrices,
+    Set<int>? repeatDays,
     DateTime? savedAt,
   }) : stops = stops ?? [],
        stopPrices = stopPrices ?? [],
+       repeatDays = repeatDays ?? {},
        savedAt = savedAt ?? DateTime.now();
 
   int step;
@@ -45,6 +47,9 @@ class TripDraft {
 
   /// Prix cumulés depuis le départ, un par point (départ = 0). Vide tant que l'aperçu n'est pas calculé.
   List<int> stopPrices;
+
+  /// Trajet régulier : jours de la semaine (1 = lundi … 7 = dimanche) où le trajet est aussi créé.
+  Set<int> repeatDays;
   final String idempotencyKey;
   DateTime savedAt;
 
@@ -78,6 +83,7 @@ class TripDraft {
     'allowsCash': allowsCash,
     'description': description,
     'stopPrices': stopPrices,
+    'repeatDays': repeatDays.toList()..sort(),
     'idempotencyKey': idempotencyKey,
     'savedAt': savedAt.toUtc().toIso8601String(),
   };
@@ -100,6 +106,7 @@ class TripDraft {
       allowsCash: j['allowsCash'] as bool,
       description: (j['description'] as String?) ?? '',
       stopPrices: [for (final p in j['stopPrices'] as List) (p as num).toInt()],
+      repeatDays: {for (final d in (j['repeatDays'] as List?) ?? const []) (d as num).toInt()},
       savedAt: DateTime.parse(j['savedAt'] as String),
     );
   }
@@ -120,6 +127,20 @@ class TripDraft {
     if (upTo >= 3 && stopPrices.length != points.length) e.add('Calculez le prix du trajet.');
     return e;
   }
+}
+
+/// Nombre de jours couverts par un trajet régulier après la première date (limite de l'API : 14 copies).
+const repeatHorizonDays = 14;
+
+/// Dates (AAAA-MM-JJ, heure d'Abidjan) des copies d'un trajet régulier : les jours choisis
+/// pendant les [repeatHorizonDays] jours qui suivent le premier départ, celui-ci exclu.
+List<String> repeatDates(DateTime departure, Set<int> days) {
+  final first = DateTime.utc(departure.year, departure.month, departure.day);
+  return [
+    for (var i = 1; i <= repeatHorizonDays; i++)
+      if (days.contains(first.add(Duration(days: i)).weekday))
+        first.add(Duration(days: i)).toIso8601String().substring(0, 10),
+  ];
 }
 
 const draftKey = 'trip_draft_v1';
