@@ -11,7 +11,7 @@ import { UsersService } from '../users/users.service';
 import { otpRequestSchema, otpVerifySchema, refreshSchema, staffLoginSchema } from './auth.schemas';
 import { AllowIncompleteProfile, CurrentAuth, Public } from './decorators';
 import { OtpService } from './otp.service';
-import { type AppRequest, type AuthContext, requestContext } from './request-context';
+import { type AppRequest, type AuthContext, isLocalRequest, requestContext } from './request-context';
 import { accountSuspended, isAllowedStatus, SessionsService } from './sessions.service';
 import { StaffAuthService } from './staff-auth.service';
 
@@ -122,8 +122,8 @@ export class AuthController {
   @Public()
   @Get('staff/test-login')
   @ApiOperation({ summary: 'Essais en local : l’entrée directe dans la console est-elle ouverte ?' })
-  staffTestLoginStatus() {
-    return { enabled: this.staff.testLoginEnabled };
+  staffTestLoginStatus(@Req() req: AppRequest) {
+    return { enabled: this.staff.testLoginEnabled && isLocalRequest(req) };
   }
 
   @Public()
@@ -131,6 +131,8 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Essais en local : entrée directe dans la console, sans mot de passe ni code' })
   staffTestLogin(@Req() req: AppRequest) {
+    // Jamais depuis Internet (tunnel Cloudflare ouvert pour les essais) : seulement depuis l'ordinateur ou le Wi-Fi.
+    if (!isLocalRequest(req)) throw new ApiError(HttpStatus.NOT_FOUND, 'NOT_FOUND', 'Ressource introuvable.');
     return this.staff.testLogin(requestContext(req));
   }
 }

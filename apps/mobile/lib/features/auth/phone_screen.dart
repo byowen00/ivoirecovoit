@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api_client.dart';
+import '../../core/server_address.dart';
 import '../../providers.dart';
 import 'models.dart';
 import 'otp_screen.dart';
@@ -83,6 +84,8 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
               onPressed: _sending ? null : _submit,
               child: Text(_sending ? 'Envoi du code…' : 'Recevoir un code'),
             ),
+            const SizedBox(height: 24),
+            const ServerAddressTile(),
           ],
         ),
       ),

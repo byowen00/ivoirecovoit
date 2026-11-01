@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/server_address.dart';
 import '../../core/api_client.dart';
 import '../../core/theme.dart';
 import '../trust/notifications_screen.dart';
@@ -58,6 +59,7 @@ class AccountScreen extends ConsumerWidget {
                 const _EmergencyCard(),
                 const _SessionsCard(),
                 const _DeleteCard(),
+                const ServerAddressTile(),
               ],
             );
           },

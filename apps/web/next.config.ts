@@ -15,6 +15,8 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
   output: 'standalone',
+  // Essais via Cloudflare Tunnel (adresse *.trycloudflare.com) : le serveur de développement accepte cette origine.
+  allowedDevOrigins: ['*.trycloudflare.com'],
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
   },

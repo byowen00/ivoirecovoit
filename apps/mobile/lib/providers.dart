@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/api_client.dart';
-import 'core/config.dart';
+import 'core/server_address.dart';
 import 'core/token_store.dart';
 import 'features/auth/auth_repository.dart';
 import 'features/auth/auth_session.dart';
@@ -13,7 +13,8 @@ import 'features/places/places_repository.dart';
 import 'features/trips/trips_repository.dart';
 import 'features/trust/trust_repository.dart';
 
-final apiClientProvider = Provider<ApiClient>((ref) => ApiClient(baseUrl: AppConfig.apiBaseUrl));
+/// Client de l'API, recréé quand l'adresse du serveur change (essais).
+final apiClientProvider = Provider<ApiClient>((ref) => ApiClient(baseUrl: ref.watch(serverUrlProvider)));
 
 final placesRepositoryProvider = Provider<PlacesRepository>((ref) => ApiPlacesRepository(ref.watch(apiClientProvider)));
 

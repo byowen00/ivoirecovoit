@@ -242,6 +242,10 @@ describe('Entrée directe dans la console pour les essais en local', () => {
     const t = await createTestApp([], { STAFF_TEST_LOGIN: 'true' });
     try {
       await t.http().get('/api/v1/auth/staff/test-login').expect(200, { enabled: true });
+      // Depuis Internet (tunnel Cloudflare, ou nom d'hôte public relayé par le site) : fermé.
+      await t.http().get('/api/v1/auth/staff/test-login').set('Cf-Connecting-Ip', '203.0.113.5').expect(200, { enabled: false });
+      await t.http().post('/api/v1/auth/staff/test-login').set('Cf-Connecting-Ip', '203.0.113.5').expect(404);
+      await t.http().post('/api/v1/auth/staff/test-login').set('X-Forwarded-Host', 'abc.trycloudflare.com').expect(404);
       const first = await t.http().post('/api/v1/auth/staff/test-login').expect(200);
       expect(first.body.staff).toMatchObject({ email: 'admin.essai@ivoirecovoit.test', roles: ['SUPER_ADMIN'] });
       const again = await t.http().post('/api/v1/auth/staff/test-login').expect(200);

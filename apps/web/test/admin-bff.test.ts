@@ -2,6 +2,7 @@
 import { NextRequest } from 'next/server';
 import { GET, POST, PUT } from '@/app/bff/admin/api/[...path]/route';
 import { POST as LOGIN } from '@/app/bff/admin/login/route';
+import { GET as TEST_STATUS, POST as TEST_LOGIN } from '@/app/bff/admin/test-login/route';
 
 const ctx = (path: string) => ({ params: Promise.resolve({ path: path.split('/') }) });
 
@@ -135,5 +136,28 @@ describe('connexion du personnel /bff/admin/login', () => {
     const res = await LOGIN(req('/bff/admin/login', { method: 'POST', body: '{}' }));
     expect(res.status).toBe(401);
     expect(res.cookies.get('ic_admin_access')).toBeUndefined();
+  });
+});
+
+describe('entrée directe de la console (essais en local)', () => {
+  const fetchMock = vi.fn();
+  beforeEach(() => {
+    fetchMock.mockReset();
+    vi.stubGlobal('fetch', fetchMock);
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('fonctionne depuis l’ordinateur ou le Wi-Fi', async () => {
+    fetchMock.mockResolvedValue(json(200, { enabled: true }));
+    const res = await TEST_STATUS(req('/bff/admin/test-login', { headers: { host: '192.168.1.71:4001' } }));
+    expect(await res.json()).toEqual({ enabled: true });
+  });
+
+  it('reste fermée depuis Internet (tunnel Cloudflare), sans même appeler l’API', async () => {
+    const viaTunnel = { host: 'abc.trycloudflare.com', 'cf-connecting-ip': '203.0.113.5' };
+    expect(await (await TEST_STATUS(req('/bff/admin/test-login', { headers: viaTunnel }))).json()).toEqual({ enabled: false });
+    expect((await TEST_LOGIN(req('/bff/admin/test-login', { method: 'POST', headers: viaTunnel }))).status).toBe(404);
+    expect((await TEST_LOGIN(req('/bff/admin/test-login', { method: 'POST', headers: { host: 'abc.trycloudflare.com' } }))).status).toBe(404);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
