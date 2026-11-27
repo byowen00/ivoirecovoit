@@ -1036,6 +1036,7 @@ List<HomeMenuEntry> homeMenuEntries({required bool signedIn}) => [
   (label: 'Espace conducteur', icon: Icons.directions_car_filled, path: '/conducteur'),
   (label: 'Mes trajets (conducteur)', icon: Icons.airport_shuttle, path: '/conducteur/trajets'),
   if (signedIn) (label: 'Notifications', icon: Icons.notifications_none, path: '/notifications'),
+  (label: 'Assistance', icon: Icons.support_agent, path: '/aide/assistance'),
   (label: 'Aide et urgence', icon: Icons.help_outline, path: '/aide'),
   (label: 'État du service', icon: Icons.monitor_heart_outlined, path: '/statut'),
   (label: signedIn ? 'Mon compte' : 'Se connecter', icon: Icons.person_outline, path: '/compte'),

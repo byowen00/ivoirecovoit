@@ -36,6 +36,7 @@ const ALLOWED_ROUTES = [
   'reports(/mine)?',
   'disputes(/mine)?',
   `disputes/${ID}(/messages)?`,
+  `support/tickets(/${ID}(/messages)?)?`,
 ];
 const ALLOWED = new RegExp(`^(${ALLOWED_ROUTES.join('|')})$`);
 // En-têtes du client utiles à l'API : clé d'idempotence (création sans doublon) et version attendue (If-Match).

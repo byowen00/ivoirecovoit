@@ -43,6 +43,16 @@ class HelpScreen extends ConsumerWidget {
         children: [
           const EmergencyNumbersCard(),
           Card(
+            child: ListTile(
+              key: const Key('help-support'),
+              leading: Icon(Icons.support_agent, color: AppColors.brand),
+              title: const Text('Écrire à l’équipe IvoireCovoit'),
+              subtitle: const Text('Une question, un souci de paiement ou de trajet : discutez avec l’assistance.'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push('/aide/assistance'),
+            ),
+          ),
+          Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(

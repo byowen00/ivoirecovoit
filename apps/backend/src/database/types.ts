@@ -708,6 +708,31 @@ export interface SandboxTransactionsTable {
   updated_at: UpdatedAt;
 }
 
+export type SupportStatus = 'OPEN' | 'ANSWERED' | 'CLOSED';
+export type SupportTopic = 'COMPTE' | 'RESERVATION' | 'PAIEMENT' | 'CONDUCTEUR' | 'SECURITE' | 'AUTRE';
+
+export interface SupportTicketsTable {
+  id: string;
+  reference: string;
+  user_id: string;
+  subject: string;
+  topic: Generated<SupportTopic>;
+  status: Generated<SupportStatus>;
+  last_message_at: Generated<Date>;
+  closed_at: Date | null;
+  created_at: CreatedAt;
+  updated_at: UpdatedAt;
+}
+
+export interface SupportMessagesTable {
+  id: string;
+  ticket_id: string;
+  author_id: string;
+  from_staff: Generated<boolean>;
+  body: string;
+  created_at: CreatedAt;
+}
+
 export interface DisputesTable {
   id: string;
   reference: string;
@@ -730,6 +755,8 @@ export interface DisputesTable {
 }
 
 export interface Database {
+  support_tickets: SupportTicketsTable;
+  support_messages: SupportMessagesTable;
   places: PlacesTable;
   users: UsersTable;
   auth_identities: AuthIdentitiesTable;

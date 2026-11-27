@@ -36,3 +36,8 @@ export function tripReference(): string {
 export function disputeReference(): string {
   return `R-${randomCode(6)}`;
 }
+
+/** Référence lisible d'une demande d'assistance, ex. A-7K2M9Q. */
+export function supportReference(): string {
+  return `A-${randomCode(6)}`;
+}

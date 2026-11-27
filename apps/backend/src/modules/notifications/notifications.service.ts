@@ -231,6 +231,13 @@ export class NotificationsService {
     if (e.aggregate === 'trip') return this.forTripEvent(trx, e);
     if (e.aggregate === 'conversation' && e.event_type === 'message.created') return this.forMessage(trx, e);
     if (e.aggregate === 'dispute') return this.forDispute(trx, e);
+    if (e.aggregate === 'support' && e.event_type === 'support.staff_reply') {
+      const t = await trx.selectFrom('support_tickets').select(['id', 'user_id', 'reference']).where('id', '=', e.aggregate_id).executeTakeFirst();
+      return t
+        ? [{ userId: t.user_id, type: 'support.reply', category: 'TRANSACTIONAL', title: 'Réponse de l’assistance',
+             body: `L’équipe a répondu à votre demande ${t.reference}.`, link: `/aide/assistance/${t.id}` }]
+        : [];
+    }
     if (e.aggregate === 'review' && e.event_type === 'review.published') {
       const r = await trx.selectFrom('reviews').select(['subject_id', 'rating', 'booking_id']).where('id', '=', e.aggregate_id).executeTakeFirst();
       if (!r) return [];

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
+import Link from 'next/link';
 import { EmergencyNumbersCard } from './EmergencyNumbersCard';
 import { MyCases } from './MyCases';
 
@@ -45,6 +46,14 @@ export default async function HelpPage() {
         <h1 className="text-2xl font-bold">Aide et sécurité</h1>
         <p className="text-ink-muted">Questions fréquentes, numéros d’urgence et suivi de vos demandes.</p>
       </div>
+
+      <Link href={signedIn ? '/aide/assistance' : '/connexion?next=/aide/assistance'} className="card flex items-center justify-between gap-3 hover:bg-surface-muted">
+        <span>
+          <span className="block text-lg font-semibold">💬 Contacter l’assistance</span>
+          <span className="text-sm text-ink-muted">Écrivez à l’équipe et suivez ses réponses ici.</span>
+        </span>
+        <span aria-hidden className="text-brand">→</span>
+      </Link>
 
       <EmergencyNumbersCard />
 

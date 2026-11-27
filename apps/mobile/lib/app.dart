@@ -25,6 +25,7 @@ import 'features/trips/trip_detail_screen.dart';
 import 'features/home/history_screen.dart';
 import 'features/home/home_screen.dart';
 import 'features/status/status_screen.dart';
+import 'features/support/support.dart';
 import 'features/trust/chat_screen.dart';
 import 'features/trust/dispute_screens.dart';
 import 'features/trust/help_screen.dart';
@@ -112,6 +113,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => _RequireMe(builder: (_) => const NotificationsScreen()),
       ),
       GoRoute(path: '/aide', builder: (_, _) => const HelpScreen()),
+      GoRoute(
+        path: '/aide/assistance',
+        builder: (_, _) => _RequireMe(builder: (_) => const SupportScreen()),
+      ),
+      GoRoute(
+        path: '/aide/assistance/:id',
+        builder: (_, state) => _RequireMe(builder: (_) => SupportChatScreen(id: state.pathParameters['id']!)),
+      ),
       GoRoute(
         path: '/aide/reclamations/nouvelle',
         redirect: (_, state) => state.uri.queryParameters['reservation'] == null ? '/aide' : null,

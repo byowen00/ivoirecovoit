@@ -295,6 +295,11 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
   }
 }
 
+/// Motifs proposés en un geste ; la personne peut aussi écrire le sien.
+List<String> cancelReasons({required bool driver}) => driver
+    ? const ['Véhicule indisponible', 'Imprévu personnel', 'Passager injoignable', 'Trajet modifié']
+    : const ['Changement de programme', 'Conducteur injoignable', 'Trouvé un autre moyen', 'Erreur de réservation'];
+
 class _CancelDialog extends StatefulWidget {
   const _CancelDialog({required this.preview, required this.driver});
   final CancelPreview preview;
@@ -330,6 +335,19 @@ class _CancelDialogState extends State<_CancelDialog> {
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final r in cancelReasons(driver: widget.driver))
+                ChoiceChip(
+                  label: Text(r),
+                  selected: _reason.text == r,
+                  onSelected: (_) => setState(() => _reason.text = r),
+                ),
+            ],
+          ),
           TextField(
             controller: _reason,
             maxLength: 300,

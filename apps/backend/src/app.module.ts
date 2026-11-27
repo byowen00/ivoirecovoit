@@ -13,13 +13,14 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { PlacesModule } from './modules/places/places.module';
 import { RoutingModule } from './modules/routing/routing.module';
 import { TripsModule } from './modules/trips/trips.module';
+import { SupportModule } from './modules/support/support.module';
 import { TrustModule } from './modules/trust/trust.module';
 import { UsersModule } from './modules/users/users.module';
 
 @Module({
   imports: [
     ConfigModule, DatabaseModule, InfraModule, AuthModule, UsersModule, AdminModule, HealthModule, PlacesModule,
-    RoutingModule, DriversModule, TripsModule, BookingsModule, PaymentsModule, NotificationsModule, TrustModule, JobsModule,
+    RoutingModule, DriversModule, TripsModule, BookingsModule, PaymentsModule, NotificationsModule, TrustModule, SupportModule, JobsModule,
   ],
 })
 export class AppModule {}

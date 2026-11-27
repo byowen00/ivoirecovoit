@@ -171,6 +171,7 @@ class _ManageTripScreenState extends ConsumerState<ManageTripScreen> {
     final reason = await _ask(
       'Motif de l’annulation (visible des passagers, qui seront remboursés intégralement)',
       minLength: 5,
+      suggestions: const ['Véhicule en panne', 'Imprévu personnel', 'Pas assez de passagers', 'Route impraticable'],
     );
     if (reason != null) await _act(() => _repo.cancel(_trip!.id, reason, newIdempotencyKey()), 'Trajet annulé.');
   }
@@ -310,16 +311,36 @@ class _ManageTripScreenState extends ConsumerState<ManageTripScreen> {
     );
   }
 
-  Future<String?> _ask(String label, {int minLength = 1}) {
+  Future<String?> _ask(String label, {int minLength = 1, List<String> suggestions = const []}) {
     final c = TextEditingController();
     return showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        content: TextField(
-          controller: c,
-          maxLength: 300,
-          maxLines: 2,
-          decoration: InputDecoration(labelText: label),
+        content: StatefulBuilder(
+          builder: (ctx, setLocal) => Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (suggestions.isNotEmpty)
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (final r in suggestions)
+                      ChoiceChip(
+                        label: Text(r),
+                        selected: c.text == r,
+                        onSelected: (_) => setLocal(() => c.text = r),
+                      ),
+                  ],
+                ),
+              TextField(
+                controller: c,
+                maxLength: 300,
+                maxLines: 2,
+                decoration: InputDecoration(labelText: label),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Retour')),

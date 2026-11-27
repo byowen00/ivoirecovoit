@@ -10,7 +10,7 @@ describe('Migrations', () => {
     try {
       const result = await runMigrations(db);
       expect(result.applied).toEqual([]);
-      expect(result.skipped.length).toBe(18);
+      expect(result.skipped.length).toBe(19);
     } finally {
       await db.end();
     }

@@ -23,6 +23,7 @@ const NAV: { href: string; label: string; perms: string[] }[] = [
   { href: '/admin/finance/rapprochement', label: 'Rapprochement', perms: ['finance.reconcile'] },
   { href: '/admin/finance/exports', label: 'Exports', perms: ['exports.create'] },
   { href: '/admin/reclamations', label: 'Réclamations', perms: ['disputes.manage'] },
+  { href: '/admin/assistance', label: 'Assistance', perms: ['disputes.manage'] },
   { href: '/admin/signalements', label: 'Signalements', perms: ['reports.manage'] },
   { href: '/admin/parametres', label: 'Paramètres', perms: ['settings.read'] },
   { href: '/admin/interface', label: 'Interface et design', perms: ['settings.read'] },
