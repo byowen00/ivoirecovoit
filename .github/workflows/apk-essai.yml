@@ -31,6 +31,8 @@ jobs:
           case "$API_URL" in http://*|https://*) ;; *) echo "Adresse invalide : $API_URL"; exit 1 ;; esac
           flutter build apk --profile --split-per-abi --target-platform android-arm,android-arm64 \
             --dart-define=API_BASE_URL="$API_URL" --dart-define=APP_ENV=development
+          # APK universel (tous les processeurs, plus lourd) : pour un téléphone qui refuse les deux autres.
+          flutter build apk --profile --dart-define=API_BASE_URL="$API_URL" --dart-define=APP_ENV=development
           echo "APK pour $API_URL : installer app-arm64-v8a-profile.apk (ou armeabi-v7a sur un ancien téléphone)." >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
@@ -47,8 +49,9 @@ jobs:
           cd build/app/outputs/flutter-apk
           cp app-arm64-v8a-profile.apk ivoirecovoit-essai-arm64.apk
           cp app-armeabi-v7a-profile.apk ivoirecovoit-essai-ancien-telephone.apk
+          cp app-profile.apk ivoirecovoit-essai-universel.apk
           gh release view apk-essai >/dev/null 2>&1 || gh release create apk-essai --prerelease --target "$GITHUB_SHA" \
             --title "APK d'essai" --notes "APK d'essai (pas une version publique). Mis à jour à chaque construction."
-          gh release upload apk-essai ivoirecovoit-essai-arm64.apk ivoirecovoit-essai-ancien-telephone.apk --clobber
+          gh release upload apk-essai ivoirecovoit-essai-arm64.apk ivoirecovoit-essai-ancien-telephone.apk ivoirecovoit-essai-universel.apk --clobber
           gh release edit apk-essai --notes "APK d'essai, construit depuis ${GITHUB_SHA::7} pour $API_URL. Ce n'est pas une version publique."
           echo "Lien direct : https://github.com/${{ github.repository }}/releases/download/apk-essai/ivoirecovoit-essai-arm64.apk" >> "$GITHUB_STEP_SUMMARY"
