@@ -58,7 +58,7 @@ class AccountScreen extends ConsumerWidget {
                 _ConsentsCard(me: me),
                 const _EmergencyCard(),
                 const _SessionsCard(),
-                const _DeleteCard(),
+                const DeleteAccountCard(),
                 const ServerAddressTile(),
               ],
             );
@@ -474,14 +474,14 @@ class _SessionsCardState extends ConsumerState<_SessionsCard> {
   }
 }
 
-class _DeleteCard extends ConsumerStatefulWidget {
-  const _DeleteCard();
+class DeleteAccountCard extends ConsumerStatefulWidget {
+  const DeleteAccountCard({super.key});
 
   @override
-  ConsumerState<_DeleteCard> createState() => _DeleteCardState();
+  ConsumerState<DeleteAccountCard> createState() => DeleteAccountCardState();
 }
 
-class _DeleteCardState extends ConsumerState<_DeleteCard> {
+class DeleteAccountCardState extends ConsumerState<DeleteAccountCard> {
   OtpRequest? _otp;
   final _code = TextEditingController();
   String? _error;

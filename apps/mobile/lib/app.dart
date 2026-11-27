@@ -24,6 +24,7 @@ import 'features/trips/search_results_screen.dart';
 import 'features/trips/trip_detail_screen.dart';
 import 'features/home/history_screen.dart';
 import 'features/home/home_screen.dart';
+import 'features/settings/settings_screen.dart';
 import 'features/status/status_screen.dart';
 import 'features/support/support.dart';
 import 'features/trust/chat_screen.dart';
@@ -61,6 +62,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(path: '/compte', builder: (_, _) => const AccountScreen()),
+      GoRoute(path: '/parametres', builder: (_, _) => const SettingsScreen()),
       GoRoute(
         path: '/recherche',
         redirect: (_, state) => queryFromUri(state.uri) == null ? '/' : null,
@@ -187,11 +189,18 @@ class IvoireCovoitApp extends ConsumerWidget {
     ref.listen(authControllerProvider, (_, _) {});
     // Palette réglée dans l'administration : un changement reconstruit tous les écrans avec les nouvelles couleurs.
     final look = ref.watch(appearanceProvider);
+    final mine = ref.watch(personalLookProvider);
     return MaterialApp.router(
       title: 'IvoireCovoit',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
-      builder: (_, child) => KeyedSubtree(key: ValueKey(look.theme), child: child ?? const SizedBox.shrink()),
+      builder: (context, child) {
+        final mq = MediaQuery.of(context);
+        return MediaQuery(
+          data: mq.copyWith(textScaler: TextScaler.linear(mq.textScaler.scale(1) * mine.textScale)),
+          child: KeyedSubtree(key: ValueKey('${look.theme}/${mine.theme}'), child: child ?? const SizedBox.shrink()),
+        );
+      },
       locale: const Locale('fr', 'CI'),
       supportedLocales: const [Locale('fr', 'CI'), Locale('fr')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,

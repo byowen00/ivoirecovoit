@@ -54,6 +54,13 @@ class AuthRepository {
     }
   }
 
+  /// Changement de numéro : un code est envoyé sur le nouveau numéro.
+  Future<OtpRequest> phoneChangeOtp(String localDigits) async => OtpRequest.fromJson(
+      await session.send('POST', '/me/phone/otp', body: {'phone': '+225$localDigits'}), DateTime.now());
+
+  Future<void> changePhone(String otpRequestId, String code) =>
+      session.send('POST', '/me/phone', body: {'otpRequestId': otpRequestId, 'code': code});
+
   Future<OtpRequest> deletionOtp() async =>
       OtpRequest.fromJson(await session.send('POST', '/me/deletion/otp'), DateTime.now());
 

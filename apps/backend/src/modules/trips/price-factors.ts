@@ -141,3 +141,21 @@ export function priceFactors(
   }
   return { factors, totalPercent };
 }
+
+/**
+ * Circulation telle que l'équipe la connaît : alerte saisie dans l'administration et heures de pointe habituelles.
+ * Aucune donnée de trafic en temps réel : c'est dit à l'écran.
+ */
+export function trafficInfo(rules: DynamicPricing, now: Date = new Date()) {
+  const a = rules.trafficAlert;
+  const alertActive = a.enabled && !!a.until && new Date(a.until).getTime() > now.getTime();
+  const m = now.getUTCHours() * 60 + now.getUTCMinutes();
+  const weekday = ((now.getUTCDay() + 6) % 7) + 1;
+  const windows = rules.peakHours.enabled ? rules.peakHours.windows : [];
+  return {
+    alert: alertActive ? { note: a.note || null, until: a.until } : null,
+    peakNow: windows.some((w) => w.days.includes(weekday) && inWindow(m, w.from, w.to)),
+    peakHours: windows,
+    source: 'Informations saisies par l’équipe IvoireCovoit et heures de pointe habituelles, pas de mesure en temps réel.',
+  };
+}

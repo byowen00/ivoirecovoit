@@ -5,6 +5,7 @@ import { latitude, longitude } from '../../common/geo';
 import { ZodValidationPipe } from '../../common/zod-validation.pipe';
 import { Public } from '../auth/decorators';
 import { resolveAppearance } from '../users/appearance';
+import { resolveDynamicPricing, trafficInfo } from './price-factors';
 import { SettingsService } from '../users/settings.service';
 import { LiveLocationService } from './live-location.service';
 
@@ -26,5 +27,19 @@ export class LiveMapController {
     const look = resolveAppearance(await this.settings.get('ui.appearance'));
     if (!look.liveDrivers) return { enabled: false, data: [] };
     return { enabled: true, ...(await this.live.nearby(q)) };
+  }
+}
+
+/** Embouteillages : alerte de l'équipe et heures de pointe (écran « Paramètres » de l'appli). */
+@ApiTags('trajets')
+@Public()
+@Controller('app')
+export class TrafficController {
+  constructor(private readonly settings: SettingsService) {}
+
+  @Get('traffic')
+  @ApiOperation({ summary: 'Embouteillages signalés par l’équipe et heures de pointe habituelles' })
+  async traffic() {
+    return trafficInfo(resolveDynamicPricing(await this.settings.get('pricing.dynamic')));
   }
 }

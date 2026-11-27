@@ -1040,6 +1040,7 @@ List<HomeMenuEntry> homeMenuEntries({required bool signedIn}) => [
   (label: 'Aide et urgence', icon: Icons.help_outline, path: '/aide'),
   (label: 'État du service', icon: Icons.monitor_heart_outlined, path: '/statut'),
   (label: signedIn ? 'Mon compte' : 'Se connecter', icon: Icons.person_outline, path: '/compte'),
+  (label: 'Paramètres', icon: Icons.settings_outlined, path: '/parametres'),
 ];
 
 class _HomeMenu extends StatelessWidget {

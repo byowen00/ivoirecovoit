@@ -8,6 +8,8 @@ import 'theme.dart';
 import 'ui.dart' show TripKindChoice;
 
 const _cacheKey = 'appearance';
+const personalThemeKey = 'appearance.mine';
+const _textScaleKey = 'appearance.text_scale';
 
 /// Apparence réglée dans l'administration (« Interface et design ») : palette, accueil, menu de recherche.
 class Appearance {
@@ -18,6 +20,7 @@ class Appearance {
     this.showPopularRoutes = true,
     this.liveDrivers = true,
     this.colors,
+    this.themes = const {},
   });
 
   factory Appearance.fromJson(Map<String, dynamic> j) {
@@ -29,6 +32,11 @@ class Appearance {
       showPopularRoutes: j['showPopularRoutes'] as bool? ?? true,
       liveDrivers: j['liveDrivers'] as bool? ?? true,
       colors: c is Map ? {for (final e in c.entries) '${e.key}': '${e.value}'} : null,
+      themes: {
+        if (j['themes'] case final Map t)
+          for (final e in t.entries)
+            if (e.value case final Map v) '${e.key}': {for (final x in v.entries) '${x.key}': '${x.value}'},
+      },
     );
   }
 
@@ -41,6 +49,9 @@ class Appearance {
   final bool liveDrivers;
   final Map<String, String>? colors;
 
+  /// Palettes proposées (avec leur libellé), pour le choix personnel dans « Paramètres ».
+  final Map<String, Map<String, String>> themes;
+
   bool get mapHome => homeLayout != 'CLASSIQUE';
   TripKindChoice get tripKind => TripKindChoice.of(defaultTripKind == 'ALL' ? null : defaultTripKind);
 
@@ -51,11 +62,13 @@ class Appearance {
     'showPopularRoutes': showPopularRoutes,
     'liveDrivers': liveDrivers,
     'colors': ?colors,
+    if (themes.isNotEmpty) 'themes': themes,
   };
 
   /// Applique la palette aux couleurs de l'appli ; une couleur mal formée garde la valeur actuelle.
-  void applyColors() {
-    final c = colors;
+  /// [override] : palette choisie par la personne dans « Paramètres » (sinon celle de l'administration).
+  void applyColors({String? override}) {
+    final c = (override != null ? themes[override] : null) ?? colors;
     if (c == null) return;
     Color pick(String key, Color current) {
       final m = RegExp(r'^#([0-9a-fA-F]{6})$').firstMatch(c[key] ?? '');
@@ -81,10 +94,12 @@ class AppearanceNotifier extends Notifier<Appearance> {
       final raw = ref.read(sharedPreferencesProvider).getString(_cacheKey);
       if (raw != null) look = Appearance.fromJson(jsonDecode(raw) as Map<String, dynamic>);
     } catch (_) {}
-    look.applyColors();
+    look.applyColors(override: _mine());
     Future.microtask(refresh);
     return look;
   }
+
+  String? _mine() => ref.read(sharedPreferencesProvider).getString(personalThemeKey);
 
   Future<void> refresh() async {
     try {
@@ -94,7 +109,7 @@ class AppearanceNotifier extends Notifier<Appearance> {
       final prefs = ref.read(sharedPreferencesProvider);
       if (prefs.getString(_cacheKey) == raw) return;
       await prefs.setString(_cacheKey, raw);
-      next.applyColors();
+      next.applyColors(override: _mine());
       state = next;
     } catch (_) {
       // Serveur injoignable : on garde l'apparence connue.
@@ -103,3 +118,33 @@ class AppearanceNotifier extends Notifier<Appearance> {
 }
 
 final appearanceProvider = NotifierProvider<AppearanceNotifier, Appearance>(AppearanceNotifier.new);
+
+/// Réglages d'affichage propres à ce téléphone : palette personnelle et taille du texte.
+class PersonalLook {
+  const PersonalLook({this.theme, this.textScale = 1});
+  final String? theme;
+  final double textScale;
+}
+
+class PersonalLookNotifier extends Notifier<PersonalLook> {
+  @override
+  PersonalLook build() {
+    final prefs = ref.read(sharedPreferencesProvider);
+    return PersonalLook(theme: prefs.getString(personalThemeKey), textScale: prefs.getDouble(_textScaleKey) ?? 1);
+  }
+
+  /// null : suivre la palette choisie par IvoireCovoit.
+  Future<void> setTheme(String? theme) async {
+    final prefs = ref.read(sharedPreferencesProvider);
+    theme == null ? await prefs.remove(personalThemeKey) : await prefs.setString(personalThemeKey, theme);
+    ref.read(appearanceProvider).applyColors(override: theme);
+    state = PersonalLook(theme: theme, textScale: state.textScale);
+  }
+
+  Future<void> setTextScale(double scale) async {
+    await ref.read(sharedPreferencesProvider).setDouble(_textScaleKey, scale);
+    state = PersonalLook(theme: state.theme, textScale: scale);
+  }
+}
+
+final personalLookProvider = NotifierProvider<PersonalLookNotifier, PersonalLook>(PersonalLookNotifier.new);

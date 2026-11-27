@@ -201,6 +201,30 @@ export class UsersService {
     return row ? { name: row.name, phone: row.phone_e164 } : null;
   }
 
+  /** Un numéro ne peut servir qu'à un seul compte. */
+  async assertPhoneAvailable(userId: string, phone: string): Promise<void> {
+    const other = await this.db.selectFrom('users').select('id').where('phone_e164', '=', phone).executeTakeFirst();
+    if (other && other.id !== userId) {
+      throw new ApiError(HttpStatus.CONFLICT, 'PHONE_TAKEN', 'Ce numéro est déjà utilisé par un autre compte.');
+    }
+    if (other) throw new ApiError(HttpStatus.CONFLICT, 'PHONE_UNCHANGED', 'C’est déjà le numéro de votre compte.');
+  }
+
+  /** Nouveau numéro vérifié par code : il remplace l'ancien (connexion suivante avec ce numéro). */
+  async changePhone(userId: string, phone: string, ctx: RequestContext): Promise<string> {
+    await this.assertPhoneAvailable(userId, phone);
+    try {
+      await this.db.updateTable('users').set({ phone_e164: phone, phone_verified_at: new Date() }).where('id', '=', userId).execute();
+    } catch (e) {
+      if ((e as { code?: string }).code === '23505') {
+        throw new ApiError(HttpStatus.CONFLICT, 'PHONE_TAKEN', 'Ce numéro est déjà utilisé par un autre compte.');
+      }
+      throw e;
+    }
+    await this.audit.log({ actorId: userId, action: 'user.phone_changed', targetType: 'user', targetId: userId, ctx });
+    return phone;
+  }
+
   async setEmergencyContact(userId: string, name: string, rawPhone: string, ctx: RequestContext) {
     const phone = normalizeCiPhone(rawPhone);
     if (!phone) {

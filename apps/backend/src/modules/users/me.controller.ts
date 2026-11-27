@@ -1,8 +1,10 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Patch, Post, Put, Req } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Inject, Patch, Post, Put, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import type { z } from 'zod';
+import { z } from 'zod';
 import { ApiError } from '../../common/api-error';
+import { normalizeCiMobile } from '../../common/phone';
 import { ZodValidationPipe } from '../../common/zod-validation.pipe';
+import { ENV, type Env } from '../../config/env';
 import { deletionSchema } from '../auth/auth.schemas';
 import { AllowIncompleteProfile, CurrentAuth } from '../auth/decorators';
 import { OtpService } from '../auth/otp.service';
@@ -19,6 +21,8 @@ import {
 import { PhotoService } from './photo.service';
 import { UsersService } from './users.service';
 
+const phoneChangeSchema = z.object({ phone: z.string().trim().min(8, 'Numéro invalide.').max(25, 'Numéro invalide.') }).strict();
+
 @ApiTags('profil')
 @ApiBearerAuth()
 @AllowIncompleteProfile()
@@ -28,7 +32,41 @@ export class MeController {
     private readonly users: UsersService,
     private readonly otp: OtpService,
     private readonly photos: PhotoService,
+    @Inject(ENV) private readonly env: Env,
   ) {}
+
+  @Post('phone/otp')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Envoie un code sur le nouveau numéro avant de le rattacher au compte' })
+  async phoneOtp(
+    @CurrentAuth() auth: AuthContext,
+    @Body(new ZodValidationPipe(phoneChangeSchema)) body: z.infer<typeof phoneChangeSchema>,
+    @Req() req: AppRequest,
+  ) {
+    const phone = normalizeCiMobile(body.phone, { allowDemo: this.env.OTP_TEST_MODE });
+    if (!phone) {
+      throw new ApiError(HttpStatus.BAD_REQUEST, 'VALIDATION_ERROR', 'Certains champs sont invalides.', {
+        fields: { phone: 'Numéro de mobile ivoirien attendu (10 chiffres, commençant par 01, 05 ou 07).' },
+      });
+    }
+    await this.users.assertPhoneAvailable(auth.userId, phone);
+    return this.otp.request({ phone, purpose: 'PHONE_CHANGE', userId: auth.userId, ip: req.ip ?? null });
+  }
+
+  @Post('phone')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Remplace le numéro du compte après vérification du code reçu sur le nouveau numéro' })
+  async changePhone(
+    @CurrentAuth() auth: AuthContext,
+    @Body(new ZodValidationPipe(deletionSchema)) body: z.infer<typeof deletionSchema>,
+    @Req() req: AppRequest,
+  ) {
+    const verified = await this.otp.verify(body.otpRequestId, body.code, req.ip ?? null);
+    if (verified.purpose !== 'PHONE_CHANGE' || verified.userId !== auth.userId) {
+      throw new ApiError(HttpStatus.BAD_REQUEST, 'OTP_INVALID', 'Code incorrect.');
+    }
+    return { data: { phone: await this.users.changePhone(auth.userId, verified.phone, requestContext(req)) } };
+  }
 
   @Post('photo/upload-url')
   @ApiOperation({ summary: 'URL de dépôt signée (5 min) pour la photo de profil' })

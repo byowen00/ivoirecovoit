@@ -427,6 +427,31 @@ describe('Profil, consentements et suppression', () => {
       .expect(400);
     expect(res.body.error.code).toBe('OTP_INVALID');
   });
+
+  it('change de numéro après un code reçu sur le nouveau numéro', async () => {
+    const s = await loginActive(t);
+    const other = await loginActive(t);
+    const auth = bearer(s.accessToken);
+    const taken = await t.http().post('/api/v1/me/phone/otp').set(auth).send({ phone: other.phone }).expect(409);
+    expect(taken.body.error.code).toBe('PHONE_TAKEN');
+    const fresh = uniquePhone();
+    const otp = await t.http().post('/api/v1/me/phone/otp').set(auth).send({ phone: fresh }).expect(200);
+    // Un code de connexion ne permet pas de changer de numéro.
+    const login = await t.http().post(`${OTP}/request`).send({ phone: fresh }).expect(200);
+    await t.http().post('/api/v1/me/phone').set(auth).send({ otpRequestId: login.body.otpRequestId, code: login.body.testCode }).expect(400);
+    const done = await t.http().post('/api/v1/me/phone').set(auth).send({ otpRequestId: otp.body.otpRequestId, code: otp.body.testCode }).expect(200);
+    expect(done.body.data.phone).toMatch(/^\+225/);
+    const me = await t.http().get('/api/v1/me').set(auth).expect(200);
+    expect(JSON.stringify(me.body)).toContain(done.body.data.phone);
+  });
+
+  it('embouteillages : heures de pointe habituelles, sans prétendre au temps réel', async () => {
+    const res = await t.http().get('/api/v1/app/traffic').expect(200);
+    expect(res.body.alert).toBeNull();
+    expect(res.body.peakHours.length).toBeGreaterThan(0);
+    expect(typeof res.body.peakNow).toBe('boolean');
+    expect(res.body.source).toContain('pas de mesure en temps réel');
+  });
 });
 
 describe('Connexion rapide pour les essais (mode OTP de test)', () => {
