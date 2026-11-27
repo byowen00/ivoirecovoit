@@ -278,7 +278,7 @@ class VehicleAvatar extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     width: size,
     height: size,
-    decoration: const BoxDecoration(color: AppColors.brandSoft, shape: BoxShape.circle),
+    decoration: BoxDecoration(color: AppColors.brandSoft, shape: BoxShape.circle),
     child: Icon(icon, size: size * 0.55, color: AppColors.brand),
   );
 }

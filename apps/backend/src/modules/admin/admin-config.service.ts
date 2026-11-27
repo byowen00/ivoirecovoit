@@ -7,6 +7,7 @@ import { DB, type Db } from '../../database/database.module';
 import type { TripKind } from '../../database/types';
 import { AuditService, type RequestContext } from '../../infra/audit.service';
 import type { AuthContext } from '../auth/request-context';
+import { appearanceSchema } from '../users/appearance';
 
 const notFound = (what: string) => new ApiError(HttpStatus.NOT_FOUND, 'NOT_FOUND', `${what} introuvable.`);
 const conflict = (code: string, message: string) => new ApiError(HttpStatus.CONFLICT, code, message);
@@ -47,6 +48,7 @@ export const SETTINGS: Record<string, { label: string; schema: z.ZodType; group:
   'reports.max_per_day': { group: 'Confiance', label: 'Signalements par jour et par personne', schema: int(1, 100) },
   'share.expiry_hours_after_arrival': { group: 'Sécurité', label: 'Lien de partage valable N heures après l’arrivée', schema: int(1, 72) },
   'notifications.reminder_hours': { group: 'Notifications', label: 'Rappels avant le départ (heures)', schema: z.array(int(1, 72)).max(4) },
+  'ui.appearance': { group: 'Interface et design', label: 'Apparence du site et de l’appli (page « Interface et design »)', schema: appearanceSchema },
   'safety.emergency_numbers': {
     group: 'Sécurité',
     label: 'Numéros d’urgence affichés (à faire valider)',

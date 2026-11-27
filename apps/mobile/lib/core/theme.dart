@@ -3,10 +3,19 @@ import 'package:flutter/material.dart';
 /// Jetons du système de design, alignés sur l'application web (apps/web/app/globals.css).
 /// Modifier une couleur ici change toute l'application.
 class AppColors {
-  static const brand = Color(0xFFC0560A); // texte blanc dessus : contraste 4,6:1
-  static const brandStrong = Color(0xFF9A4407);
-  static const brandSoft = Color(0xFFFFF0E3);
-  static const accent = Color(0xFFF08A2C); // décoratif uniquement (logo sur fond sombre)
+  /// Palette choisie dans l'administration (« Interface et design ») : voir [AppColors.apply].
+  static void apply({required Color brand, required Color brandStrong, required Color brandSoft, required Color accent, required Color night}) {
+    AppColors.brand = brand;
+    AppColors.brandStrong = brandStrong;
+    AppColors.brandSoft = brandSoft;
+    AppColors.accent = accent;
+    AppColors.night = night;
+  }
+
+  static Color brand = Color(0xFFC0560A); // texte blanc dessus : contraste 4,6:1
+  static Color brandStrong = Color(0xFF9A4407);
+  static Color brandSoft = Color(0xFFFFF0E3);
+  static Color accent = Color(0xFFF08A2C); // décoratif uniquement (logo sur fond sombre)
   static const success = Color(0xFF0B6B45);
   static const successSoft = Color(0xFFE3F2EA);
   static const online = Color(0xFF22C55E); // pastille « connecté »
@@ -15,7 +24,7 @@ class AppColors {
   static const warningSoft = Color(0xFFFFF7D6);
   static const text = Color(0xFF11181C);
   static const textMuted = Color(0xFF4A555C);
-  static const night = Color(0xFF11181C); // en-têtes sombres
+  static Color night = Color(0xFF11181C); // en-têtes sombres
   static const nightMuted = Color(0xFFC9D0D4);
   static const surface = Color(0xFFFFFFFF);
   static const surfaceMuted = Color(0xFFF4F5F2);
@@ -87,7 +96,7 @@ class AppTheme {
         fillColor: AppColors.surface,
         border: controlShape,
         enabledBorder: controlShape,
-        focusedBorder: controlShape.copyWith(borderSide: const BorderSide(color: AppColors.brand, width: 2)),
+        focusedBorder: controlShape.copyWith(borderSide: BorderSide(color: AppColors.brand, width: 2)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
       ),
       filledButtonTheme: FilledButtonThemeData(
@@ -106,7 +115,7 @@ class AppTheme {
           textStyle: const TextStyle(fontFamily: 'Inter', fontSize: 16, fontWeight: FontWeight.w600),
         ),
       ),
-      snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating, backgroundColor: AppColors.night),
+      snackBarTheme: SnackBarThemeData(behavior: SnackBarBehavior.floating, backgroundColor: AppColors.night),
     );
   }
 

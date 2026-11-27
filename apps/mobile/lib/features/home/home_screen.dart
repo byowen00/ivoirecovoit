@@ -5,6 +5,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../core/appearance.dart';
 import '../../core/config.dart';
 import '../../core/location.dart';
 import '../../core/theme.dart';
@@ -50,12 +51,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   String? _hereError;
 
   /// Menu « Tous / En ville / Interurbain ».
-  TripKindChoice _kind = TripKindChoice.all;
+  late TripKindChoice _kind = ref.read(appearanceProvider).tripKind;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _locate());
+    // Accueil « carte » (réglage de l'administration) : la position est demandée dès l'ouverture.
+    if (ref.read(appearanceProvider).mapHome) WidgetsBinding.instance.addPostFrameCallback((_) => _locate());
   }
 
   /// Demande la position au démarrage, pour centrer la carte sur la personne.
@@ -159,6 +161,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final signedIn = me != null;
     final firstName = me?.firstName?.trim();
     final otherDate = !_now && _date != null && !_isDay(0) && !_isDay(1);
+    final look = ref.watch(appearanceProvider);
 
     return Scaffold(
       bottomNavigationBar: const _BottomNav(),
@@ -166,6 +169,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         padding: EdgeInsets.zero,
         children: [
           // Carte avec la position du téléphone, menu déroulant en haut à gauche.
+          if (!look.mapHome)
+            _ClassicHeader(
+              menu: _HomeMenu(signedIn: signedIn),
+              actions: [
+                if (signedIn) const NotificationBell(),
+                _AccountButton(signedIn: signedIn, initial: firstName),
+              ],
+            )
+          else
           _HomeMap(
             position: _here,
             locating: _locating,
@@ -405,6 +417,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         style: TextStyle(fontSize: 13),
                       ),
                     ),
+                  if (look.showPopularRoutes) ...[
                   const SectionTitle('Trajets fréquents'),
                   const SizedBox(height: 12),
                   ref
@@ -427,6 +440,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 ),
                               ),
                       ),
+                  ],
                   const SizedBox(height: 16),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -459,7 +473,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     child: InkWell(
                       borderRadius: BorderRadius.circular(AppTheme.radiusCard),
                       onTap: () => context.push('/conducteur'),
-                      child: const Padding(
+                      child: Padding(
                         padding: EdgeInsets.all(18),
                         child: Row(
                           children: [
@@ -516,7 +530,7 @@ class _MyPositionField extends StatelessWidget {
     decoration: BoxDecoration(color: AppColors.brandSoft, borderRadius: BorderRadius.circular(AppTheme.radiusControl)),
     child: Row(
       children: [
-        const Icon(Icons.my_location, size: 18, color: AppColors.brandStrong),
+        Icon(Icons.my_location, size: 18, color: AppColors.brandStrong),
         const SizedBox(width: 10),
         const Expanded(
           child: Text('Ma position', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
@@ -594,7 +608,7 @@ class _AccountButton extends StatelessWidget {
           child: signedIn && initial != null && initial!.isNotEmpty
               ? Text(
                   initial!.substring(0, 1).toUpperCase(),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: AppTheme.displayFont,
                     fontWeight: FontWeight.w800,
                     color: AppColors.night,
@@ -691,7 +705,7 @@ class _BottomNav extends StatelessWidget {
       const routes = [null, '/reservations', '/conducteur/publier', '/compte'];
       if (routes[i] case final path?) context.push(path);
     },
-    destinations: const [
+    destinations: [
       NavigationDestination(
         icon: Icon(Icons.search, color: AppColors.brand),
         label: 'Rechercher',
@@ -828,7 +842,7 @@ class _HomeMapState extends State<_HomeMap> {
                         : widget.onUseAsDeparture != null
                         ? ActionChip(
                             key: const Key('home-use-position'),
-                            avatar: const Icon(Icons.trip_origin, size: 18, color: AppColors.brand),
+                            avatar: Icon(Icons.trip_origin, size: 18, color: AppColors.brand),
                             label: const Text('Partir d’ici'),
                             backgroundColor: AppColors.surface,
                             onPressed: widget.onUseAsDeparture,
@@ -895,7 +909,7 @@ class _Brand extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
     decoration: BoxDecoration(color: AppColors.night, borderRadius: BorderRadius.circular(999)),
-    child: const Text.rich(
+    child: Text.rich(
       TextSpan(
         text: 'Ivoire',
         children: [TextSpan(text: 'Covoit', style: TextStyle(color: AppColors.accent))],
@@ -948,6 +962,31 @@ class _HomeMenu extends StatelessWidget {
               ],
             ),
           ),
+      ],
+    ),
+  );
+}
+
+/// Accueil « classique » (réglage de l'administration) : en-tête sombre sans carte.
+class _ClassicHeader extends StatelessWidget {
+  const _ClassicHeader({required this.menu, required this.actions});
+  final Widget menu;
+  final List<Widget> actions;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    color: AppColors.night,
+    padding: EdgeInsets.fromLTRB(12, MediaQuery.paddingOf(context).top + 10, 12, 52),
+    child: Row(
+      children: [
+        menu,
+        const SizedBox(width: 6),
+        const _Brand(),
+        const Spacer(),
+        IconTheme(
+          data: const IconThemeData(color: Colors.white),
+          child: Row(mainAxisSize: MainAxisSize.min, children: actions),
+        ),
       ],
     ),
   );

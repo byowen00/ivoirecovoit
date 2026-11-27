@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { cookies, headers } from 'next/headers';
 import Link from 'next/link';
 import { NotificationBell } from '@/components/NotificationBell';
+import { fetchAppearance, themeCss } from '@/lib/appearance';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -19,8 +20,16 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const signedIn = (await cookies()).has('ic_signed_in');
   // La console d'administration a son propre en-tête : on n'affiche pas celui du site public.
   const inConsole = ((await headers()).get('x-pathname') ?? '').startsWith('/admin');
+  // Palette réglée dans l'administration (« Interface et design »).
+  const appearance = await fetchAppearance();
+  const css = appearance ? themeCss(appearance.colors) : '';
   return (
     <html lang="fr-CI" data-theme="light" className="overflow-x-clip">
+      {css && (
+        <head>
+          <style>{css}</style>
+        </head>
+      )}
       <body className="min-h-dvh">
         {isSandbox && (
           <div role="note" className="bg-warning-soft px-4 py-1 text-center text-xs font-medium text-ink">

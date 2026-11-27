@@ -41,7 +41,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
             ],
           ),
           // Repère fixe au centre : c'est la carte qui bouge.
-          const IgnorePointer(
+          IgnorePointer(
             child: Center(
               child: Padding(
                 padding: EdgeInsets.only(bottom: 40),

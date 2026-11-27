@@ -407,7 +407,7 @@ class Avatar extends StatelessWidget {
     foregroundImage: url != null ? NetworkImage(url!) : null,
     child: Text(
       name.isEmpty ? '?' : name.substring(0, 1).toUpperCase(),
-      style: const TextStyle(color: AppColors.brandStrong, fontWeight: FontWeight.bold),
+      style: TextStyle(color: AppColors.brandStrong, fontWeight: FontWeight.bold),
     ),
   );
 }

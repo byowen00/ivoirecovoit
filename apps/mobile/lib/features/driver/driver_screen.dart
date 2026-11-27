@@ -217,7 +217,7 @@ class _DriverScreenState extends ConsumerState<DriverScreen> {
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Icon(Icons.radio_button_unchecked, size: 18, color: AppColors.brand),
+                                  Icon(Icons.radio_button_unchecked, size: 18, color: AppColors.brand),
                                   const SizedBox(width: 8),
                                   Expanded(child: Text(blockerLabel[b] ?? b)),
                                 ],

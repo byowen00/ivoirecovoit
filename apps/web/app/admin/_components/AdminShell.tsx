@@ -25,6 +25,7 @@ const NAV: { href: string; label: string; perms: string[] }[] = [
   { href: '/admin/reclamations', label: 'Réclamations', perms: ['disputes.manage'] },
   { href: '/admin/signalements', label: 'Signalements', perms: ['reports.manage'] },
   { href: '/admin/parametres', label: 'Paramètres', perms: ['settings.read'] },
+  { href: '/admin/interface', label: 'Interface et design', perms: ['settings.read'] },
   { href: '/admin/frais', label: 'Règles de frais', perms: ['settings.fees'] },
   { href: '/admin/promotions', label: 'Promotions', perms: ['promotions.manage'] },
   { href: '/admin/lieux', label: 'Lieux', perms: ['places.manage'] },

@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'core/appearance.dart';
 import 'core/theme.dart';
 import 'features/account/account_screen.dart';
 import 'features/auth/auth_controller.dart';
@@ -171,10 +172,13 @@ class IvoireCovoitApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Reprise de la session dès le lancement, sans reconstruire l'application à chaque changement.
     ref.listen(authControllerProvider, (_, _) {});
+    // Palette réglée dans l'administration : un changement reconstruit tous les écrans avec les nouvelles couleurs.
+    final look = ref.watch(appearanceProvider);
     return MaterialApp.router(
       title: 'IvoireCovoit',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
+      builder: (_, child) => KeyedSubtree(key: ValueKey(look.theme), child: child ?? const SizedBox.shrink()),
       locale: const Locale('fr', 'CI'),
       supportedLocales: const [Locale('fr', 'CI'), Locale('fr')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,

@@ -15,7 +15,7 @@ class MapPoint {
   final String? id;
 }
 
-const _toneColor = {
+final _toneColor = {
   PointTone.origin: AppColors.success,
   PointTone.destination: AppColors.brand,
   PointTone.stop: AppColors.textMuted,
