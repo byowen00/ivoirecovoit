@@ -30,6 +30,7 @@ String routeSourceNote(String? source) => source == 'OSRM'
 class SearchResult {
   SearchResult.fromJson(Map<String, dynamic> j)
     : tripId = j['tripId'] as String,
+      kind = j['kind'] as String?,
       pickupStopId = (j['pickup'] as Map)['stopId'] as String,
       pickupLabel = (j['pickup'] as Map)['label'] as String,
       pickupAt = _date((j['pickup'] as Map)['plannedAt']),
@@ -53,6 +54,9 @@ class SearchResult {
       isDemo = (j['isDemo'] as bool?) ?? false;
 
   final String tripId;
+
+  /// URBAN (en ville) ou INTERCITY (interurbain).
+  final String? kind;
   final String pickupStopId;
   final String pickupLabel;
   final DateTime pickupAt;

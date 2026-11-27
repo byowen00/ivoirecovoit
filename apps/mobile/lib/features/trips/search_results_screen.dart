@@ -30,6 +30,7 @@ String resultsLocation(SearchQuery q) => Uri(
     if (q.date != null) 'date': isoDay(q.date!),
     'timeFrom': ?q.timeFrom,
     'timeTo': ?q.timeTo,
+    'kind': ?q.kind,
   },
 ).toString();
 
@@ -51,6 +52,7 @@ SearchQuery? queryFromUri(Uri uri) {
     toLabel: p['toLabel'] ?? 'Arrivée',
     date: p['date'] == null ? null : DateTime.tryParse('${p['date']}T00:00:00Z'),
     seats: (int.tryParse(p['seats'] ?? '') ?? 1).clamp(1, 8),
+    kind: const {'URBAN', 'INTERCITY'}.contains(p['kind']) ? p['kind'] : null,
   );
 }
 
@@ -189,6 +191,15 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
                 ),
               ),
               const SizedBox(height: 12),
+              TripKindMenu(
+                value: TripKindChoice.of(q.kind),
+                onChanged: (k) {
+                  if (k.code == q.kind) return;
+                  _query = q.copyWith(kindChoice: k);
+                  _load();
+                },
+              ),
+              const SizedBox(height: 12),
               if (_error != null)
                 _Message(
                   text: _error!,
@@ -196,7 +207,8 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
                 )
               else if (results == null)
                 for (var i = 0; i < 3; i++) const _Skeleton()
-              else if (results.isEmpty)
+              else if (results.isEmpty) ...[
+                const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: VehicleStrip()),
                 _Message(
                   text: q.maxPriceXof != null || q.directOnly
                       ? 'Aucun trajet trouvé. Essayez d’assouplir les filtres.'
@@ -204,9 +216,11 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
                       ? 'Aucun départ dans les prochaines heures. Essayez « Aujourd’hui » ou « Demain ».'
                       : q.date != null
                       ? 'Aucun conducteur ne propose ce trajet ce jour-là. Essayez une autre date ou une ville proche.'
+                      : q.kind != null
+                      ? 'Aucun trajet de ce type sur cet axe. Essayez « Tous ».'
                       : 'Aucun trajet à venir sur cet axe pour le moment.',
-                )
-              else ...[
+                ),
+              ] else ...[
                 if (_map)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
@@ -317,11 +331,20 @@ class TripResultCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Durée estimée ${formatDuration(r.durationS)} · '
-                '${r.stopsCount == 0 ? 'direct' : '${r.stopsCount} arrêt${r.stopsCount > 1 ? 's' : ''}'} · ${r.vehicle}',
-                style: muted,
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  const VehicleAvatar(size: 28),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Durée estimée ${formatDuration(r.durationS)} · '
+                      '${r.stopsCount == 0 ? 'direct' : '${r.stopsCount} arrêt${r.stopsCount > 1 ? 's' : ''}'} · ${r.vehicle}',
+                      style: muted,
+                    ),
+                  ),
+                  if (r.kind != null) ...[const SizedBox(width: 8), TripKindBadge(r.kind)],
+                ],
               ),
               const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1)),
               Row(

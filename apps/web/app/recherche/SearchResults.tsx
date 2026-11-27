@@ -8,7 +8,7 @@ import { TripCard, TripCardSkeleton } from '@/components/TripCard';
 import { type MapPoint, TripMap } from '@/components/TripMap';
 import { ApiRequestError } from '@/lib/api';
 import { formatXof } from '@/lib/format';
-import { publicTrips, type SearchParams, type SearchResponse, type SearchResult } from '@/lib/trips';
+import { publicTrips, type SearchParams, type SearchResponse, type SearchResult, type TripKind } from '@/lib/trips';
 
 type Sort = NonNullable<SearchParams['sort']>;
 type Period = 'all' | 'morning' | 'afternoon' | 'evening';
@@ -51,6 +51,8 @@ export function SearchResults() {
   const toLabel = params.get('toLabel') ?? '';
   const date = params.get('date') ?? '';
   const seats = Math.min(8, Math.max(1, Number(params.get('seats')) || 1));
+  const rawKind = params.get('kind');
+  const kind: TripKind | undefined = rawKind === 'URBAN' || rawKind === 'INTERCITY' ? rawKind : undefined;
 
   const [sort, setSort] = useState<Sort>('departure');
   const [period, setPeriod] = useState<Period>('all');
@@ -78,8 +80,9 @@ export function SearchResults() {
       sort,
       directOnly,
       maxPriceXof: maxPrice && Number.isInteger(price) && price > 0 ? price : undefined,
+      kind,
     };
-  }, [from, to, date, seats, sort, period, maxPrice, directOnly, fromPoint, nowWindow]);
+  }, [from, to, date, seats, sort, period, maxPrice, directOnly, fromPoint, nowWindow, kind]);
 
   useEffect(() => {
     if (!query) return;
@@ -148,7 +151,7 @@ export function SearchResults() {
     <div className="grid gap-4">
       <SearchForm
         compact
-        initial={{ from: fromPoint ? null : { id: from, label: fromLabel }, fromPoint, to: { id: to, label: toLabel }, date, seats, now: !!nowWindow }}
+        initial={{ from: fromPoint ? null : { id: from, label: fromLabel }, fromPoint, to: { id: to, label: toLabel }, date, seats, now: !!nowWindow, kind: kind ?? null }}
       />
 
       <div className="flex flex-wrap items-end justify-between gap-3">

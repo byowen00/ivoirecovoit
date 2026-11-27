@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import type { PlaceSuggestion } from '@/lib/places';
+import type { TripKind } from '@/lib/trips';
 import { PlaceInput } from './PlaceInput';
 
 export function todayInAbidjan(): string {
@@ -29,7 +30,15 @@ export interface SearchInitial {
   date?: string;
   seats?: number;
   now?: boolean;
+  kind?: TripKind | null;
 }
+
+/** Menu de la recherche : tous les trajets, en ville seulement ou interurbains seulement. */
+export const KIND_MENU: { value: TripKind | null; label: string; hint: string }[] = [
+  { value: null, label: 'Tous', hint: 'Trajets en ville et entre villes.' },
+  { value: 'URBAN', label: '🏙 En ville', hint: 'Trajets courts dans une même ville : travail, école, marché.' },
+  { value: 'INTERCITY', label: '🛣 Interurbain', hint: 'Trajets entre villes : Abidjan, Yamoussoukro, Bouaké…' },
+];
 
 /** Durée couverte par « Partir maintenant », en heures. */
 export const NOW_WINDOW_HOURS = 3;
@@ -51,6 +60,7 @@ export function resultsHref(
   date: string,
   seats: number,
   window?: { timeFrom: string; timeTo: string },
+  kind?: TripKind | null,
 ): string {
   const q = new URLSearchParams(
     'id' in from
@@ -65,6 +75,7 @@ export function resultsHref(
     q.set('timeFrom', window.timeFrom);
     q.set('timeTo', window.timeTo);
   }
+  if (kind) q.set('kind', kind);
   return `/recherche?${q}`;
 }
 
@@ -100,6 +111,7 @@ export function SearchForm({ initial = {}, compact = false }: { initial?: Search
   const [to, setTo] = useState<PlaceSuggestion | null>(asSuggestion(initial.to));
   const [date, setDate] = useState(initial.date ?? todayInAbidjan());
   const [seats, setSeats] = useState(initial.seats ?? 1);
+  const [kind, setKind] = useState<TripKind | null>(initial.kind ?? null);
   const [error, setError] = useState<string | null>(null);
   // Inverser remonte les deux champs pour qu'ils affichent leur nouvelle valeur.
   const [swaps, setSwaps] = useState(0);
@@ -116,9 +128,9 @@ export function SearchForm({ initial = {}, compact = false }: { initial?: Search
     setError(null);
     if (now) {
       const w = nowWindow();
-      router.push(resultsHref(origin, to, w.date, seats, w));
+      router.push(resultsHref(origin, to, w.date, seats, w, kind));
     } else {
-      router.push(resultsHref(origin, to, date, seats));
+      router.push(resultsHref(origin, to, date, seats, undefined, kind));
     }
   }
 
@@ -148,6 +160,23 @@ export function SearchForm({ initial = {}, compact = false }: { initial?: Search
       className={`grid gap-2 rounded-[var(--radius-card)] bg-surface shadow-[0_12px_32px_rgb(17_24_28/0.10)] ${compact ? 'p-3 sm:grid-cols-[1fr_auto_1fr_10rem_7rem_auto] sm:items-start sm:gap-3' : 'p-4 sm:p-6'}`}
       onSubmit={submit}
     >
+      <div className="grid gap-1 sm:col-span-full">
+        <div role="radiogroup" aria-label="Type de trajet" className="grid grid-cols-3 gap-1 rounded-[var(--radius-control)] bg-surface-muted p-1">
+          {KIND_MENU.map((k) => (
+            <button
+              key={k.label}
+              type="button"
+              role="radio"
+              aria-checked={kind === k.value}
+              onClick={() => setKind(k.value)}
+              className={`min-h-10 rounded-[calc(var(--radius-control)-4px)] px-2 text-sm font-semibold ${kind === k.value ? 'bg-ink text-white' : 'text-ink'}`}
+            >
+              {k.label}
+            </button>
+          ))}
+        </div>
+        {!compact && <p className="text-xs text-ink-muted">{KIND_MENU.find((k) => k.value === kind)!.hint}</p>}
+      </div>
       <div className="grid gap-1">
         {point ? (
           <div>

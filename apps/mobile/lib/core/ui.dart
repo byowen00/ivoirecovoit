@@ -198,3 +198,106 @@ class RoundButton extends StatelessWidget {
     ),
   );
 }
+
+/// Type de trajet : « En ville » (URBAN) ou « Interurbain » (INTERCITY), avec son petit véhicule.
+enum TripKindChoice {
+  all(null, 'Tous', Icons.commute),
+  urban('URBAN', 'En ville', Icons.directions_car_filled),
+  intercity('INTERCITY', 'Interurbain', Icons.airport_shuttle);
+
+  const TripKindChoice(this.code, this.label, this.icon);
+
+  /// Valeur envoyée à l'API (null = les deux types).
+  final String? code;
+  final String label;
+  final IconData icon;
+
+  static TripKindChoice of(String? code) => values.firstWhere((k) => k.code == code, orElse: () => all);
+
+  String get hint => switch (this) {
+    all => 'Trajets en ville et entre villes.',
+    urban => 'Courts trajets dans la même ville : quartier à quartier, travail, école.',
+    intercity => 'Entre deux villes : Abidjan, Bouaké, Yamoussoukro, San-Pédro…',
+  };
+}
+
+/// Menu « Tous / En ville / Interurbain » de la recherche.
+class TripKindMenu extends StatelessWidget {
+  const TripKindMenu({super.key, required this.value, required this.onChanged});
+  final TripKindChoice value;
+  final ValueChanged<TripKindChoice> onChanged;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Row(
+        children: [
+          for (final k in TripKindChoice.values) ...[
+            if (k != TripKindChoice.all) const SizedBox(width: 8),
+            Expanded(
+              child: ChoiceButton(
+                key: Key('kind-${k.name}'),
+                label: k.label,
+                icon: k.icon,
+                selected: value == k,
+                onTap: () => onChanged(k),
+              ),
+            ),
+          ],
+        ],
+      ),
+      Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: Text(value.hint, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+      ),
+    ],
+  );
+}
+
+/// Petite pastille du type de trajet, avec son véhicule (cartes de résultat, détail).
+class TripKindBadge extends StatelessWidget {
+  const TripKindBadge(this.kind, {super.key});
+  final String? kind;
+
+  @override
+  Widget build(BuildContext context) {
+    final k = TripKindChoice.of(kind);
+    if (k == TripKindChoice.all) return const SizedBox.shrink();
+    return Pill(k.label, icon: k.icon, tone: k == TripKindChoice.urban ? PillTone.brand : PillTone.success);
+  }
+}
+
+/// Pastille ronde avec une voiture : véhicule du conducteur, états vides.
+class VehicleAvatar extends StatelessWidget {
+  const VehicleAvatar({super.key, this.size = 36, this.icon = Icons.directions_car_filled});
+  final double size;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: size,
+    height: size,
+    decoration: const BoxDecoration(color: AppColors.brandSoft, shape: BoxShape.circle),
+    child: Icon(icon, size: size * 0.55, color: AppColors.brand),
+  );
+}
+
+/// Frise décorative de véhicules (voiture, minibus, taxi) pour les états vides.
+class VehicleStrip extends StatelessWidget {
+  const VehicleStrip({super.key});
+
+  @override
+  Widget build(BuildContext context) => const ExcludeSemantics(
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        VehicleAvatar(size: 40, icon: Icons.directions_car_filled),
+        SizedBox(width: 10),
+        VehicleAvatar(size: 48, icon: Icons.airport_shuttle),
+        SizedBox(width: 10),
+        VehicleAvatar(size: 40, icon: Icons.local_taxi),
+      ],
+    ),
+  );
+}

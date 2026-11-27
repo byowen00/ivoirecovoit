@@ -124,6 +124,7 @@ export class SearchService {
           JOIN trip_stops d ON d.trip_id = p.trip_id AND d.seq > p.seq AND d.is_dropoff
           CROSS JOIN qp
          WHERE tr.status IN ('PUBLISHED','FULL')
+           AND (${q.kind ?? null}::text IS NULL OR tr.kind::text = ${q.kind ?? null}::text)
            AND p.is_pickup
            AND p.planned_at >= ${windowStart} AND p.planned_at <= ${dayEnd}
            -- Préfiltre au rayon maximal, à valeur constante pour que les index spatiaux servent ; le rayon exact

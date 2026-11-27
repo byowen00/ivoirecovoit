@@ -136,6 +136,11 @@ describe('Recherche de trajets par segment (PostGIS)', () => {
     expect(ids(await search({ ...base, timeFrom: '07:00', timeTo: '09:00' })).map(name)).toEqual(['T1']);
     expect(ids(await search({ ...base, seats: 4 })).map(name)).toEqual([]); // 3 places offertes
     expect(ids(await search({ ...base, date: otherDay })).map(name)).toEqual(['T8']);
+    // Menu « Interurbain » / « En ville » : filtre sur le type de trajet.
+    expect(ids(await search({ ...base, kind: 'INTERCITY' })).map(name)).toEqual(['T2', 'T1']);
+    expect(ids(await search({ ...base, kind: 'URBAN' }))).toEqual([]);
+    expect(ids(await search({ fromPlaceId: place.Abobo!, toPlaceId: place.Plateau!, date: day, kind: 'URBAN' })).map(name)).toContain('T3');
+    expect((await search({ ...base, kind: 'AUTRE' })).status).toBe(400);
   });
 
   it('tris : prix, note du conducteur, proximité', async () => {

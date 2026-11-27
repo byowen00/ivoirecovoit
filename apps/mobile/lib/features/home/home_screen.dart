@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:intl/intl.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../core/config.dart';
 import '../../core/location.dart';
@@ -43,6 +45,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   ({double lat, double lng})? _myPos;
   bool _locating = false;
 
+  /// Position du téléphone affichée sur la carte dès l'ouverture (jamais stockée ni envoyée).
+  ({double lat, double lng})? _here;
+  String? _hereError;
+
+  /// Menu « Tous / En ville / Interurbain ».
+  TripKindChoice _kind = TripKindChoice.all;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _locate());
+  }
+
+  /// Demande la position au démarrage, pour centrer la carte sur la personne.
+  Future<void> _locate() async {
+    if (!mounted) return;
+    setState(() {
+      _locating = true;
+      _hereError = null;
+    });
+    try {
+      final p = await currentPosition();
+      if (mounted) setState(() => _here = p);
+    } on LocationUnavailable catch (e) {
+      if (mounted) setState(() => _hereError = e.message);
+    } catch (_) {
+      if (mounted) setState(() => _hereError = 'Position indisponible sur cet appareil.');
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
+  }
+
   static DateTime _day(DateTime d) => DateTime(d.year, d.month, d.day);
   bool _isDay(int offset) => !_now && _date != null && _day(_date!) == _day(DateTime.now().add(Duration(days: offset)));
 
@@ -72,6 +106,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           timeFrom: _now ? hhmm(now) : null,
           timeTo: _now ? (end.day == now.day ? hhmm(end) : '23:59') : null,
           seats: _seats,
+          kind: _kind.code,
         ),
       ),
     );
@@ -83,8 +118,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       _error = null;
     });
     try {
-      final p = await currentPosition();
-      if (mounted) setState(() => _myPos = p);
+      final p = _here ?? await currentPosition();
+      if (mounted) setState(() => _myPos = _here = p);
     } on LocationUnavailable catch (e) {
       if (mounted) setState(() => _error = e.message);
     } finally {
@@ -130,70 +165,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       body: ListView(
         padding: EdgeInsets.zero,
         children: [
-          // En-tête sombre : logo, notifications, compte et état de connexion.
-          Container(
-            color: AppColors.night,
-            padding: EdgeInsets.fromLTRB(20, MediaQuery.paddingOf(context).top + 12, 12, 96),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Text.rich(
-                        TextSpan(
-                          text: 'Ivoire',
-                          children: [
-                            TextSpan(
-                              text: 'Covoit',
-                              style: TextStyle(color: AppColors.accent),
-                            ),
-                          ],
-                        ),
-                        style: TextStyle(
-                          fontFamily: AppTheme.displayFont,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 22,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                    IconTheme(
-                      data: const IconThemeData(color: Colors.white),
-                      child: Row(
-                        children: [
-                          if (signedIn) const NotificationBell(),
-                          IconButton(
-                            tooltip: 'Aide et urgence',
-                            icon: const Icon(Icons.help_outline, color: Colors.white),
-                            onPressed: () => context.push('/aide'),
-                          ),
-                          _AccountButton(signedIn: signedIn, initial: firstName),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                Text(
-                  firstName != null && firstName.isNotEmpty ? 'Où allez-vous,\n$firstName ?' : 'Où allez-vous ?',
-                  style: const TextStyle(
-                    fontFamily: AppTheme.displayFont,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 28,
-                    height: 1.15,
-                    letterSpacing: -0.5,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                _StatusPill(signedIn: signedIn),
-              ],
-            ),
+          // Carte avec la position du téléphone, menu déroulant en haut à gauche.
+          _HomeMap(
+            position: _here,
+            locating: _locating,
+            message: _hereError,
+            onLocate: _locate,
+            onUseAsDeparture: _here == null ? null : () => setState(() => _myPos = _here),
+            menu: _HomeMenu(signedIn: signedIn),
+            actions: [
+              if (signedIn) const NotificationBell(),
+              _AccountButton(signedIn: signedIn, initial: firstName),
+            ],
           ),
-          // Carte de recherche, à cheval sur l'en-tête.
+          // Carte de recherche, à cheval sur la carte.
           Transform.translate(
-            offset: const Offset(0, -72),
+            offset: const Offset(0, -28),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Container(
@@ -206,6 +193,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            firstName != null && firstName.isNotEmpty ? 'Où allez-vous, $firstName ?' : 'Où allez-vous ?',
+                            style: const TextStyle(
+                              fontFamily: AppTheme.displayFont,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 22,
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                        ),
+                        _StatusPill(signedIn: signedIn),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    TripKindMenu(value: _kind, onChanged: (k) => setState(() => _kind = k)),
+                    const SizedBox(height: 14),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -382,7 +388,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
           Transform.translate(
-            offset: const Offset(0, -48),
+            offset: const Offset(0, -12),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(
@@ -484,21 +490,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.receipt_long_outlined),
-                    title: const Text('Historique des paiements'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => context.push('/paiements'),
-                  ),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.monitor_heart_outlined),
-                    title: const Text('État du service'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => context.push('/statut'),
-                  ),
+                  const SizedBox(height: 16),
                 ],
               ),
             ),
@@ -708,5 +700,255 @@ class _BottomNav extends StatelessWidget {
       NavigationDestination(icon: Icon(Icons.add_circle_outline), label: 'Publier'),
       NavigationDestination(icon: Icon(Icons.person_outline), label: 'Profil'),
     ],
+  );
+}
+
+/// Haut de l'accueil : carte centrée sur la position du téléphone (Abidjan si elle est inconnue).
+/// La position sert seulement à l'affichage et, si on le demande, de départ de recherche.
+class _HomeMap extends StatefulWidget {
+  const _HomeMap({
+    required this.position,
+    required this.locating,
+    required this.message,
+    required this.onLocate,
+    required this.onUseAsDeparture,
+    required this.menu,
+    required this.actions,
+  });
+  final ({double lat, double lng})? position;
+  final bool locating;
+  final String? message;
+  final VoidCallback onLocate;
+  final VoidCallback? onUseAsDeparture;
+  final Widget menu;
+  final List<Widget> actions;
+
+  static const abidjan = LatLng(5.345, -4.024);
+
+  @override
+  State<_HomeMap> createState() => _HomeMapState();
+}
+
+class _HomeMapState extends State<_HomeMap> {
+  final _map = MapController();
+  bool _ready = false;
+
+  LatLng? get _here => widget.position == null ? null : LatLng(widget.position!.lat, widget.position!.lng);
+
+  @override
+  void didUpdateWidget(covariant _HomeMap old) {
+    super.didUpdateWidget(old);
+    final here = _here;
+    if (_ready && here != null && old.position != widget.position) _map.move(here, 15);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final top = MediaQuery.paddingOf(context).top;
+    final here = _here;
+    return SizedBox(
+      height: 330 + top,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: Semantics(
+              label: here == null ? 'Carte d’Abidjan' : 'Carte autour de votre position',
+              child: FlutterMap(
+                mapController: _map,
+                options: MapOptions(
+                  initialCenter: here ?? _HomeMap.abidjan,
+                  initialZoom: here == null ? 12 : 15,
+                  onMapReady: () => _ready = true,
+                  interactionOptions: const InteractionOptions(flags: InteractiveFlag.all & ~InteractiveFlag.rotate),
+                ),
+                children: [
+                  TileLayer(urlTemplate: AppConfig.tileUrl, userAgentPackageName: 'ci.ivoirecovoit.app'),
+                  if (here != null)
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          point: here,
+                          width: 28,
+                          height: 28,
+                          child: Container(
+                            key: const Key('home-my-position'),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1A73E8),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 4),
+                              boxShadow: const [BoxShadow(color: Color(0x551A73E8), blurRadius: 12, spreadRadius: 6)],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  RichAttributionWidget(
+                    alignment: AttributionAlignment.bottomLeft,
+                    attributions: [TextSourceAttribution(AppConfig.tileAttribution)],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Barre du haut : menu déroulant à gauche, notifications et compte à droite.
+          Positioned(
+            top: top + 10,
+            left: 12,
+            right: 12,
+            child: Row(
+              children: [
+                widget.menu,
+                const SizedBox(width: 10),
+                const _Brand(),
+                const Spacer(),
+                Container(
+                  decoration: BoxDecoration(color: AppColors.night, borderRadius: BorderRadius.circular(999)),
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: IconTheme(
+                    data: const IconThemeData(color: Colors.white),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: widget.actions),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Bas de la carte : état de la position et raccourcis.
+          Positioned(
+            left: 12,
+            right: 12,
+            bottom: 40,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.bottomLeft,
+                    child: widget.message != null
+                        ? _MapChip(icon: Icons.location_off_outlined, text: widget.message!)
+                        : widget.onUseAsDeparture != null
+                        ? ActionChip(
+                            key: const Key('home-use-position'),
+                            avatar: const Icon(Icons.trip_origin, size: 18, color: AppColors.brand),
+                            label: const Text('Partir d’ici'),
+                            backgroundColor: AppColors.surface,
+                            onPressed: widget.onUseAsDeparture,
+                          )
+                        : widget.locating
+                        ? const _MapChip(icon: Icons.my_location, text: 'Recherche de votre position…')
+                        : const SizedBox.shrink(),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                FloatingActionButton.small(
+                  heroTag: 'home-locate',
+                  tooltip: 'Me localiser',
+                  backgroundColor: AppColors.surface,
+                  foregroundColor: AppColors.brand,
+                  onPressed: widget.locating
+                      ? null
+                      : () {
+                          if (here != null && _ready) _map.move(here, 15);
+                          widget.onLocate();
+                        },
+                  child: widget.locating
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.my_location),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MapChip extends StatelessWidget {
+  const _MapChip({required this.icon, required this.text});
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    decoration: BoxDecoration(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(14),
+      boxShadow: const [BoxShadow(color: Color(0x2211181C), blurRadius: 8)],
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 16, color: AppColors.textMuted),
+        const SizedBox(width: 6),
+        Flexible(child: Text(text, style: const TextStyle(fontSize: 12))),
+      ],
+    ),
+  );
+}
+
+/// Nom de l'appli posé sur la carte.
+class _Brand extends StatelessWidget {
+  const _Brand();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    decoration: BoxDecoration(color: AppColors.night, borderRadius: BorderRadius.circular(999)),
+    child: const Text.rich(
+      TextSpan(
+        text: 'Ivoire',
+        children: [TextSpan(text: 'Covoit', style: TextStyle(color: AppColors.accent))],
+      ),
+      style: TextStyle(fontFamily: AppTheme.displayFont, fontWeight: FontWeight.w800, fontSize: 16, color: Colors.white),
+    ),
+  );
+}
+
+/// Entrée du menu déroulant de l'accueil : libellé, icône et écran ouvert.
+typedef HomeMenuEntry = ({String label, IconData icon, String path});
+
+/// Entrées du menu déroulant (en haut à gauche), regroupées ici plutôt qu'éparpillées sur l'accueil.
+List<HomeMenuEntry> homeMenuEntries({required bool signedIn}) => [
+  (label: 'Mes réservations', icon: Icons.confirmation_number_outlined, path: '/reservations'),
+  (label: 'Publier un trajet', icon: Icons.add_road, path: '/conducteur/publier'),
+  (label: 'Espace conducteur', icon: Icons.directions_car_filled, path: '/conducteur'),
+  (label: 'Mes trajets (conducteur)', icon: Icons.airport_shuttle, path: '/conducteur/trajets'),
+  if (signedIn) (label: 'Notifications', icon: Icons.notifications_none, path: '/notifications'),
+  (label: 'Historique des paiements', icon: Icons.receipt_long_outlined, path: '/paiements'),
+  (label: 'Aide et urgence', icon: Icons.help_outline, path: '/aide'),
+  (label: 'État du service', icon: Icons.monitor_heart_outlined, path: '/statut'),
+  (label: signedIn ? 'Mon compte' : 'Se connecter', icon: Icons.person_outline, path: '/compte'),
+];
+
+class _HomeMenu extends StatelessWidget {
+  const _HomeMenu({required this.signedIn});
+  final bool signedIn;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: AppColors.night,
+    shape: const CircleBorder(),
+    child: PopupMenuButton<String>(
+      key: const Key('home-menu'),
+      tooltip: 'Menu',
+      icon: const Icon(Icons.menu, color: Colors.white),
+      position: PopupMenuPosition.under,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      onSelected: (path) => context.push(path),
+      itemBuilder: (_) => [
+        for (final e in homeMenuEntries(signedIn: signedIn))
+          PopupMenuItem(
+            value: e.path,
+            child: Row(
+              children: [
+                Icon(e.icon, size: 20, color: AppColors.brand),
+                const SizedBox(width: 12),
+                Text(e.label),
+              ],
+            ),
+          ),
+      ],
+    ),
   );
 }

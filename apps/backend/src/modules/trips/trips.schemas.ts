@@ -135,6 +135,8 @@ export const searchQuery = z
     maxPriceXof: z.coerce.number().int().min(0).optional(),
     directOnly: boolParam.default(false),
     radiusKm: z.coerce.number().min(0.5).max(50).optional(),
+    // Menu « En ville » / « Interurbain » : sans valeur, les deux types de trajets.
+    kind: z.enum(['URBAN', 'INTERCITY']).optional(),
     sort: z.enum(['departure', 'price', 'distance', 'rating']).default('departure'),
     cursor: z.string().max(40).optional(),
     limit: z.coerce.number().int().min(1).max(50).default(20),

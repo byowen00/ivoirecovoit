@@ -3,6 +3,7 @@ import 'dart:math';
 import '../../core/api_client.dart';
 import '../auth/auth_session.dart';
 import 'models.dart';
+import '../../core/ui.dart' show TripKindChoice;
 
 class SearchQuery {
   const SearchQuery({
@@ -19,6 +20,7 @@ class SearchQuery {
     this.fromLng,
     this.timeFrom,
     this.timeTo,
+    this.kind,
   });
 
   final String fromId;
@@ -39,9 +41,18 @@ class SearchQuery {
   final String? timeFrom;
   final String? timeTo;
 
+  /// Menu « En ville » (URBAN) / « Interurbain » (INTERCITY) ; null = les deux.
+  final String? kind;
+
   bool get fromPosition => fromLat != null && fromLng != null;
 
-  SearchQuery copyWith({String? sort, int? maxPriceXof, bool clearMaxPrice = false, bool? directOnly}) => SearchQuery(
+  SearchQuery copyWith({
+    String? sort,
+    int? maxPriceXof,
+    bool clearMaxPrice = false,
+    bool? directOnly,
+    TripKindChoice? kindChoice,
+  }) => SearchQuery(
     fromId: fromId,
     fromLabel: fromLabel,
     toId: toId,
@@ -55,6 +66,7 @@ class SearchQuery {
     fromLng: fromLng,
     timeFrom: timeFrom,
     timeTo: timeTo,
+    kind: kindChoice == null ? kind : kindChoice.code,
   );
 
   /// Paramètres de GET /trips/search (dates à l'heure d'Abidjan, UTC+0).
@@ -64,6 +76,7 @@ class SearchQuery {
     if (date != null) 'date': date!.toIso8601String().substring(0, 10),
     if (date != null && timeFrom != null) 'timeFrom': timeFrom!,
     if (date != null && timeTo != null) 'timeTo': timeTo!,
+    'kind': ?kind,
     'seats': '$seats',
     'sort': sort,
     if (maxPriceXof != null) 'maxPriceXof': '$maxPriceXof',

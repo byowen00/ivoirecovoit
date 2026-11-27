@@ -21,6 +21,8 @@ export interface SearchParams {
   maxPriceXof?: number;
   directOnly?: boolean;
   sort?: 'departure' | 'price' | 'distance' | 'rating';
+  /** Menu « En ville » / « Interurbain » ; absent : les deux. */
+  kind?: TripKind;
   cursor?: string;
 }
 
