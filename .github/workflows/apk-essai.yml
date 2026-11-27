@@ -10,7 +10,7 @@ on:
         required: true
 
 permissions:
-  contents: read
+  contents: write # publication de l'APK dans la version « apk-essai » (lien de téléchargement direct)
 
 jobs:
   apk:
@@ -37,3 +37,18 @@ jobs:
           name: ivoirecovoit-apk-essai
           path: apps/mobile/build/app/outputs/flutter-apk/app-*-profile.apk
           retention-days: 7
+      # Lien fixe, téléchargeable depuis le navigateur du téléphone sans compte GitHub :
+      # https://github.com/<dépôt>/releases/download/apk-essai/ivoirecovoit-essai-arm64.apk
+      - name: Publication (lien de téléchargement direct)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          API_URL: ${{ inputs.api_url }}
+        run: |
+          cd build/app/outputs/flutter-apk
+          cp app-arm64-v8a-profile.apk ivoirecovoit-essai-arm64.apk
+          cp app-armeabi-v7a-profile.apk ivoirecovoit-essai-ancien-telephone.apk
+          gh release view apk-essai >/dev/null 2>&1 || gh release create apk-essai --prerelease --target "$GITHUB_SHA" \
+            --title "APK d'essai" --notes "APK d'essai (pas une version publique). Mis à jour à chaque construction."
+          gh release upload apk-essai ivoirecovoit-essai-arm64.apk ivoirecovoit-essai-ancien-telephone.apk --clobber
+          gh release edit apk-essai --notes "APK d'essai, construit depuis ${GITHUB_SHA::7} pour $API_URL. Ce n'est pas une version publique."
+          echo "Lien direct : https://github.com/${{ github.repository }}/releases/download/apk-essai/ivoirecovoit-essai-arm64.apk" >> "$GITHUB_STEP_SUMMARY"
