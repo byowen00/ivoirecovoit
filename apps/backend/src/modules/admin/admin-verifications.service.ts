@@ -99,7 +99,8 @@ export class AdminVerificationsService {
     if (!v) throw notFound();
     return {
       id: v.id, driverId: v.driver_id, make: v.make, model: v.model, color: v.color, year: v.year, plateNumber: v.plate_number,
-      seatsCapacity: v.seats_capacity, status: v.verification_status, submittedAt: v.submitted_at, rejectionReason: v.rejection_reason,
+      seatsCapacity: v.seats_capacity, comfortClass: v.comfort_class, airConditioning: v.air_conditioning,
+      status: v.verification_status, submittedAt: v.submitted_at, rejectionReason: v.rejection_reason,
       documents: currentDocuments(await this.documents.list({ kind: 'vehicle', vehicleId: id })),
     };
   }

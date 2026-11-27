@@ -62,6 +62,8 @@ export class VehiclesService {
       year: v.year,
       plateNumber: v.plate_number,
       seatsCapacity: v.seats_capacity,
+      comfortClass: v.comfort_class,
+      airConditioning: v.air_conditioning,
       status: v.verification_status,
       rejectionReason: v.rejection_reason,
       submittedAt: v.submitted_at,
@@ -100,6 +102,8 @@ export class VehiclesService {
           year: input.year ?? null,
           plate_number: input.plateNumber,
           seats_capacity: input.seatsCapacity,
+          comfort_class: input.comfortClass ?? 'ECONOMIQUE',
+          air_conditioning: input.airConditioning ?? false,
           verification_status: 'NOT_SUBMITTED',
         })
         .execute();
@@ -131,7 +135,9 @@ export class VehiclesService {
     // Immatriculation ou nombre de places modifiés sur un véhicule validé : nouvel examen (contrat API §4).
     const sensitive =
       (input.plateNumber !== undefined && input.plateNumber !== v.plate_number) ||
-      (input.seatsCapacity !== undefined && input.seatsCapacity !== v.seats_capacity);
+      (input.seatsCapacity !== undefined && input.seatsCapacity !== v.seats_capacity) ||
+      // Gamme plus haute déclarée : elle est contrôlée sur les photos avant d'être affichée aux passagers.
+      (input.comfortClass !== undefined && input.comfortClass !== v.comfort_class);
     const reReview = sensitive && v.verification_status === 'APPROVED';
     try {
       await this.db
@@ -143,6 +149,8 @@ export class VehiclesService {
           year: input.year,
           plate_number: input.plateNumber,
           seats_capacity: input.seatsCapacity,
+          comfort_class: input.comfortClass,
+          air_conditioning: input.airConditioning,
           ...(reReview ? { verification_status: 'PENDING' as const, submitted_at: new Date(), verified_at: null, verified_by: null } : {}),
         })
         .where('id', '=', id)

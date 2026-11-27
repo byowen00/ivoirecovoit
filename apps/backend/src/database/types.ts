@@ -173,9 +173,15 @@ export interface DriverProfilesTable {
   completed_trips_count: Generated<number>;
   cancellation_count_90d: Generated<number>;
   is_professional: Generated<boolean>;
+  /** Moyennes par critère : { driving, punctuality, comfort, courtesy, n }. */
+  criteria_avg: ColumnType<ReviewCriteriaAvg | null, never, never>;
   created_at: CreatedAt;
   updated_at: UpdatedAt;
 }
+
+export type VehicleComfort = 'ECONOMIQUE' | 'CONFORT' | 'LUXE';
+export interface ReviewCriteria { driving: number; punctuality: number; comfort: number; courtesy: number }
+export type ReviewCriteriaAvg = Partial<ReviewCriteria> & { n: number };
 
 export interface VehiclesTable {
   id: string;
@@ -187,6 +193,8 @@ export interface VehiclesTable {
   plate_number: string;
   plate_normalized: ColumnType<string, never, never>;
   seats_capacity: number;
+  comfort_class: Generated<VehicleComfort>;
+  air_conditioning: Generated<boolean>;
   verification_status: Generated<VerificationStatus>;
   submitted_at: Date | null;
   rejection_reason: string | null;
@@ -398,6 +406,7 @@ export interface ReviewsTable {
   direction: 'PASSENGER_TO_DRIVER' | 'DRIVER_TO_PASSENGER';
   rating: number;
   comment: string | null;
+  criteria: ColumnType<ReviewCriteria | null, string | null, string | null>;
   published_at: Date | null;
   hidden_at: Date | null;
   hidden_reason: string | null;

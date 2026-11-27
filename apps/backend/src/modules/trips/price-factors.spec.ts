@@ -42,3 +42,13 @@ describe('tarif dynamique', () => {
     expect(resolveDynamicPricing('n’importe quoi')).toEqual(D);
   });
 });
+
+describe('tarif dynamique : gamme du véhicule', () => {
+  it('Confort et Luxe ajoutent leur supplément, hors plafond des conditions', () => {
+    const base = { kind: 'URBAN' as const, departureAt: at('2026-12-01T12:00:00Z'), forecast: null, now };
+    expect(priceFactors(D, { ...base, comfortClass: 'ECONOMIQUE' }).totalPercent).toBe(0);
+    expect(priceFactors(D, { ...base, comfortClass: 'CONFORT' })).toMatchObject({ totalPercent: 15, factors: [{ code: 'COMFORT', source: 'VEHICLE' }] });
+    const night = priceFactors(D, { ...base, departureAt: at('2026-12-01T23:00:00Z'), forecast: { precipitationMm: 30 }, comfortClass: 'LUXE' });
+    expect(night.totalPercent).toBe(30 + 40);
+  });
+});

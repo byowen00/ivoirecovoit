@@ -126,7 +126,7 @@ describe('Conducteurs, véhicules et documents', () => {
     // Profil public : prénom + initiale, véhicule sans immatriculation, aucun numéro.
     const pub = await t.http().get(`/api/v1/drivers/${me.body.id}`).expect(200);
     expect(pub.body).toMatchObject({ displayName: 'Aya K.', verified: true, verificationLevel: 2 });
-    expect(pub.body.vehicles).toEqual([{ make: 'Toyota', model: 'Corolla', color: 'Gris', year: 2018, seats: 3 }]);
+    expect(pub.body.vehicles).toEqual([{ make: 'Toyota', model: 'Corolla', color: 'Gris', year: 2018, seats: 3, comfortClass: 'ECONOMIQUE', airConditioning: false }]);
     expect(JSON.stringify(pub.body)).not.toMatch(/\+225|plate/i);
   });
 

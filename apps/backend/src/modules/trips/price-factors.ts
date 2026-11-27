@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { TripKind } from '../../database/types';
+import type { TripKind, VehicleComfort } from '../../database/types';
 
 /*
  * Tarif dynamique (paramètre versionné « pricing.dynamic », réglé dans l'administration).
@@ -40,6 +40,8 @@ export const dynamicPricingSchema = z
     holidays: z.object({ enabled: z.boolean(), percent, dates: z.array(day).max(60) }).strict(),
     /** Samedi et dimanche. */
     weekend: z.object({ enabled: z.boolean(), percent }).strict(),
+    /** Gamme du véhicule : supplément suggéré pour une voiture Confort ou Luxe (Économique : prix de base). */
+    comfort: z.object({ enabled: z.boolean(), confortPercent: percent, luxePercent: percent }).strict(),
   })
   .strict();
 export type DynamicPricing = z.infer<typeof dynamicPricingSchema>;
@@ -62,6 +64,7 @@ export const DEFAULT_DYNAMIC_PRICING: DynamicPricing = {
   night: { enabled: true, percent: 10, from: '22:00', to: '05:00' },
   holidays: { enabled: false, percent: 10, dates: [] },
   weekend: { enabled: false, percent: 0 },
+  comfort: { enabled: true, confortPercent: 15, luxePercent: 40 },
 };
 
 export function resolveDynamicPricing(stored: unknown): DynamicPricing {
@@ -70,13 +73,13 @@ export function resolveDynamicPricing(stored: unknown): DynamicPricing {
   return parsed.success ? parsed.data : DEFAULT_DYNAMIC_PRICING;
 }
 
-export type FactorCode = 'RAIN' | 'HEAVY_RAIN' | 'PEAK_HOURS' | 'TRAFFIC_ALERT' | 'NIGHT' | 'HOLIDAY' | 'WEEKEND';
+export type FactorCode = 'RAIN' | 'HEAVY_RAIN' | 'PEAK_HOURS' | 'TRAFFIC_ALERT' | 'NIGHT' | 'HOLIDAY' | 'WEEKEND' | 'COMFORT' | 'LUXE';
 export interface PriceFactor {
   code: FactorCode;
   label: string;
   percent: number;
   /** D'où vient l'information : prévision météo, horaires réglés, signalement de l'équipe. */
-  source: 'FORECAST' | 'SCHEDULE' | 'STAFF';
+  source: 'FORECAST' | 'SCHEDULE' | 'STAFF' | 'VEHICLE';
 }
 
 /** Précipitations prévues (mm sur l'heure du départ) ; null : météo inconnue (pas de service, trop loin, panne). */
@@ -91,7 +94,10 @@ const inWindow = (m: number, from: string, to: string) => {
 };
 
 /** Facteurs qui s'appliquent à un départ (heure d'Abidjan = UTC), et le pourcentage total plafonné. */
-export function priceFactors(rules: DynamicPricing, input: { kind: TripKind; departureAt: Date; forecast: Forecast; now?: Date }) {
+export function priceFactors(
+  rules: DynamicPricing,
+  input: { kind: TripKind; departureAt: Date; forecast: Forecast; now?: Date; comfortClass?: VehicleComfort | null },
+) {
   const out: PriceFactor[] = [];
   if (!rules.enabled || (rules.appliesTo !== 'ALL' && rules.appliesTo !== input.kind)) return { factors: out, totalPercent: 0 };
   const d = input.departureAt;
@@ -120,8 +126,18 @@ export function priceFactors(rules: DynamicPricing, input: { kind: TripKind; dep
   if (rules.weekend.enabled && weekday >= 6) {
     out.push({ code: 'WEEKEND', label: 'Week-end', percent: rules.weekend.percent, source: 'SCHEDULE' });
   }
-  const factors = out.filter((f) => f.percent !== 0);
-  const sum = factors.reduce((s, f) => s + f.percent, 0);
-  const totalPercent = Math.max(-rules.maxTotalPercent, Math.min(rules.maxTotalPercent, sum));
+  const conditions = out.filter((f) => f.percent !== 0);
+  const sum = conditions.reduce((s, f) => s + f.percent, 0);
+  // Le plafond cumulé porte sur les conditions (météo, trafic, horaires) ; la gamme s'y ajoute.
+  let totalPercent = Math.max(-rules.maxTotalPercent, Math.min(rules.maxTotalPercent, sum));
+  const factors = [...conditions];
+  if (rules.comfort.enabled && input.comfortClass && input.comfortClass !== 'ECONOMIQUE') {
+    const luxe = input.comfortClass === 'LUXE';
+    const percent = luxe ? rules.comfort.luxePercent : rules.comfort.confortPercent;
+    if (percent !== 0) {
+      factors.push({ code: luxe ? 'LUXE' : 'COMFORT', label: luxe ? 'Voiture de luxe' : 'Voiture confort', percent, source: 'VEHICLE' });
+      totalPercent += percent;
+    }
+  }
   return { factors, totalPercent };
 }

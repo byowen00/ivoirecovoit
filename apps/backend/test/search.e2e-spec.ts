@@ -141,6 +141,12 @@ describe('Recherche de trajets par segment (PostGIS)', () => {
     expect(ids(await search({ ...base, kind: 'URBAN' }))).toEqual([]);
     expect(ids(await search({ fromPlaceId: place.Abobo!, toPlaceId: place.Plateau!, date: day, kind: 'URBAN' })).map(name)).toContain('T3');
     expect((await search({ ...base, kind: 'AUTRE' })).status).toBe(400);
+    // Gammes de véhicule : Économique par défaut ; le résultat indique la gamme et la climatisation.
+    const eco = await search({ ...base, comfort: 'ECONOMIQUE' });
+    expect(ids(eco).map(name)).toEqual(['T2', 'T1']);
+    expect(eco.body.data[0].vehicle).toMatchObject({ comfortClass: 'ECONOMIQUE', airConditioning: false });
+    expect(ids(await search({ ...base, comfort: 'LUXE' }))).toEqual([]);
+    expect((await search({ ...base, comfort: 'PREMIUM' })).status).toBe(400);
   });
 
   it('tris : prix, note du conducteur, proximité', async () => {

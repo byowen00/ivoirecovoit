@@ -8,6 +8,7 @@ import { StorageService } from '../../infra/storage.service';
 import { decryptSecret, encryptSecret } from '../auth/crypto';
 import { DRIVER_DOC_SIDES, type DriverUploadInput, type LicenseInput, todayIso } from './driver.schemas';
 import { currentDocuments, type DocumentView, DocumentsService } from './documents.service';
+import { driverBadge } from '../trust/driver-badge';
 
 export const driverProfileNotFound = () =>
   new ApiError(HttpStatus.NOT_FOUND, 'DRIVER_PROFILE_NOT_FOUND', 'Vous n’avez pas encore de profil conducteur.');
@@ -178,7 +179,7 @@ export class DriversService {
       .select([
         'users.id', 'users.display_name', 'users.photo_object_key', 'users.bio', 'users.preferences', 'users.created_at',
         'users.is_demo', 'driver_profiles.verification_level', 'driver_profiles.rating_avg', 'driver_profiles.rating_count',
-        'driver_profiles.completed_trips_count', 'driver_profiles.verified_at',
+        'driver_profiles.completed_trips_count', 'driver_profiles.verified_at', 'driver_profiles.criteria_avg',
       ])
       .where('driver_profiles.user_id', '=', driverId)
       .where('driver_profiles.verification_status', '=', 'APPROVED')
@@ -188,7 +189,7 @@ export class DriversService {
     const [vehicles, reviews, upcoming] = await Promise.all([
       this.db
         .selectFrom('vehicles')
-        .select(['make', 'model', 'color', 'year', 'seats_capacity'])
+        .select(['make', 'model', 'color', 'year', 'seats_capacity', 'comfort_class', 'air_conditioning'])
         .where('driver_id', '=', driverId)
         .where('verification_status', '=', 'APPROVED')
         .where('deleted_at', 'is', null)
@@ -227,9 +228,14 @@ export class DriversService {
       ratingAvg: row.rating_avg,
       ratingCount: row.rating_count,
       completedTripsCount: row.completed_trips_count,
+      // Notes détaillées (conduite, ponctualité, confort, amabilité) et classement qui en découle.
+      criteria: row.criteria_avg,
+      badge: driverBadge(row.rating_avg, row.rating_count, row.criteria_avg),
       upcomingTripsCount: upcoming.n,
       isDemo: row.is_demo,
-      vehicles: vehicles.map((v) => ({ make: v.make, model: v.model, color: v.color, year: v.year, seats: v.seats_capacity })),
+      vehicles: vehicles.map((v) => ({
+        make: v.make, model: v.model, color: v.color, year: v.year, seats: v.seats_capacity, comfortClass: v.comfort_class, airConditioning: v.air_conditioning,
+      })),
       reviews: reviews.map((r) => ({ id: r.id, rating: r.rating, comment: r.comment, publishedAt: r.published_at, author: r.author })),
     };
   }

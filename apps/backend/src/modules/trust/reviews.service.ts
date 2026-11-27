@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { sql, type Transaction } from 'kysely';
 import { uuidv7 } from '../../common/ids';
 import { DB, type Db } from '../../database/database.module';
-import type { Database } from '../../database/types';
+import type { Database, ReviewCriteria } from '../../database/types';
 import { outbox } from '../bookings/lifecycle';
 import { SettingsService } from '../users/settings.service';
 import { bookingNotFound, conflict, participantBooking, tripEnd, unprocessable } from './access';
@@ -30,7 +30,7 @@ export class ReviewsService {
     const b = await participantBooking(this.db, userId, bookingId);
     const days = await this.windowDays();
     const deadline = new Date(tripEnd(b).getTime() + days * DAY);
-    const reviews = await this.db.selectFrom('reviews').select(['author_id', 'rating', 'comment', 'published_at', 'hidden_at', 'created_at']).where('booking_id', '=', bookingId).execute();
+    const reviews = await this.db.selectFrom('reviews').select(['author_id', 'rating', 'comment', 'criteria', 'published_at', 'hidden_at', 'created_at']).where('booking_id', '=', bookingId).execute();
     const mine = reviews.find((r) => r.author_id === userId);
     const theirs = reviews.find((r) => r.author_id !== userId);
     const eligible = b.status === 'COMPLETED' && PAID_FOR_REVIEW.includes(b.payment_status);
@@ -38,13 +38,13 @@ export class ReviewsService {
       canReview: eligible && !mine && Date.now() <= deadline.getTime(),
       deadline: eligible ? deadline : null,
       subjectRole: b.role === 'PASSENGER' ? 'DRIVER' : 'PASSENGER',
-      mine: mine ? { rating: mine.rating, comment: mine.comment, published: mine.published_at !== null, createdAt: mine.created_at } : null,
+      mine: mine ? { rating: mine.rating, comment: mine.comment, criteria: mine.criteria, published: mine.published_at !== null, createdAt: mine.created_at } : null,
       // L'avis de l'autre partie n'est montré qu'une fois publié.
       theirs: theirs?.published_at && !theirs.hidden_at ? { rating: theirs.rating, comment: theirs.comment } : null,
     };
   }
 
-  async create(userId: string, bookingId: string, input: { rating: number; comment?: string }) {
+  async create(userId: string, bookingId: string, input: { rating: number; comment?: string; criteria?: ReviewCriteria }) {
     const days = await this.windowDays();
     await this.db.transaction().execute(async (trx) => {
       const b = await participantBooking(trx, userId, bookingId, true);
@@ -52,6 +52,9 @@ export class ReviewsService {
         throw unprocessable('REVIEW_NOT_ALLOWED', 'Un avis est possible seulement après un trajet effectué et payé.');
       }
       if (Date.now() > tripEnd(b).getTime() + days * DAY) throw unprocessable('REVIEW_WINDOW_CLOSED', `Le délai de ${days} jours pour laisser un avis est passé.`);
+      if (input.criteria && b.role !== 'PASSENGER') {
+        throw unprocessable('REVIEW_CRITERIA_DRIVER_ONLY', 'Les notes détaillées concernent seulement le conducteur.');
+      }
       const id = uuidv7();
       const inserted = await trx
         .insertInto('reviews')
@@ -63,6 +66,7 @@ export class ReviewsService {
           direction: b.role === 'PASSENGER' ? 'PASSENGER_TO_DRIVER' : 'DRIVER_TO_PASSENGER',
           rating: input.rating,
           comment: input.comment?.trim() || null,
+          criteria: input.criteria ? JSON.stringify(input.criteria) : null,
         })
         .onConflict((oc) => oc.columns(['booking_id', 'author_id']).doNothing())
         .returning('id')
@@ -86,8 +90,16 @@ export class ReviewsService {
   /** Note moyenne recalculée sur les avis publiés et non masqués. */
   async refreshRating(trx: Transaction<Database> | Db, subjectId: string, direction: 'PASSENGER_TO_DRIVER' | 'DRIVER_TO_PASSENGER'): Promise<void> {
     if (direction === 'PASSENGER_TO_DRIVER') {
-      await sql`UPDATE driver_profiles d SET rating_avg = s.avg, rating_count = s.n
-                  FROM (SELECT round(avg(rating)::numeric, 2) AS avg, count(*)::int AS n FROM reviews
+      await sql`UPDATE driver_profiles d SET rating_avg = s.avg, rating_count = s.n,
+                       criteria_avg = CASE WHEN s.cn = 0 THEN NULL ELSE jsonb_build_object(
+                         'driving', s.driving, 'punctuality', s.punctuality, 'comfort', s.comfort, 'courtesy', s.courtesy, 'n', s.cn) END
+                  FROM (SELECT round(avg(rating)::numeric, 2) AS avg, count(*)::int AS n,
+                               count(criteria)::int AS cn,
+                               round(avg((criteria->>'driving')::int)::numeric, 2) AS driving,
+                               round(avg((criteria->>'punctuality')::int)::numeric, 2) AS punctuality,
+                               round(avg((criteria->>'comfort')::int)::numeric, 2) AS comfort,
+                               round(avg((criteria->>'courtesy')::int)::numeric, 2) AS courtesy
+                          FROM reviews
                          WHERE subject_id = ${subjectId}::uuid AND direction = 'PASSENGER_TO_DRIVER' AND published_at IS NOT NULL AND hidden_at IS NULL) s
                  WHERE d.user_id = ${subjectId}::uuid`.execute(trx);
     } else {

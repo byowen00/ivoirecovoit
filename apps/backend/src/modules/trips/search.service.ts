@@ -7,6 +7,8 @@ import { DriversService } from '../drivers/drivers.service';
 import { PlacesService } from '../places/places.service';
 import { SettingsService } from '../users/settings.service';
 import { type AvailabilityQuery, decodeOffset, encodeOffset, type SearchQuery } from './trips.schemas';
+import { driverBadge } from '../trust/driver-badge';
+import type { ReviewCriteriaAvg, VehicleComfort } from '../../database/types';
 
 /** Rayon par défaut autour du point demandé (EF-41) : 5 km en ville, 15 km entre villes. */
 export const DEFAULT_RADIUS_M = { URBAN: 5_000, INTERCITY: 15_000 } as const;
@@ -45,7 +47,10 @@ interface SearchRow {
   display_name: string;
   rating_avg: number | null;
   rating_count: number;
+  criteria_avg: ReviewCriteriaAvg | null;
   make: string;
+  comfort_class: VehicleComfort;
+  air_conditioning: boolean;
   model: string;
   color: string;
   is_demo: boolean;
@@ -144,7 +149,7 @@ export class SearchService {
                  WHERE a.trip_id = c.trip_id AND a.seq >= c.p_seq AND b.seq <= c.d_seq) AS segment_distance_m
           FROM cand c
       )
-      SELECT s.*, u.display_name, dp.rating_avg, dp.rating_count, v.make, v.model, v.color
+      SELECT s.*, u.display_name, dp.rating_avg, dp.rating_count, dp.criteria_avg, v.make, v.model, v.color, v.comfort_class, v.air_conditioning
         FROM scored s
         JOIN users u ON u.id = s.driver_id AND u.status = 'ACTIVE'
         JOIN driver_profiles dp ON dp.user_id = s.driver_id AND dp.verification_status = 'APPROVED'
@@ -152,6 +157,7 @@ export class SearchService {
        WHERE s.seats_available >= ${q.seats}
          AND (${q.maxPriceXof ?? null}::int IS NULL OR s.unit_price <= ${q.maxPriceXof ?? null}::int)
          AND (NOT ${q.directOnly} OR s.d_seq = s.p_seq + 1)
+         AND (${q.comfort ?? null}::text IS NULL OR v.comfort_class::text = ${q.comfort ?? null}::text)
        ORDER BY ${order}, s.trip_id
        OFFSET ${offset} LIMIT ${q.limit + 1}`.execute(this.db);
 
@@ -177,8 +183,11 @@ export class SearchService {
         unitPriceXof: r.unit_price,
         seatsAvailable: r.seats_available,
         acceptanceMode: r.acceptance_mode,
-        driver: { id: r.driver_id, displayName: r.display_name, ratingAvg: r.rating_avg, ratingCount: r.rating_count, verified: true },
-        vehicle: { make: r.make, model: r.model, color: r.color },
+        driver: {
+          id: r.driver_id, displayName: r.display_name, ratingAvg: r.rating_avg, ratingCount: r.rating_count, verified: true,
+          badge: driverBadge(r.rating_avg, r.rating_count, r.criteria_avg),
+        },
+        vehicle: { make: r.make, model: r.model, color: r.color, comfortClass: r.comfort_class, airConditioning: r.air_conditioning },
         stopsCount: r.d_seq - r.p_seq - 1,
         isDemo: r.is_demo,
       })),
@@ -217,6 +226,7 @@ export class SearchService {
         'trips.estimated_distance_m', 'trips.estimated_duration_s', 'trips.route_source', 'trips.seats_offered', 'trips.acceptance_mode',
         'trips.allows_cash', 'trips.luggage_policy', 'trips.description', 'trips.instructions', 'trips.is_demo',
         'trips.cancellation_reason', 'vehicles.make', 'vehicles.model', 'vehicles.color', 'vehicles.plate_number',
+        'vehicles.comfort_class', 'vehicles.air_conditioning',
         'cancellation_policies.code as policy_code', 'cancellation_policies.label as policy_label', 'cancellation_policies.rules as policy_rules',
       ])
       .where('trips.id', '=', tripId)
@@ -265,9 +275,13 @@ export class SearchService {
         ? {
             id: driver.id, displayName: driver.displayName, photoUrl: driver.photoUrl, ratingAvg: driver.ratingAvg, ratingCount: driver.ratingCount,
             completedTripsCount: driver.completedTripsCount, verified: true, memberSince: driver.memberSince, preferences: driver.preferences,
+            criteria: driver.criteria, badge: driver.badge,
           }
         : null,
-      vehicle: { make: trip.make, model: trip.model, color: trip.color, plateNumber: exact ? trip.plate_number : null },
+      vehicle: {
+        make: trip.make, model: trip.model, color: trip.color, plateNumber: exact ? trip.plate_number : null,
+        comfortClass: trip.comfort_class, airConditioning: trip.air_conditioning,
+      },
       acceptanceMode: trip.acceptance_mode,
       cancellationPolicy: { code: trip.policy_code, label: trip.policy_label, rules: trip.policy_rules },
       allowsCash: trip.allows_cash,

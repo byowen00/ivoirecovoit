@@ -94,6 +94,9 @@ const vehicleFields = {
   year: z.number().int().min(1980).max(currentYear + 1).nullable().optional(),
   plateNumber: plateSchema,
   seatsCapacity: z.number().int().min(1, 'Au moins 1 place passager.').max(8, '8 places passagers au maximum.'),
+  /** Gamme : Économique (voiture simple), Confort (voiture confortable), Luxe. */
+  comfortClass: z.enum(['ECONOMIQUE', 'CONFORT', 'LUXE']).optional(),
+  airConditioning: z.boolean().optional(),
 };
 
 export const createVehicleSchema = z.object(vehicleFields);

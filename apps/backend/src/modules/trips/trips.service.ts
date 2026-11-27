@@ -86,11 +86,14 @@ export class TripsService {
   ) {}
 
   /** Tarif dynamique : facteurs du départ (météo prévue au point de départ, horaires, signalements). */
-  async dynamicFactors(kind: TripKind, departureAt: Date, origin: { lat: number; lng: number }) {
+  async dynamicFactors(kind: TripKind, departureAt: Date, origin: { lat: number; lng: number }, vehicleId?: string) {
     const rules = resolveDynamicPricing(await this.settings.get('pricing.dynamic'));
     const needsWeather = rules.enabled && (rules.rain.enabled || rules.heavyRain.enabled) && (rules.appliesTo === 'ALL' || rules.appliesTo === kind);
     const forecast = needsWeather ? await this.weather.forecast(origin.lat, origin.lng, departureAt) : null;
-    return { ...priceFactors(rules, { kind, departureAt, forecast }), weatherKnown: forecast !== null };
+    const vehicle = vehicleId
+      ? await this.db.selectFrom('vehicles').select('comfort_class').where('id', '=', vehicleId).executeTakeFirst()
+      : undefined;
+    return { ...priceFactors(rules, { kind, departureAt, forecast, comfortClass: vehicle?.comfort_class }), weatherKnown: forecast !== null };
   }
 
   // ---------------------------------------------------------------- calcul de l'itinéraire et des prix
@@ -138,14 +141,14 @@ export class TripsService {
 
   /** Itinéraire estimé, horaires de passage et prix par arrêt. Lève PRICE_* si strict et prix invalides. */
   async buildPlan(
-    input: { kind: TripKind; departureAt: Date; stops: StopInput[]; pricePerSeatXof?: number; stopPricesXof?: number[] },
+    input: { kind: TripKind; departureAt: Date; stops: StopInput[]; pricePerSeatXof?: number; stopPricesXof?: number[]; vehicleId?: string },
     strict = true,
   ): Promise<TripPlan & { priceProblems: ReturnType<typeof checkStopPrices> }> {
     const resolved = await this.resolveStops(input.stops);
     const route = await this.routing.estimate(resolved, input.kind);
     const { suggestedXofPerKm, ...bounds } = await this.priceBounds();
     const basePriceXof = suggestFullPrice(route.distanceM, suggestedXofPerKm, bounds);
-    const dynamic = await this.dynamicFactors(input.kind, input.departureAt, resolved[0]!);
+    const dynamic = await this.dynamicFactors(input.kind, input.departureAt, resolved[0]!, input.vehicleId);
     const suggestedPriceXof = Math.min(Math.max(roundToStep((basePriceXof * (100 + dynamic.totalPercent)) / 100), bounds.minXof), bounds.maxXof);
     const legDistances = route.legs.map((l) => l.distanceM);
     const prices =

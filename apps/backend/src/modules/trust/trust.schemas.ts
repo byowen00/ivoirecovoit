@@ -8,6 +8,16 @@ export const messagesQuery = z.object({ after: z.uuid().optional() });
 export const reviewSchema = z.object({
   rating: z.number().int().min(1, 'Note de 1 à 5.').max(5, 'Note de 1 à 5.'),
   comment: z.string().trim().max(500, '500 caractères au maximum.').optional(),
+  /** Passager → conducteur : notes détaillées sur le trajet (facultatives, de 1 à 5). */
+  criteria: z
+    .object({
+      driving: z.number().int().min(1).max(5),
+      punctuality: z.number().int().min(1).max(5),
+      comfort: z.number().int().min(1).max(5),
+      courtesy: z.number().int().min(1).max(5),
+    })
+    .strict()
+    .optional(),
 });
 export type ReviewInput = z.infer<typeof reviewSchema>;
 

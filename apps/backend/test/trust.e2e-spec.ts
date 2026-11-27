@@ -202,6 +202,24 @@ describe('Confiance et notifications (étape 9 : messagerie, avis, signalements,
       expect(pub.body.data.map((r: { rating: number }) => r.rating)).toEqual([3]);
     });
 
+    it('notes détaillées du conducteur (conduite, ponctualité, confort, amabilité) et moyennes', async () => {
+      const trip = await createTrip(db);
+      const driver = await f.driverSession(trip);
+      const id = await f.paidBooking(alice, trip);
+      await f.completeTrip(trip);
+      const criteria = { driving: 5, punctuality: 4, comfort: 3, courtesy: 5 };
+      await post(alice, `/bookings/${id}/reviews`, { rating: 5, criteria: { ...criteria, driving: 9 } }).expect(400);
+      await post(alice, `/bookings/${id}/reviews`, { rating: 5, criteria }).expect(201);
+      expect((await get(alice, `/bookings/${id}/review`).expect(200)).body.mine.criteria).toEqual(criteria);
+      // Le conducteur note le passager sans critères de conduite.
+      const refused = await post(driver, `/bookings/${id}/reviews`, { rating: 5, criteria }).expect(422);
+      expect(refused.body.error.code).toBe('REVIEW_CRITERIA_DRIVER_ONLY');
+      await post(driver, `/bookings/${id}/reviews`, { rating: 5 }).expect(201);
+      const { rows } = await db.query('SELECT criteria_avg FROM driver_profiles WHERE user_id = $1', [driver.userId]);
+      expect(rows[0].criteria_avg).toMatchObject({ driving: 5, punctuality: 4, comfort: 3, courtesy: 5 });
+      expect(rows[0].criteria_avg.n).toBeGreaterThanOrEqual(1);
+    });
+
     it('délai dépassé : plus d’avis possible', async () => {
       const trip = await createTrip(db);
       const id = await f.paidBooking(alice, trip);
