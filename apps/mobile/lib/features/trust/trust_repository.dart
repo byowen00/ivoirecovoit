@@ -15,7 +15,7 @@ abstract class TrustRepository {
   Future<void> sendMessage(String bookingId, String body);
 
   Future<ReviewStatus> reviewStatus(String bookingId);
-  Future<ReviewStatus> review(String bookingId, int rating, String? comment);
+  Future<ReviewStatus> review(String bookingId, int rating, String? comment, {Map<String, int>? criteria});
 
   Future<void> report({
     required String targetType,
@@ -88,9 +88,14 @@ class ApiTrustRepository implements TrustRepository {
       ReviewStatus.fromJson(await _session.send('GET', '/bookings/$bookingId/review'));
 
   @override
-  Future<ReviewStatus> review(String bookingId, int rating, String? comment) async => ReviewStatus.fromJson(
-    await _session.send('POST', '/bookings/$bookingId/reviews', body: {'rating': rating, 'comment': ?comment}),
-  );
+  Future<ReviewStatus> review(String bookingId, int rating, String? comment, {Map<String, int>? criteria}) async =>
+      ReviewStatus.fromJson(
+        await _session.send(
+          'POST',
+          '/bookings/$bookingId/reviews',
+          body: {'rating': rating, 'comment': ?comment, 'criteria': ?criteria},
+        ),
+      );
 
   @override
   Future<void> report({

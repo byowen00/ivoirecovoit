@@ -50,6 +50,9 @@ class SearchResult {
       driverRating = _dn((j['driver'] as Map)['ratingAvg']),
       driverRatingCount = _i((j['driver'] as Map)['ratingCount']),
       vehicle = '${(j['vehicle'] as Map)['make']} ${(j['vehicle'] as Map)['model']}',
+      comfortClass = (j['vehicle'] as Map)['comfortClass'] as String?,
+      airConditioning = ((j['vehicle'] as Map)['airConditioning'] as bool?) ?? false,
+      driverBadge = (j['driver'] as Map)['badge'] as String?,
       stopsCount = _i(j['stopsCount']),
       isDemo = (j['isDemo'] as bool?) ?? false;
 
@@ -76,6 +79,11 @@ class SearchResult {
   final double? driverRating;
   final int driverRatingCount;
   final String vehicle;
+
+  /// Gamme du véhicule (ECONOMIQUE, CONFORT, LUXE), climatisation et classement du conducteur.
+  final String? comfortClass;
+  final bool airConditioning;
+  final String? driverBadge;
   final int stopsCount;
   final bool isDemo;
 }

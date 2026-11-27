@@ -3,7 +3,7 @@ import 'dart:math';
 import '../../core/api_client.dart';
 import '../auth/auth_session.dart';
 import 'models.dart';
-import '../../core/ui.dart' show TripKindChoice;
+import '../../core/ui.dart' show ComfortChoice, TripKindChoice;
 
 class SearchQuery {
   const SearchQuery({
@@ -21,6 +21,7 @@ class SearchQuery {
     this.timeFrom,
     this.timeTo,
     this.kind,
+    this.comfort,
   });
 
   final String fromId;
@@ -44,6 +45,9 @@ class SearchQuery {
   /// Menu « En ville » (URBAN) / « Interurbain » (INTERCITY) ; null = les deux.
   final String? kind;
 
+  /// Gamme du véhicule (ECONOMIQUE, CONFORT, LUXE) ; null = toutes.
+  final String? comfort;
+
   bool get fromPosition => fromLat != null && fromLng != null;
 
   SearchQuery copyWith({
@@ -52,6 +56,7 @@ class SearchQuery {
     bool clearMaxPrice = false,
     bool? directOnly,
     TripKindChoice? kindChoice,
+    ComfortChoice? comfortChoice,
   }) => SearchQuery(
     fromId: fromId,
     fromLabel: fromLabel,
@@ -67,6 +72,7 @@ class SearchQuery {
     timeFrom: timeFrom,
     timeTo: timeTo,
     kind: kindChoice == null ? kind : kindChoice.code,
+    comfort: comfortChoice == null ? comfort : comfortChoice.code,
   );
 
   /// Paramètres de GET /trips/search (dates à l'heure d'Abidjan, UTC+0).
@@ -77,6 +83,7 @@ class SearchQuery {
     if (date != null && timeFrom != null) 'timeFrom': timeFrom!,
     if (date != null && timeTo != null) 'timeTo': timeTo!,
     'kind': ?kind,
+    'comfort': ?comfort,
     'seats': '$seats',
     'sort': sort,
     if (maxPriceXof != null) 'maxPriceXof': '$maxPriceXof',

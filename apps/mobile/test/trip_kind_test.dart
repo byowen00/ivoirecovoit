@@ -14,6 +14,10 @@ void main() {
     expect(q.toParams()['kind'], 'INTERCITY');
     expect(q.copyWith(kindChoice: TripKindChoice.all).toParams().containsKey('kind'), isFalse);
     expect(queryFromUri(Uri.parse('/recherche?from=a&to=b&kind=AUTRE'))!.kind, isNull);
+    // Gamme du véhicule (Éco, Confort, Luxe).
+    final lux = queryFromUri(Uri.parse(resultsLocation(base.copyWith(comfortChoice: ComfortChoice.luxe))))!;
+    expect(lux.toParams()['comfort'], 'LUXE');
+    expect(queryFromUri(Uri.parse('/recherche?from=a&to=b&comfort=PREMIUM'))!.comfort, isNull);
   });
 
   testWidgets('menu Tous / En ville / Interurbain', (tester) async {
@@ -54,7 +58,7 @@ void main() {
 
   test('menu déroulant de l’accueil : tout est regroupé', () {
     final out = homeMenuEntries(signedIn: false).map((e) => e.path).toList();
-    expect(out, containsAll(['/reservations', '/conducteur/publier', '/paiements', '/aide', '/statut', '/compte']));
+    expect(out, containsAll(['/reservations', '/historique', '/conducteur/publier', '/aide', '/statut', '/compte']));
     expect(out, isNot(contains('/notifications')));
     expect(homeMenuEntries(signedIn: true).map((e) => e.path), contains('/notifications'));
   });

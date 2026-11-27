@@ -11,11 +11,15 @@ import 'widgets.dart';
 
 /// Écran 12 : mes réservations, à venir et passées.
 class MyBookingsScreen extends StatelessWidget {
-  const MyBookingsScreen({super.key});
+  const MyBookingsScreen({super.key, this.past = false});
+
+  /// Ouvre directement l'onglet « Passées » (historique des courses).
+  final bool past;
 
   @override
   Widget build(BuildContext context) => DefaultTabController(
     length: 2,
+    initialIndex: past ? 1 : 0,
     child: Scaffold(
       appBar: AppBar(
         title: const Text('Mes réservations'),

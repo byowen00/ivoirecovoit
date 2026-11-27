@@ -364,12 +364,20 @@ void main() {
     await reveal(tester, find.text('Votre avis sur le conducteur'));
     final publish = find.widgetWithText(FilledButton, 'Publier mon avis');
     expect(tester.widget<FilledButton>(publish).onPressed, isNull);
-    await tester.tap(find.byTooltip('4 sur 5 : Bien'));
+    await tester.tap(find.byTooltip('4 sur 5 : Bien').first);
+    // Notes détaillées du conducteur : conduite, ponctualité, confort, amabilité.
+    for (final k in ['driving', 'punctuality', 'comfort', 'courtesy']) {
+      final star = find.descendant(of: find.byKey(Key('criteria-$k')), matching: find.byTooltip('5 sur 5 : Excellent'));
+      await tester.ensureVisible(star);
+      await tester.tap(star);
+    }
     await tester.enterText(find.widgetWithText(TextField, 'Commentaire (facultatif, public)'), 'Ponctuel');
     await tester.pump();
+    await tester.ensureVisible(publish);
     await tester.tap(publish);
     await tester.pumpAndSettle();
     expect(trust.reviews, [(4, 'Ponctuel')]);
+    expect(trust.lastCriteria, {'driving': 5, 'punctuality': 5, 'comfort': 5, 'courtesy': 5});
     expect(find.textContaining('Vous avez donné 4/5'), findsOneWidget);
     expect(find.text('Revoir les messages'), findsOneWidget);
     await reveal(tester, find.text('Un problème avec ce trajet ?'));

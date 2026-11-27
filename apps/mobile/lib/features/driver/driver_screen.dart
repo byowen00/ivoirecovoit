@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../core/api_client.dart';
 import '../../core/format.dart';
 import '../../core/theme.dart';
+import '../../core/ui.dart';
 import '../../core/upload.dart';
 import '../../providers.dart';
 import '../trips/trips_repository.dart';
@@ -516,6 +517,8 @@ class _AddVehicleState extends ConsumerState<_AddVehicle> {
   final _color = TextEditingController();
   final _plate = TextEditingController();
   int _seats = 3;
+  ComfortChoice _comfort = ComfortChoice.economique;
+  bool _ac = false;
   Map<String, String> _fields = const {};
   String? _error;
   // Même clé pour les nouvelles tentatives de ce formulaire : pas de véhicule en double.
@@ -541,6 +544,8 @@ class _AddVehicleState extends ConsumerState<_AddVehicle> {
         'color': _color.text.trim(),
         'plateNumber': _plate.text,
         'seatsCapacity': _seats,
+        'comfortClass': _comfort.code,
+        'airConditioning': _ac,
       }, _key);
       _key = newIdempotencyKey();
       setState(() => _open = false);
@@ -599,6 +604,17 @@ class _AddVehicleState extends ConsumerState<_AddVehicle> {
               decoration: const InputDecoration(labelText: 'Places passagers'),
               items: [for (var n = 1; n <= 8; n++) DropdownMenuItem(value: n, child: Text('$n'))],
               onChanged: (n) => setState(() => _seats = n ?? 3),
+            ),
+            const SizedBox(height: 12),
+            const Text('Gamme du véhicule (vérifiée sur les photos)', style: TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 6),
+            ComfortMenu(value: _comfort, withAll: false, onChanged: (c) => setState(() => _comfort = c)),
+            Text(_comfort.hint, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Climatisation'),
+              value: _ac,
+              onChanged: (v) => setState(() => _ac = v),
             ),
             if (_error != null) Text(_error!, style: const TextStyle(color: AppColors.danger)),
             const SizedBox(height: 8),

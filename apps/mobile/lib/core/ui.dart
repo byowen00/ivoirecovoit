@@ -301,3 +301,88 @@ class VehicleStrip extends StatelessWidget {
     ),
   );
 }
+
+/// Gamme du véhicule : Économique (voiture simple), Confort, Luxe.
+enum ComfortChoice {
+  all(null, 'Toutes', Icons.commute, 'Toutes les gammes de véhicule.'),
+  economique('ECONOMIQUE', 'Éco', Icons.directions_car_outlined, 'Voiture simple, sans confort particulier : le prix le plus bas.'),
+  confort('CONFORT', 'Confort', Icons.airline_seat_recline_extra, 'Voiture confortable et bien entretenue, sièges spacieux.'),
+  luxe('LUXE', 'Luxe', Icons.diamond_outlined, 'Voiture haut de gamme.');
+
+  const ComfortChoice(this.code, this.label, this.icon, this.hint);
+  final String? code;
+  final String label;
+  final IconData icon;
+  final String hint;
+
+  static ComfortChoice of(String? code) => values.firstWhere((c) => c.code == code, orElse: () => all);
+}
+
+/// Rangée de gammes façon « catégories » : petite voiture et nom, la gamme choisie en sombre.
+class ComfortMenu extends StatelessWidget {
+  const ComfortMenu({super.key, required this.value, required this.onChanged, this.withAll = true});
+  final ComfortChoice value;
+  final ValueChanged<ComfortChoice> onChanged;
+  final bool withAll;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 76,
+    child: ListView(
+      scrollDirection: Axis.horizontal,
+      children: [
+        for (final c in ComfortChoice.values)
+          if (withAll || c != ComfortChoice.all)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Semantics(
+                selected: value == c,
+                button: true,
+                child: Material(
+                  color: value == c ? AppColors.night : AppColors.surfaceMuted,
+                  borderRadius: BorderRadius.circular(14),
+                  child: InkWell(
+                    key: Key('comfort-${c.name}'),
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: () => onChanged(c),
+                    child: SizedBox(
+                      width: 84,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(c.icon, size: 28, color: value == c ? AppColors.accent : AppColors.text),
+                          const SizedBox(height: 4),
+                          Text(
+                            c.label,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                              color: value == c ? Colors.white : AppColors.text,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+      ],
+    ),
+  );
+}
+
+/// Classement du conducteur d'après les avis (null : pas de badge).
+String? driverBadgeLabel(String? badge) => switch (badge) {
+  'EXCELLENT' => 'Excellent conducteur',
+  'TRES_BON' => 'Très bon conducteur',
+  _ => null,
+};
+
+/// Critères notés par le passager en fin de trajet.
+const reviewCriteria = [
+  ('driving', 'Conduite (prudence, respect du code)'),
+  ('punctuality', 'Ponctualité'),
+  ('comfort', 'Confort et propreté du véhicule'),
+  ('courtesy', 'Amabilité'),
+];

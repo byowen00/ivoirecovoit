@@ -55,6 +55,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// Menu « Tous / En ville / Interurbain ».
   late TripKindChoice _kind = ref.read(appearanceProvider).tripKind;
 
+  /// Gamme de véhicule choisie dans la rangée du haut (Toutes, Éco, Confort, Luxe).
+  ComfortChoice _comfort = ComfortChoice.all;
+
   @override
   void initState() {
     super.initState();
@@ -111,6 +114,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           timeTo: _now ? (end.day == now.day ? hhmm(end) : '23:59') : null,
           seats: _seats,
           kind: _kind.code,
+          comfort: _comfort.code,
         ),
       ),
     );
@@ -193,21 +197,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               _AccountButton(signedIn: signedIn, initial: firstName),
             ],
           ),
-          // Carte de recherche, à cheval sur la carte.
+          // Panneau de recherche, à cheval sur la carte : gammes de véhicule, puis le trajet.
           Transform.translate(
             offset: const Offset(0, -28),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: EdgeInsets.zero,
               child: Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
+                padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
+                decoration: const BoxDecoration(
                   color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(22),
-                  boxShadow: const [BoxShadow(color: Color(0x1411181C), blurRadius: 24, offset: Offset(0, 8))],
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                  boxShadow: [BoxShadow(color: Color(0x1411181C), blurRadius: 24, offset: Offset(0, -4))],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)),
+                      ),
+                    ),
+                    ComfortMenu(value: _comfort, onChanged: (c) => setState(() => _comfort = c)),
+                    const SizedBox(height: 12),
                     Row(
                       children: [
                         Expanded(
@@ -811,8 +825,10 @@ class _HomeMapState extends ConsumerState<_HomeMap> {
   Widget build(BuildContext context) {
     final top = MediaQuery.paddingOf(context).top;
     final here = _here;
+    // Carte sur la moitié haute de l'écran, comme une appli de course.
+    final height = (MediaQuery.sizeOf(context).height * 0.48).clamp(330.0, 520.0) + top;
     return SizedBox(
-      height: 330 + top,
+      height: height,
       child: Stack(
         children: [
           Positioned.fill(
@@ -1015,11 +1031,11 @@ typedef HomeMenuEntry = ({String label, IconData icon, String path});
 /// Entrées du menu déroulant (en haut à gauche), regroupées ici plutôt qu'éparpillées sur l'accueil.
 List<HomeMenuEntry> homeMenuEntries({required bool signedIn}) => [
   (label: 'Mes réservations', icon: Icons.confirmation_number_outlined, path: '/reservations'),
+  (label: 'Historique des courses', icon: Icons.history, path: '/historique'),
   (label: 'Publier un trajet', icon: Icons.add_road, path: '/conducteur/publier'),
   (label: 'Espace conducteur', icon: Icons.directions_car_filled, path: '/conducteur'),
   (label: 'Mes trajets (conducteur)', icon: Icons.airport_shuttle, path: '/conducteur/trajets'),
   if (signedIn) (label: 'Notifications', icon: Icons.notifications_none, path: '/notifications'),
-  (label: 'Historique des paiements', icon: Icons.receipt_long_outlined, path: '/paiements'),
   (label: 'Aide et urgence', icon: Icons.help_outline, path: '/aide'),
   (label: 'État du service', icon: Icons.monitor_heart_outlined, path: '/statut'),
   (label: signedIn ? 'Mon compte' : 'Se connecter', icon: Icons.person_outline, path: '/compte'),

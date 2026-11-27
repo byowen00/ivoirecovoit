@@ -23,12 +23,16 @@ const _empty = {
 
 /// Écran 11 : trajets du conducteur, par onglets.
 class MyTripsScreen extends StatelessWidget {
-  const MyTripsScreen({super.key});
+  const MyTripsScreen({super.key, this.past = false});
+
+  /// Ouvre directement l'onglet « Passés » (historique des trajets conduits).
+  final bool past;
 
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: _tabs.length,
+      initialIndex: past ? 2 : 0,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Mes trajets'),

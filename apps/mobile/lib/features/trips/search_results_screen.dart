@@ -31,6 +31,7 @@ String resultsLocation(SearchQuery q) => Uri(
     'timeFrom': ?q.timeFrom,
     'timeTo': ?q.timeTo,
     'kind': ?q.kind,
+    'comfort': ?q.comfort,
   },
 ).toString();
 
@@ -53,6 +54,7 @@ SearchQuery? queryFromUri(Uri uri) {
     date: p['date'] == null ? null : DateTime.tryParse('${p['date']}T00:00:00Z'),
     seats: (int.tryParse(p['seats'] ?? '') ?? 1).clamp(1, 8),
     kind: const {'URBAN', 'INTERCITY'}.contains(p['kind']) ? p['kind'] : null,
+    comfort: const {'ECONOMIQUE', 'CONFORT', 'LUXE'}.contains(p['comfort']) ? p['comfort'] : null,
   );
 }
 
@@ -191,6 +193,15 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
                 ),
               ),
               const SizedBox(height: 12),
+              ComfortMenu(
+                value: ComfortChoice.of(q.comfort),
+                onChanged: (c) {
+                  if (c.code == q.comfort) return;
+                  _query = q.copyWith(comfortChoice: c);
+                  _load();
+                },
+              ),
+              const SizedBox(height: 8),
               TripKindMenu(
                 value: TripKindChoice.of(q.kind),
                 onChanged: (k) {
@@ -346,6 +357,23 @@ class TripResultCard extends StatelessWidget {
                   if (r.kind != null) ...[const SizedBox(width: 8), TripKindBadge(r.kind)],
                 ],
               ),
+              if (r.comfortClass != null || r.driverBadge != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      if (r.comfortClass case final c?)
+                        Pill(
+                          ComfortChoice.of(c).label + (r.airConditioning ? ' · climatisée' : ''),
+                          icon: ComfortChoice.of(c).icon,
+                        ),
+                      if (driverBadgeLabel(r.driverBadge) case final b?)
+                        Pill(b, icon: Icons.emoji_events_outlined, tone: PillTone.success),
+                    ],
+                  ),
+                ),
               const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1)),
               Row(
                 children: [

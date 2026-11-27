@@ -7,6 +7,7 @@ class FakeTrust implements TrustRepository {
   final sent = <String>[];
   final reports = <Map<String, String?>>[];
   final reviews = <(int, String?)>[];
+  Map<String, int>? lastCriteria;
   final read = <String>[];
   final disputes = <(String, String, String)>[];
   bool reviewed = false;
@@ -102,8 +103,9 @@ class FakeTrust implements TrustRepository {
   Future<ReviewStatus> reviewStatus(String bookingId) async => ReviewStatus.fromJson(_review());
 
   @override
-  Future<ReviewStatus> review(String bookingId, int rating, String? comment) async {
+  Future<ReviewStatus> review(String bookingId, int rating, String? comment, {Map<String, int>? criteria}) async {
     reviews.add((rating, comment));
+    lastCriteria = criteria;
     reviewed = true;
     return ReviewStatus.fromJson(_review());
   }

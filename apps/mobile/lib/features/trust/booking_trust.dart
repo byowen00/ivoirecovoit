@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/api_client.dart';
 import '../../core/format.dart';
 import '../../core/theme.dart';
+import '../../core/ui.dart';
 import '../../providers.dart';
 import '../bookings/models.dart';
 import 'models.dart';
@@ -223,6 +224,7 @@ class _ReviewBlockState extends ConsumerState<_ReviewBlock> {
   final _comment = TextEditingController();
   String? _error;
   bool _busy = false;
+  final Map<String, int> _criteria = {};
 
   @override
   void initState() {
@@ -245,7 +247,11 @@ class _ReviewBlockState extends ConsumerState<_ReviewBlock> {
     });
     try {
       final c = _comment.text.trim();
-      final s = await ref.read(trustRepositoryProvider).review(widget.booking.id, _rating, c.isEmpty ? null : c);
+      // Notes détaillées envoyées seulement si les quatre critères sont remplis (avis sur le conducteur).
+      final full = _s?.subjectRole == 'DRIVER' && reviewCriteria.every((k) => (_criteria[k.$1] ?? 0) > 0);
+      final s = await ref
+          .read(trustRepositoryProvider)
+          .review(widget.booking.id, _rating, c.isEmpty ? null : c, criteria: full ? Map.of(_criteria) : null);
       if (mounted) setState(() => _s = s);
       widget.onChanged();
     } on ApiException catch (e) {
@@ -274,6 +280,21 @@ class _ReviewBlockState extends ConsumerState<_ReviewBlock> {
               )
             else ...[
               StarPicker(value: _rating, onChanged: (v) => setState(() => _rating = v)),
+              if (s.subjectRole == 'DRIVER') ...[
+                const Text(
+                  'Le trajet en détail (facultatif) : ces notes classent les meilleurs conducteurs.',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                for (final (key, label) in reviewCriteria) ...[
+                  Text(label, style: const TextStyle(fontSize: 13)),
+                  StarPicker(
+                    key: Key('criteria-$key'),
+                    value: _criteria[key] ?? 0,
+                    size: 24,
+                    onChanged: (v) => setState(() => _criteria[key] = v),
+                  ),
+                ],
+              ],
               TextField(
                 controller: _comment,
                 maxLength: 500,
@@ -299,9 +320,10 @@ const _ratingLabels = ['', 'Très mauvais', 'Mauvais', 'Correct', 'Bien', 'Excel
 
 /// Choix d'une note de 1 à 5.
 class StarPicker extends StatelessWidget {
-  const StarPicker({super.key, required this.value, required this.onChanged});
+  const StarPicker({super.key, required this.value, required this.onChanged, this.size = 32});
   final int value;
   final ValueChanged<int> onChanged;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
@@ -314,7 +336,7 @@ class StarPicker extends StatelessWidget {
             icon: Icon(
               n <= value ? Icons.star : Icons.star_border,
               color: n <= value ? AppColors.accent : AppColors.textMuted,
-              size: 32,
+              size: size,
             ),
           ),
         if (value > 0) Text(_ratingLabels[value]),

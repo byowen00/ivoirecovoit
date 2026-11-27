@@ -81,6 +81,8 @@ class Vehicle {
       color = j['color'] as String,
       plateNumber = j['plateNumber'] as String,
       seatsCapacity = (j['seatsCapacity'] as num).toInt(),
+      comfortClass = j['comfortClass'] as String? ?? 'ECONOMIQUE',
+      airConditioning = j['airConditioning'] as bool? ?? false,
       status = j['status'] as String,
       isActive = (j['isActive'] as bool?) ?? true,
       rejectionReason = j['rejectionReason'] as String?,
@@ -93,6 +95,8 @@ class Vehicle {
   final String color;
   final String plateNumber;
   final int seatsCapacity;
+  final String comfortClass;
+  final bool airConditioning;
   final String status;
   final bool isActive;
   final String? rejectionReason;

@@ -22,6 +22,7 @@ import 'features/trips/my_trips_screen.dart';
 import 'features/trips/publish_screen.dart';
 import 'features/trips/search_results_screen.dart';
 import 'features/trips/trip_detail_screen.dart';
+import 'features/home/history_screen.dart';
 import 'features/home/home_screen.dart';
 import 'features/status/status_screen.dart';
 import 'features/trust/chat_screen.dart';
@@ -42,6 +43,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/', builder: (_, _) => const HomeScreen()),
       GoRoute(path: '/bienvenue', builder: (_, _) => const WelcomeScreen()),
       GoRoute(path: '/statut', builder: (_, _) => const StatusScreen()),
+      GoRoute(path: '/historique', builder: (_, _) => const HistoryScreen()),
       GoRoute(
         path: '/connexion',
         builder: (_, state) => PhoneScreen(next: safeNext(state.uri.queryParameters['next'])),
@@ -90,7 +92,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/reservations',
-        builder: (_, _) => _RequireMe(builder: (_) => const MyBookingsScreen()),
+        builder: (_, state) =>
+            _RequireMe(builder: (_) => MyBookingsScreen(past: state.uri.queryParameters['onglet'] == 'passees')),
       ),
       GoRoute(
         path: '/reservations/:id',
@@ -139,7 +142,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/conducteur/trajets',
-        builder: (_, _) => _RequireMe(builder: (_) => const MyTripsScreen()),
+        builder: (_, state) =>
+            _RequireMe(builder: (_) => MyTripsScreen(past: state.uri.queryParameters['onglet'] == 'passes')),
       ),
       GoRoute(
         path: '/conducteur/trajets/:id',
