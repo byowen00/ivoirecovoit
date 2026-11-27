@@ -3,9 +3,15 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
-import { auth, FieldErrors, formatLocalPhone, localMobileDigits } from '@/lib/account';
+import { auth, browserDeviceLabel, FieldErrors, formatLocalPhone, localMobileDigits } from '@/lib/account';
 import { ApiRequestError } from '@/lib/api';
 import { safeNext, savePendingOtp } from '@/lib/pending-otp';
+
+// Essais seulement (serveur de développement) : jamais affiché dans le site compilé pour la production.
+const DIRECT_LOGIN = process.env.NODE_ENV !== 'production';
+/** Comptes de démonstration : Koffi [DEMO], conducteur vérifié avec voiture ; Aïcha [DEMO], passagère. */
+const DEMO_DRIVER = '0000000001';
+const DEMO_PASSENGER = '0000000011';
 
 /** Écran 2 : inscription et connexion ne font qu'un. Un seul champ, indicatif +225 fixe. */
 export function PhoneForm() {
@@ -14,6 +20,23 @@ export function PhoneForm() {
   const [phone, setPhone] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+
+  /** Essais : entrée directe avec un compte de démonstration (le serveur ne le permet qu'en mode test). */
+  async function direct(digits: string) {
+    setSending(true);
+    setError(null);
+    try {
+      const otp = await auth.requestOtp(`+225${digits}`);
+      if (!otp.testCode) throw new ApiRequestError('NOT_AVAILABLE', 'Connexion directe indisponible : le serveur n’est pas en mode test.', 400);
+      const { user } = await auth.verifyOtp(otp.otpRequestId, otp.testCode, browserDeviceLabel());
+      const next = safeNext(params.get('next'));
+      router.replace(user.profileComplete ? next : `/inscription/profil?next=${encodeURIComponent(next)}`);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof ApiRequestError ? err.message : 'Une erreur est survenue. Réessayez.');
+      setSending(false);
+    }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -41,6 +64,19 @@ export function PhoneForm() {
         <h1 className="text-2xl font-bold">Connexion ou inscription</h1>
         <p className="mt-1 text-ink-muted">Nous vous envoyons un code par SMS pour vérifier votre numéro.</p>
       </div>
+      {DIRECT_LOGIN && (
+        <div className="grid gap-2 rounded-[var(--radius-control)] bg-warning-soft p-3 text-sm">
+          <p>Mode essai : entrée directe avec un compte de démonstration.</p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <button type="button" className="btn-primary" disabled={sending} onClick={() => void direct(DEMO_DRIVER)}>
+              Entrer comme conducteur
+            </button>
+            <button type="button" className="btn-secondary" disabled={sending} onClick={() => void direct(DEMO_PASSENGER)}>
+              Entrer comme passager
+            </button>
+          </div>
+        </div>
+      )}
       <div>
         <label htmlFor="phone" className="mb-1 block text-sm font-medium">
           Numéro de mobile

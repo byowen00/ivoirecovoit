@@ -10,6 +10,7 @@ import 'package:ivoirecovoit/core/api_client.dart';
 import 'package:ivoirecovoit/core/token_store.dart';
 import 'package:ivoirecovoit/features/auth/models.dart';
 import 'package:ivoirecovoit/features/auth/otp_screen.dart';
+import 'package:ivoirecovoit/features/auth/phone_screen.dart';
 import 'package:ivoirecovoit/providers.dart';
 
 Map<String, dynamic> meJson({bool complete = false}) => {
@@ -111,5 +112,44 @@ void main() {
     await tester.pumpAndSettle();
     expect(sentCode, '654321');
     expect(find.text('ÉCRAN COMPTE'), findsOneWidget);
+  });
+
+  testWidgets('mode essai : « Entrer comme conducteur » connecte le compte de démonstration', (tester) async {
+    final calls = <String>[];
+    final client = MockClient((req) async {
+      calls.add(req.url.path);
+      const json = {'content-type': 'application/json; charset=utf-8'};
+      if (req.url.path.endsWith('/otp/request')) {
+        expect((jsonDecode(req.body) as Map)['phone'], '+2250000000001');
+        return http.Response(
+            jsonEncode({'otpRequestId': 'otp-9', 'expiresInS': 300, 'resendAfterS': 0, 'testCode': '111222'}), 200,
+            headers: json);
+      }
+      if (req.url.path.endsWith('/otp/verify')) {
+        expect((jsonDecode(req.body) as Map)['code'], '111222');
+        return http.Response(
+            jsonEncode({'accessToken': 'A', 'refreshToken': 'R', 'accessTokenExpiresInS': 900, 'isNewUser': false,
+                        'user': meJson(complete: true)}),
+            200,
+            headers: json);
+      }
+      return http.Response(jsonEncode(meJson(complete: true)), 200, headers: json);
+    });
+    final router = GoRouter(initialLocation: '/connexion', routes: [
+      GoRoute(path: '/connexion', builder: (_, _) => const PhoneScreen()),
+      GoRoute(path: '/compte', builder: (_, _) => const Text('ÉCRAN COMPTE')),
+    ]);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        apiClientProvider.overrideWithValue(ApiClient(baseUrl: 'http://api', httpClient: client)),
+        tokenStoreProvider.overrideWithValue(store),
+      ],
+      child: MaterialApp.router(routerConfig: router),
+    ));
+    await tester.tap(find.byKey(const Key('direct-driver')));
+    await tester.pumpAndSettle();
+    expect(calls.where((p) => p.endsWith('/otp/verify')), hasLength(1));
+    expect(find.text('ÉCRAN COMPTE'), findsOneWidget);
+    expect(store.token, 'R');
   });
 }
