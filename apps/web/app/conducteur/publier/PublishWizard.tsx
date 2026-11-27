@@ -419,6 +419,24 @@ function PriceStep({ draft, update }: StepProps) {
           Prix suggéré : <strong>{formatXof(preview.price.suggestedPriceXof)}</strong> par place pour le trajet complet. Fourchette autorisée :{' '}
           {formatXof(preview.price.minXof)} à {formatXof(preview.price.maxXof)}.
         </p>
+        {preview.price.dynamic && preview.price.dynamic.factors.length > 0 && (
+          <div className="grid gap-1 text-sm">
+            <ul className="flex flex-wrap gap-2" aria-label="Facteurs du prix suggéré">
+              {preview.price.dynamic.factors.map((f) => (
+                <li key={f.code} className="rounded-full bg-warning-soft px-3 py-1 font-medium">
+                  {f.label} {f.percent > 0 ? '+' : ''}
+                  {f.percent} %
+                </li>
+              ))}
+            </ul>
+            {preview.price.basePriceXof !== undefined && (
+              <p className="text-ink-muted">Sans ces facteurs : {formatXof(preview.price.basePriceXof)}. Vous restez libre de votre prix.</p>
+            )}
+          </div>
+        )}
+        {preview.price.dynamic && !preview.price.dynamic.weatherKnown && (
+          <p className="text-xs text-ink-muted">Météo non prise en compte pour ce départ (prévision indisponible).</p>
+        )}
         <div>
           <label htmlFor="full" className="mb-1 block text-sm font-medium">
             Prix par place, trajet complet (FCFA)

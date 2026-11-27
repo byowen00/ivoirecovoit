@@ -26,7 +26,7 @@ export function InterfaceView() {
   if (!current.data) return <Loading error={current.error} />;
   const a = current.data;
   // Tant que rien n'est modifié, le brouillon est la valeur enregistrée.
-  const draft: AppearanceValue = edit ?? { theme: a.theme, homeLayout: a.homeLayout, defaultTripKind: a.defaultTripKind, showPopularRoutes: a.showPopularRoutes };
+  const draft: AppearanceValue = edit ?? { theme: a.theme, homeLayout: a.homeLayout, defaultTripKind: a.defaultTripKind, showPopularRoutes: a.showPopularRoutes, liveDrivers: a.liveDrivers ?? true };
   const themes = current.data.themes;
   const c = themes[draft.theme];
   const writer = can(me, 'settings.write');
@@ -72,6 +72,15 @@ export function InterfaceView() {
           <label className="mt-2 flex items-center gap-2">
             <input type="checkbox" checked={draft.showPopularRoutes} onChange={(e) => set('showPopularRoutes', e.target.checked)} />
             <span>Afficher « Trajets fréquents » sur l’accueil</span>
+          </label>
+          <label className="flex items-start gap-2">
+            <input type="checkbox" className="mt-1" checked={draft.liveDrivers} onChange={(e) => set('liveDrivers', e.target.checked)} />
+            <span>
+              Afficher en temps réel les conducteurs en circulation sur la carte
+              <span className="block text-sm text-ink-muted">
+                Trajets en cours seulement, position arrondie à 500 m environ, sans nom ni plaque. Actualisé toutes les 15 secondes.
+              </span>
+            </span>
           </label>
         </div>
       </Section>

@@ -4,6 +4,7 @@ import { ApiError } from '../../common/api-error';
 import { DB, type Db } from '../../database/database.module';
 import { REDIS } from '../../infra/redis.module';
 import { RateLimitService } from '../../infra/rate-limit.service';
+import { haversineMeters } from '../routing/haversine';
 import type { LiveLocationInput } from './trips.schemas';
 
 /** Une position plus vieille que ça est signalée comme ancienne (réseau coupé, appli fermée…). */
@@ -12,6 +13,8 @@ export const LIVE_STALE_AFTER_S = 120;
 const LIVE_TTL_S = 15 * 60;
 
 const key = (tripId: string) => `live:trip:${tripId}`;
+/** Arrondi des positions de la carte publique (≈ 500 m). */
+const APPROX_DEG = 0.0045;
 
 export interface LivePosition {
   lat: number;
@@ -75,6 +78,35 @@ export class LiveLocationService {
     const position = raw ? (JSON.parse(raw) as LivePosition) : null;
     const ageS = position ? Math.max(0, Math.round((now.getTime() - Date.parse(position.recordedAt)) / 1000)) : null;
     return { status: trip.status, position, ageS, stale: ageS !== null && ageS > LIVE_STALE_AFTER_S };
+  }
+
+  /**
+   * Carte publique des conducteurs en circulation autour d'un point : trajets en cours dont la position est
+   * récente, arrondie à environ 500 m, sans nom ni plaque. Sert à montrer l'activité, pas à suivre quelqu'un.
+   */
+  async nearby(center: { lat: number; lng: number }, radiusM = 30_000, now = new Date()) {
+    const trips = await this.db
+      .selectFrom('trips')
+      .select(['id', 'kind', 'is_demo'])
+      .select((eb) =>
+        eb.selectFrom('trip_stops').select('label').whereRef('trip_stops.trip_id', '=', 'trips.id').orderBy('seq', 'desc').limit(1).as('to_label'),
+      )
+      .where('status', '=', 'IN_PROGRESS')
+      .limit(500)
+      .execute();
+    if (!trips.length) return { data: [] };
+    const raws = await this.redis.mget(trips.map((t) => key(t.id)));
+    const round = (v: number) => Math.round(v / APPROX_DEG) * APPROX_DEG;
+    const data = [];
+    for (const [i, t] of trips.entries()) {
+      const p = raws[i] ? (JSON.parse(raws[i]!) as LivePosition) : null;
+      if (!p) continue;
+      const ageS = Math.max(0, Math.round((now.getTime() - Date.parse(p.recordedAt)) / 1000));
+      if (ageS > LIVE_STALE_AFTER_S || haversineMeters(center, p) > radiusM) continue;
+      data.push({ tripId: t.id, kind: t.kind, toLabel: t.to_label, lat: Number(round(p.lat).toFixed(4)), lng: Number(round(p.lng).toFixed(4)), ageS, isDemo: t.is_demo });
+      if (data.length >= 100) break;
+    }
+    return { data, approximateM: 500 };
   }
 
   /** Fin ou annulation du trajet : la position est effacée tout de suite. */

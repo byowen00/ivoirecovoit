@@ -12,7 +12,9 @@ import { haversineMeters } from '../routing/haversine';
 import { type RouteEstimate, RoutingService } from '../routing/routing.service';
 import { SettingsService } from '../users/settings.service';
 import { cancelTripBookings, outbox, PENDING_STATUSES, setActor, syncTripFullStatus } from '../bookings/lifecycle';
-import { checkStopPrices, type PriceBounds, suggestFullPrice, suggestStopPrices } from './pricing';
+import { type PriceFactor, priceFactors, resolveDynamicPricing } from './price-factors';
+import { checkStopPrices, type PriceBounds, roundToStep, suggestFullPrice, suggestStopPrices } from './pricing';
+import { WeatherService } from './weather.service';
 import { assertTransition, START_WINDOW } from './trip-state';
 import {
   type CancelInput,
@@ -56,6 +58,9 @@ export interface TripPlan {
   route: RouteEstimate;
   bounds: PriceBounds;
   suggestedPriceXof: number;
+  /** Prix suggéré avant tarif dynamique, et facteurs appliqués (météo, embouteillages…). */
+  basePriceXof: number;
+  dynamic: { factors: PriceFactor[]; totalPercent: number; weatherKnown: boolean };
 }
 
 function isConstraint(err: unknown, code: string, name?: string): boolean {
@@ -77,7 +82,16 @@ export class TripsService {
     private readonly drivers: DriversService,
     private readonly audit: AuditService,
     private readonly refunds: RefundsService,
+    private readonly weather: WeatherService,
   ) {}
+
+  /** Tarif dynamique : facteurs du départ (météo prévue au point de départ, horaires, signalements). */
+  async dynamicFactors(kind: TripKind, departureAt: Date, origin: { lat: number; lng: number }) {
+    const rules = resolveDynamicPricing(await this.settings.get('pricing.dynamic'));
+    const needsWeather = rules.enabled && (rules.rain.enabled || rules.heavyRain.enabled) && (rules.appliesTo === 'ALL' || rules.appliesTo === kind);
+    const forecast = needsWeather ? await this.weather.forecast(origin.lat, origin.lng, departureAt) : null;
+    return { ...priceFactors(rules, { kind, departureAt, forecast }), weatherKnown: forecast !== null };
+  }
 
   // ---------------------------------------------------------------- calcul de l'itinéraire et des prix
 
@@ -130,7 +144,9 @@ export class TripsService {
     const resolved = await this.resolveStops(input.stops);
     const route = await this.routing.estimate(resolved, input.kind);
     const { suggestedXofPerKm, ...bounds } = await this.priceBounds();
-    const suggestedPriceXof = suggestFullPrice(route.distanceM, suggestedXofPerKm, bounds);
+    const basePriceXof = suggestFullPrice(route.distanceM, suggestedXofPerKm, bounds);
+    const dynamic = await this.dynamicFactors(input.kind, input.departureAt, resolved[0]!);
+    const suggestedPriceXof = Math.min(Math.max(roundToStep((basePriceXof * (100 + dynamic.totalPercent)) / 100), bounds.minXof), bounds.maxXof);
     const legDistances = route.legs.map((l) => l.distanceM);
     const prices =
       input.stopPricesXof ?? suggestStopPrices(legDistances, input.pricePerSeatXof ?? suggestedPriceXof);
@@ -158,6 +174,8 @@ export class TripsService {
       route,
       bounds,
       suggestedPriceXof,
+      basePriceXof,
+      dynamic,
       priceProblems,
     };
   }
@@ -175,6 +193,9 @@ export class TripsService {
       stops: plan.stops,
       price: {
         suggestedPriceXof: plan.suggestedPriceXof,
+        basePriceXof: plan.basePriceXof,
+        // Le prix suggéré tient compte de ces facteurs ; le conducteur reste libre dans la fourchette.
+        dynamic: plan.dynamic,
         minXof: plan.bounds.minXof,
         maxXof: plan.bounds.maxXof,
         capXofPerKm: plan.bounds.capXofPerKm,

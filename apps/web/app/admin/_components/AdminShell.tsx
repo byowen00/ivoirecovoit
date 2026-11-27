@@ -27,6 +27,7 @@ const NAV: { href: string; label: string; perms: string[] }[] = [
   { href: '/admin/parametres', label: 'Paramètres', perms: ['settings.read'] },
   { href: '/admin/interface', label: 'Interface et design', perms: ['settings.read'] },
   { href: '/admin/frais', label: 'Règles de frais', perms: ['settings.fees'] },
+  { href: '/admin/tarifs', label: 'Tarif dynamique', perms: ['settings.read'] },
   { href: '/admin/promotions', label: 'Promotions', perms: ['promotions.manage'] },
   { href: '/admin/lieux', label: 'Lieux', perms: ['places.manage'] },
   { href: '/admin/statistiques', label: 'Statistiques', perms: ['stats.read'] },

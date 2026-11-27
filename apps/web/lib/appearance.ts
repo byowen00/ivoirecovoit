@@ -13,6 +13,7 @@ export interface AppearanceValue {
   homeLayout: 'CARTE' | 'CLASSIQUE';
   defaultTripKind: 'ALL' | 'URBAN' | 'INTERCITY';
   showPopularRoutes: boolean;
+  liveDrivers: boolean;
 }
 export interface Appearance extends AppearanceValue {
   colors: ThemeColors;

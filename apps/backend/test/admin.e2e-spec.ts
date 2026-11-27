@@ -363,14 +363,16 @@ describe('Administration (étape 9, T6) : permissions, remboursements, finance, 
     it('interface et design : réglage par l’admin, lu sans connexion par le site et l’appli', async () => {
       const before = await t.http().get('/api/v1/app/appearance').expect(200);
       expect(before.body).toMatchObject({ theme: 'ORANGE', homeLayout: 'CARTE', defaultTripKind: 'ALL', showPopularRoutes: true, colors: { brand: '#c0560a' } });
-      const value = { theme: 'BLEU', homeLayout: 'CLASSIQUE', defaultTripKind: 'INTERCITY', showPopularRoutes: false };
+      const value = { theme: 'BLEU', homeLayout: 'CLASSIQUE', defaultTripKind: 'INTERCITY', showPopularRoutes: false, liveDrivers: false };
       await as(admin).put('/settings/ui.appearance', { value: { ...value, theme: 'ROSE' }, reason: 'Palette inconnue' }).expect(400);
       await as(admin).put('/settings/ui.appearance', { value: { ...value, couleurLibre: '#fff' }, reason: 'Champ inconnu' }).expect(400);
       await as(support).put('/settings/ui.appearance', { value, reason: 'Sans le droit' }).expect(403);
       await as(admin).put('/settings/ui.appearance', { value, reason: 'Essai du thème bleu' }).expect(200);
       const after = await t.http().get('/api/v1/app/appearance').expect(200);
       expect(after.body).toMatchObject({ ...value, colors: { brand: '#1d4ed8', night: '#0f172a' } });
-      await as(admin).put('/settings/ui.appearance', { value: { theme: 'ORANGE', homeLayout: 'CARTE', defaultTripKind: 'ALL', showPopularRoutes: true }, reason: 'Retour au thème par défaut' }).expect(200);
+      const live = await t.http().get('/api/v1/live/drivers?lat=5.34&lng=-4.02').expect(200);
+      expect(live.body).toEqual({ enabled: false, data: [] });
+      await as(admin).put('/settings/ui.appearance', { value: { theme: 'ORANGE', homeLayout: 'CARTE', defaultTripKind: 'ALL', showPopularRoutes: true, liveDrivers: true }, reason: 'Retour au thème par défaut' }).expect(200);
     });
 
     it('règles de frais : nouvelle version datée, jamais rétroactive', async () => {

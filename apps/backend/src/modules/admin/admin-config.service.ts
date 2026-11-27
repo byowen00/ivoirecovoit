@@ -7,7 +7,8 @@ import { DB, type Db } from '../../database/database.module';
 import type { TripKind } from '../../database/types';
 import { AuditService, type RequestContext } from '../../infra/audit.service';
 import type { AuthContext } from '../auth/request-context';
-import { appearanceSchema } from '../users/appearance';
+import { DEFAULT_DYNAMIC_PRICING, dynamicPricingSchema } from '../trips/price-factors';
+import { appearanceSchema, DEFAULT_APPEARANCE } from '../users/appearance';
 
 const notFound = (what: string) => new ApiError(HttpStatus.NOT_FOUND, 'NOT_FOUND', `${what} introuvable.`);
 const conflict = (code: string, message: string) => new ApiError(HttpStatus.CONFLICT, code, message);
@@ -21,7 +22,7 @@ const methods = z.array(z.enum(['WAVE', 'ORANGE_MONEY', 'MTN_MOMO', 'MOOV_MONEY'
  * Paramètres modifiables depuis l'administration (EF-96), avec leur validation. Toute autre clé est refusée :
  * on ne crée pas de paramètre au hasard. Chaque modification crée une nouvelle version (l'historique reste).
  */
-export const SETTINGS: Record<string, { label: string; schema: z.ZodType; group: string }> = {
+export const SETTINGS: Record<string, { label: string; schema: z.ZodType; group: string; default?: unknown }> = {
   'booking.hold_minutes': { group: 'Réservations', label: 'Durée de blocage des places en attente de paiement (min)', schema: int(5, 60) },
   'booking.hold_extension_minutes': { group: 'Réservations', label: 'Prolongation si un paiement est en cours (min)', schema: int(0, 30) },
   'booking.min_minutes_before_departure': { group: 'Réservations', label: 'Réservation possible jusqu’à N min avant le départ', schema: int(0, 600) },
@@ -35,6 +36,7 @@ export const SETTINGS: Record<string, { label: string; schema: z.ZodType; group:
   'trip.price_max_xof': { group: 'Trajets et prix', label: 'Prix maximum par place (F CFA)', schema: int(100, 500_000) },
   'trip.suggested_price_xof_per_km': { group: 'Trajets et prix', label: 'Prix suggéré au conducteur (F CFA par km)', schema: int(0, 1000) },
   'trip.price_cap_xof_per_km': { group: 'Trajets et prix', label: 'Plafond « partage de frais » (F CFA par km, vide = non appliqué)', schema: int(1, 1000).nullable() },
+  'pricing.dynamic': { group: 'Trajets et prix', label: 'Tarif dynamique : météo, embouteillages, nuit, jours fériés (page « Tarif dynamique »)', schema: dynamicPricingSchema, default: DEFAULT_DYNAMIC_PRICING },
   'trip.max_days_ahead': { group: 'Trajets et prix', label: 'Publication jusqu’à N jours à l’avance', schema: int(1, 365) },
   'payments.cash_enabled': { group: 'Paiement', label: 'Paiement en espèces autorisé', schema: z.boolean() },
   'payments.enabled_methods': { group: 'Paiement', label: 'Moyens de paiement proposés', schema: methods },
@@ -48,7 +50,7 @@ export const SETTINGS: Record<string, { label: string; schema: z.ZodType; group:
   'reports.max_per_day': { group: 'Confiance', label: 'Signalements par jour et par personne', schema: int(1, 100) },
   'share.expiry_hours_after_arrival': { group: 'Sécurité', label: 'Lien de partage valable N heures après l’arrivée', schema: int(1, 72) },
   'notifications.reminder_hours': { group: 'Notifications', label: 'Rappels avant le départ (heures)', schema: z.array(int(1, 72)).max(4) },
-  'ui.appearance': { group: 'Interface et design', label: 'Apparence du site et de l’appli (page « Interface et design »)', schema: appearanceSchema },
+  'ui.appearance': { group: 'Interface et design', label: 'Apparence du site et de l’appli (page « Interface et design »)', schema: appearanceSchema, default: DEFAULT_APPEARANCE },
   'safety.emergency_numbers': {
     group: 'Sécurité',
     label: 'Numéros d’urgence affichés (à faire valider)',
@@ -84,7 +86,7 @@ export class AdminConfigService {
     return {
       data: Object.entries(SETTINGS).map(([key, def]) => {
         const r = byKey.get(key);
-        return { key, group: def.group, label: def.label, value: r?.value ?? null, version: r?.version ?? 0, updatedAt: r?.updated_at ?? null };
+        return { key, group: def.group, label: def.label, value: r?.value ?? def.default ?? null, version: r?.version ?? 0, updatedAt: r?.updated_at ?? null };
       }),
     };
   }

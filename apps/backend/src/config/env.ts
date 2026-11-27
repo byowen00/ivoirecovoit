@@ -90,6 +90,9 @@ export const envSchema = z
     // Moteur de routage OSRM. Absent ou injoignable : estimation de repli (vol d'oiseau × coefficient).
     OSRM_URL: optionalUrl,
     OSRM_TIMEOUT_MS: z.coerce.number().int().min(200).max(30000).default(4000),
+    // Prévisions météo (format Open-Meteo) pour le tarif dynamique. Vide en développement : Open-Meteo public
+    // (gratuit pour un usage non commercial seulement) ; ailleurs, aucune météo tant que ce n'est pas configuré.
+    WEATHER_URL: optionalUrl,
     // Tâches périodiques (expiration des blocages, clôture des trajets) via BullMQ. Désactivées dans les tests d'API.
     JOBS_ENABLED: z
       .enum(['true', 'false'])

@@ -40,6 +40,18 @@ void main() {
     expect(find.text('En ville'), findsNWidgets(2)); // bouton du menu + pastille
   });
 
+  test('conducteurs en circulation : lecture de la carte, rien si désactivé', () {
+    final on = parseLiveDrivers({
+      'enabled': true,
+      'data': [
+        {'tripId': 't1', 'kind': 'INTERCITY', 'toLabel': 'Bouaké', 'lat': 5.3355, 'lng': -4.0275, 'ageS': 4},
+      ],
+    });
+    expect(on.single.tripId, 't1');
+    expect(on.single.point.latitude, 5.3355);
+    expect(parseLiveDrivers({'enabled': false, 'data': []}), isEmpty);
+  });
+
   test('menu déroulant de l’accueil : tout est regroupé', () {
     final out = homeMenuEntries(signedIn: false).map((e) => e.path).toList();
     expect(out, containsAll(['/reservations', '/conducteur/publier', '/paiements', '/aide', '/statut', '/compte']));

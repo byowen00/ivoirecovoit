@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/api_client.dart';
 import '../../core/format.dart';
 import '../../core/theme.dart';
+import '../../core/ui.dart';
 import '../../providers.dart';
 import '../driver/driver_repository.dart';
 import '../places/place_field.dart';
@@ -523,6 +524,25 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
         Text(
           'Prix suggéré : ${formatXof(p.suggestedPriceXof)} par place. Fourchette autorisée : ${formatXof(p.minXof)} à ${formatXof(p.maxXof)}.',
         ),
+        if (p.priceFactors.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final f in p.priceFactors)
+                  Pill('${f.label} ${f.percent > 0 ? '+' : ''}${f.percent} %', tone: PillTone.warning, icon: Icons.trending_up),
+              ],
+            ),
+          ),
+        if (p.basePriceXof != null && p.basePriceXof != p.suggestedPriceXof)
+          Text(
+            'Sans ces facteurs : ${formatXof(p.basePriceXof!)}. Vous restez libre de votre prix.',
+            style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+          ),
+        if (!p.weatherKnown)
+          const Text('Météo non prise en compte pour ce départ (prévision indisponible).', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
         const SizedBox(height: 8),
         TextField(
           controller: _fullPrice,

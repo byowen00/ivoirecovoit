@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -179,6 +181,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             )
           else
           _HomeMap(
+            liveDrivers: look.liveDrivers,
             position: _here,
             locating: _locating,
             message: _hereError,
@@ -719,8 +722,9 @@ class _BottomNav extends StatelessWidget {
 
 /// Haut de l'accueil : carte centrée sur la position du téléphone (Abidjan si elle est inconnue).
 /// La position sert seulement à l'affichage et, si on le demande, de départ de recherche.
-class _HomeMap extends StatefulWidget {
+class _HomeMap extends ConsumerStatefulWidget {
   const _HomeMap({
+    required this.liveDrivers,
     required this.position,
     required this.locating,
     required this.message,
@@ -729,6 +733,7 @@ class _HomeMap extends StatefulWidget {
     required this.menu,
     required this.actions,
   });
+  final bool liveDrivers;
   final ({double lat, double lng})? position;
   final bool locating;
   final String? message;
@@ -740,12 +745,58 @@ class _HomeMap extends StatefulWidget {
   static const abidjan = LatLng(5.345, -4.024);
 
   @override
-  State<_HomeMap> createState() => _HomeMapState();
+  ConsumerState<_HomeMap> createState() => _HomeMapState();
 }
 
-class _HomeMapState extends State<_HomeMap> {
+/// Conducteur en circulation (position arrondie à 500 m environ par le serveur, sans identité).
+typedef LiveDriver = ({String tripId, String kind, String? toLabel, LatLng point});
+
+List<LiveDriver> parseLiveDrivers(Map<String, dynamic> j) => [
+  if (j['enabled'] != false)
+    for (final d in (j['data'] as List? ?? []))
+      (
+        tripId: (d as Map)['tripId'] as String,
+        kind: d['kind'] as String? ?? 'URBAN',
+        toLabel: d['toLabel'] as String?,
+        point: LatLng((d['lat'] as num).toDouble(), (d['lng'] as num).toDouble()),
+      ),
+];
+
+class _HomeMapState extends ConsumerState<_HomeMap> {
   final _map = MapController();
   bool _ready = false;
+  List<LiveDriver> _drivers = const [];
+  Timer? _poll;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.liveDrivers) {
+      _poll = Timer.periodic(const Duration(seconds: 15), (_) => _loadDrivers());
+      WidgetsBinding.instance.addPostFrameCallback((_) => _loadDrivers());
+    }
+  }
+
+  @override
+  void dispose() {
+    _poll?.cancel();
+    super.dispose();
+  }
+
+  /// Conducteurs en route autour du centre de la carte, actualisés toutes les 15 s tant que l'accueil est ouvert.
+  Future<void> _loadDrivers() async {
+    final c = _ready ? _map.camera.center : (_here ?? _HomeMap.abidjan);
+    try {
+      final j = await ref.read(apiClientProvider).get(
+        '/live/drivers',
+        query: {'lat': c.latitude.toStringAsFixed(4), 'lng': c.longitude.toStringAsFixed(4)},
+        retries: 0,
+      );
+      if (mounted) setState(() => _drivers = parseLiveDrivers(j));
+    } catch (_) {
+      // Hors de Côte d'Ivoire ou serveur injoignable : pas de conducteurs affichés.
+    }
+  }
 
   LatLng? get _here => widget.position == null ? null : LatLng(widget.position!.lat, widget.position!.lng);
 
@@ -777,6 +828,36 @@ class _HomeMapState extends State<_HomeMap> {
                 ),
                 children: [
                   TileLayer(urlTemplate: AppConfig.tileUrl, userAgentPackageName: 'ci.ivoirecovoit.app'),
+                  if (widget.liveDrivers && _drivers.isNotEmpty)
+                    MarkerLayer(
+                      markers: [
+                        for (final d in _drivers)
+                          Marker(
+                            point: d.point,
+                            width: 34,
+                            height: 34,
+                            child: Tooltip(
+                              message: d.toLabel == null ? 'Trajet en cours' : 'En route vers ${d.toLabel}',
+                              child: GestureDetector(
+                                key: Key('live-driver-${d.tripId}'),
+                                onTap: () => context.push('/trajets/${d.tripId}'),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: AppColors.night,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.white, width: 2),
+                                  ),
+                                  child: Icon(
+                                    d.kind == 'INTERCITY' ? Icons.airport_shuttle : Icons.directions_car_filled,
+                                    size: 18,
+                                    color: AppColors.accent,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   if (here != null)
                     MarkerLayer(
                       markers: [
@@ -826,6 +907,15 @@ class _HomeMapState extends State<_HomeMap> {
               ],
             ),
           ),
+          if (widget.liveDrivers && _drivers.isNotEmpty)
+            Positioned(
+              top: top + 62,
+              left: 12,
+              child: _MapChip(
+                icon: Icons.directions_car_filled,
+                text: '${_drivers.length} conducteur${_drivers.length > 1 ? 's' : ''} en route (position approximative)',
+              ),
+            ),
           // Bas de la carte : état de la position et raccourcis.
           Positioned(
             left: 12,

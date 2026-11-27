@@ -203,6 +203,9 @@ export interface TripPreview {
   stops: (Omit<TripStop, 'id' | 'seq'> & { placeId: string | null })[];
   price: {
     suggestedPriceXof: number;
+    /** Prix suggéré avant tarif dynamique (météo, heure de pointe…), et facteurs appliqués. */
+    basePriceXof?: number;
+    dynamic?: { factors: { code: string; label: string; percent: number }[]; totalPercent: number; weatherKnown: boolean };
     minXof: number;
     maxXof: number;
     capXofPerKm: number | null;

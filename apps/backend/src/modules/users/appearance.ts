@@ -23,11 +23,13 @@ export const appearanceSchema = z
     defaultTripKind: z.enum(['ALL', 'URBAN', 'INTERCITY']),
     /** Afficher « Trajets fréquents » sur l'accueil. */
     showPopularRoutes: z.boolean(),
+    /** Carte des conducteurs en circulation (positions approximatives) sur l'accueil. */
+    liveDrivers: z.boolean(),
   })
   .strict();
 export type Appearance = z.infer<typeof appearanceSchema>;
 
-export const DEFAULT_APPEARANCE: Appearance = { theme: 'ORANGE', homeLayout: 'CARTE', defaultTripKind: 'ALL', showPopularRoutes: true };
+export const DEFAULT_APPEARANCE: Appearance = { theme: 'ORANGE', homeLayout: 'CARTE', defaultTripKind: 'ALL', showPopularRoutes: true, liveDrivers: true };
 
 /** Valeur enregistrée complétée par les valeurs par défaut ; une valeur illisible retombe sur le défaut. */
 export function resolveAppearance(stored: unknown) {

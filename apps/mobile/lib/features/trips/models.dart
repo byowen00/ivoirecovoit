@@ -327,6 +327,12 @@ class TripPreview {
       stopPrices = [for (final s in j['stops'] as List) _i((s as Map)['priceFromOriginXof'])],
       stopPoints = [for (final s in j['stops'] as List) LatLng(_d((s as Map)['lat']), _d(s['lng']))],
       suggestedPriceXof = _i((j['price'] as Map)['suggestedPriceXof']),
+      basePriceXof = ((j['price'] as Map)['basePriceXof'] as num?)?.toInt(),
+      priceFactors = [
+        for (final f in (((j['price'] as Map)['dynamic'] as Map?)?['factors'] as List? ?? []))
+          (label: (f as Map)['label'] as String, percent: (f['percent'] as num).toInt()),
+      ],
+      weatherKnown = (((j['price'] as Map)['dynamic'] as Map?)?['weatherKnown'] as bool?) ?? false,
       minXof = _i((j['price'] as Map)['minXof']),
       maxXof = _i((j['price'] as Map)['maxXof']),
       problems = [for (final p in (j['price'] as Map)['problems'] as List) Map<String, dynamic>.from(p as Map)];
@@ -338,6 +344,11 @@ class TripPreview {
   final List<int> stopPrices;
   final List<LatLng> stopPoints;
   final int suggestedPriceXof;
+
+  /// Prix suggéré avant tarif dynamique, et facteurs appliqués (météo prévue, heure de pointe, nuit…).
+  final int? basePriceXof;
+  final List<({String label, int percent})> priceFactors;
+  final bool weatherKnown;
   final int minXof;
   final int maxXof;
   final List<Map<String, dynamic>> problems;

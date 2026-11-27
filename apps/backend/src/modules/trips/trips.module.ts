@@ -5,14 +5,16 @@ import { PlacesModule } from '../places/places.module';
 import { RoutingModule } from '../routing/routing.module';
 import { AuthModule } from '../auth/auth.module';
 import { LiveLocationService } from './live-location.service';
+import { LiveMapController } from './live-map.controller';
 import { SearchService } from './search.service';
 import { TripsController } from './trips.controller';
 import { TripsService } from './trips.service';
+import { WeatherService } from './weather.service';
 
 @Module({
   imports: [AuthModule, DriversModule, PaymentsModule, PlacesModule, RoutingModule],
-  controllers: [TripsController],
-  providers: [TripsService, SearchService, LiveLocationService],
+  controllers: [TripsController, LiveMapController],
+  providers: [TripsService, SearchService, LiveLocationService, WeatherService],
   exports: [TripsService],
 })
 export class TripsModule {}

@@ -80,6 +80,11 @@ describe('Trajets : publication, modification, cycle de vie', () => {
     expect(p1 / p2).toBeLessThan(0.9);
     expect(res.body.stops[0]).toMatchObject({ label: 'Riviera 2, Cocody', locationPrecision: 'EXACT', isPickup: true, isDropoff: false });
     expect(res.body.stops[1]).toMatchObject({ label: 'Toumodi', locationPrecision: 'APPROX' });
+    // Tarif dynamique : en test, pas de service météo, donc aucun facteur météo inventé.
+    const { dynamic, basePriceXof, suggestedPriceXof } = res.body.price;
+    expect(dynamic.weatherKnown).toBe(false);
+    expect(dynamic.factors.every((f: { code: string }) => !['RAIN', 'HEAVY_RAIN'].includes(f.code))).toBe(true);
+    expect(suggestedPriceXof).toBe(Math.min(30000, Math.max(500, Math.round((basePriceXof * (100 + dynamic.totalPercent)) / 100 / 50) * 50)));
   });
 
   it('crée un brouillon (idempotent), puis le publie', async () => {
@@ -357,6 +362,16 @@ describe('Trajets : publication, modification, cycle de vie', () => {
     const seen = await t.http().get(`/api/v1/trips/${trip.id}/location`).set(bearer(passenger.accessToken)).expect(200);
     expect(seen.body).toMatchObject({ status: 'IN_PROGRESS', stale: false, position: { lat: 5.3364, lng: -4.0267, accuracyM: 25, heading: 90 } });
     expect(seen.body.ageS).toBeLessThan(5);
+
+    // Carte publique de l'accueil : position arrondie (≈ 500 m), sans identité du conducteur.
+    const map = await t.http().get('/api/v1/live/drivers?lat=5.34&lng=-4.02').expect(200);
+    const mine = map.body.data.find((x: { tripId: string }) => x.tripId === trip.id);
+    expect(mine).toMatchObject({ kind: trip.kind });
+    expect(mine.lat).not.toBe(5.3364);
+    expect(Math.abs(mine.lat - 5.3364)).toBeLessThan(0.003);
+    expect(JSON.stringify(mine)).not.toMatch(/driver|name|phone|heading|accuracy/i);
+    const far = await t.http().get('/api/v1/live/drivers?lat=7.69&lng=-5.03').expect(200); // Bouaké
+    expect(far.body.data.some((x: { tripId: string }) => x.tripId === trip.id)).toBe(false);
 
     // Ni un autre membre, ni un passager qui n'est pas du trajet, ni un passager qui voudrait écrire.
     await t.http().get(`/api/v1/trips/${trip.id}/location`).set(bearer(stranger.accessToken)).expect(404);

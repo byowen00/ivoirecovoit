@@ -16,6 +16,7 @@ class Appearance {
     this.homeLayout = 'CARTE',
     this.defaultTripKind = 'ALL',
     this.showPopularRoutes = true,
+    this.liveDrivers = true,
     this.colors,
   });
 
@@ -26,6 +27,7 @@ class Appearance {
       homeLayout: j['homeLayout'] == 'CLASSIQUE' ? 'CLASSIQUE' : 'CARTE',
       defaultTripKind: j['defaultTripKind'] as String? ?? 'ALL',
       showPopularRoutes: j['showPopularRoutes'] as bool? ?? true,
+      liveDrivers: j['liveDrivers'] as bool? ?? true,
       colors: c is Map ? {for (final e in c.entries) '${e.key}': '${e.value}'} : null,
     );
   }
@@ -34,6 +36,9 @@ class Appearance {
   final String homeLayout;
   final String defaultTripKind;
   final bool showPopularRoutes;
+
+  /// Conducteurs en circulation sur la carte de l'accueil (réglage de l'administration).
+  final bool liveDrivers;
   final Map<String, String>? colors;
 
   bool get mapHome => homeLayout != 'CLASSIQUE';
@@ -44,6 +49,7 @@ class Appearance {
     'homeLayout': homeLayout,
     'defaultTripKind': defaultTripKind,
     'showPopularRoutes': showPopularRoutes,
+    'liveDrivers': liveDrivers,
     'colors': ?colors,
   };
 
