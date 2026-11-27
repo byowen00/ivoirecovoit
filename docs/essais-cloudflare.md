@@ -10,8 +10,9 @@ Le PC Windows fait serveur ; Cloudflare lui donne une adresse publique en HTTPS
 - L'adresse change à chaque lancement de Cloudflare : il faut la redonner aux testeurs et la remettre dans l'appli.
 - C'est une pré-production : codes de connexion affichés, paiements simulés. Ne partagez le lien qu'avec des
   testeurs, et uniquement avec des données de test.
-- Le bouton « Entrer sans mot de passe » de la console `/admin` ne marche **pas** par le lien Cloudflare
-  (seulement sur le PC ou le Wi-Fi) : la console reste protégée sur Internet.
+- Console `/admin` par le lien Cloudflare : bouton « Entrer avec le code d'essai ». Le code s'affiche dans la fenêtre
+  de l'API au démarrage (« Code d'essai de la console /admin… ») et change à chaque redémarrage, sauf si
+  `STAFF_TEST_LOGIN_CODE` est défini dans `.env`. Sur le PC ou le Wi-Fi, aucun code n'est demandé.
 
 ## 1. Installer Cloudflare (une seule fois)
 

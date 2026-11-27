@@ -147,17 +147,22 @@ describe('entrée directe de la console (essais en local)', () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
-  it('fonctionne depuis l’ordinateur ou le Wi-Fi', async () => {
-    fetchMock.mockResolvedValue(json(200, { enabled: true }));
+  it('depuis l’ordinateur ou le Wi-Fi : entrée directe, sans code', async () => {
+    fetchMock.mockResolvedValue(json(200, { enabled: true, needsCode: false }));
     const res = await TEST_STATUS(req('/bff/admin/test-login', { headers: { host: '192.168.1.71:4001' } }));
-    expect(await res.json()).toEqual({ enabled: true });
+    expect(await res.json()).toEqual({ enabled: true, needsCode: false });
+    expect(fetchMock.mock.calls[0]![1].headers['X-IC-Remote']).toBeUndefined();
   });
 
-  it('reste fermée depuis Internet (tunnel Cloudflare), sans même appeler l’API', async () => {
-    const viaTunnel = { host: 'abc.trycloudflare.com', 'cf-connecting-ip': '203.0.113.5' };
-    expect(await (await TEST_STATUS(req('/bff/admin/test-login', { headers: viaTunnel }))).json()).toEqual({ enabled: false });
-    expect((await TEST_LOGIN(req('/bff/admin/test-login', { method: 'POST', headers: viaTunnel }))).status).toBe(404);
-    expect((await TEST_LOGIN(req('/bff/admin/test-login', { method: 'POST', headers: { host: 'abc.trycloudflare.com' } }))).status).toBe(404);
-    expect(fetchMock).not.toHaveBeenCalled();
+  it('depuis Internet (tunnel Cloudflare) : l’API est prévenue et reçoit le code d’essai', async () => {
+    const viaTunnel = { host: 'abc.trycloudflare.com', 'cf-connecting-ip': '203.0.113.5', 'content-type': 'application/json' };
+    fetchMock.mockResolvedValue(json(200, { enabled: true, needsCode: true }));
+    expect(await (await TEST_STATUS(req('/bff/admin/test-login', { headers: viaTunnel }))).json()).toEqual({ enabled: true, needsCode: true });
+    fetchMock.mockResolvedValue(json(401, { error: { code: 'INVALID_CREDENTIALS', message: 'Code d’essai incorrect.' } }));
+    const res = await TEST_LOGIN(req('/bff/admin/test-login', { method: 'POST', headers: viaTunnel, body: JSON.stringify({ code: '12345678' }) }));
+    expect(res.status).toBe(401);
+    const [, init] = fetchMock.mock.calls[1]!;
+    expect(init.headers['X-IC-Remote']).toBe('1');
+    expect(JSON.parse(init.body)).toEqual({ code: '12345678' });
   });
 });

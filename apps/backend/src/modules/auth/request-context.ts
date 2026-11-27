@@ -26,7 +26,8 @@ const LOCAL_HOST = /^(localhost|127\.0\.0\.1|\[::1\]|10\.\d+\.\d+\.\d+|192\.168\
  */
 export function isLocalRequest(req: Pick<Request, 'headers'>): boolean {
   const h = req.headers;
-  if (h['cf-connecting-ip'] || h['cf-ray']) return false;
+  // x-ic-remote : posé par le site quand il relaie une requête venue d'Internet.
+  if (h['cf-connecting-ip'] || h['cf-ray'] || h['x-ic-remote']) return false;
   const hosts = [h.host, h['x-forwarded-host']].flatMap((v) => (Array.isArray(v) ? v : v ? v.split(',') : []));
   return hosts.length > 0 && hosts.every((v) => LOCAL_HOST.test(v.trim()));
 }

@@ -15,20 +15,18 @@ export function StaffLogin({ next }: { next: string }) {
   const [totp, setTotp] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [testLogin, setTestLogin] = useState(false);
+  const [testLogin, setTestLogin] = useState<{ enabled: boolean; needsCode: boolean }>({ enabled: false, needsCode: false });
+  const [testCode, setTestCode] = useState('');
 
   useEffect(() => {
-    adminAuth.testLoginStatus().then(
-      (r) => setTestLogin(r.enabled),
-      () => setTestLogin(false),
-    );
+    adminAuth.testLoginStatus().then(setTestLogin, () => setTestLogin({ enabled: false, needsCode: false }));
   }, []);
 
   async function enterTest() {
     setBusy(true);
     setError(null);
     try {
-      const { staff } = await adminAuth.testLogin();
+      const { staff } = await adminAuth.testLogin(testLogin.needsCode ? testCode.trim() : undefined);
       setMe(staff);
       router.replace(next);
     } catch (err) {
@@ -58,11 +56,26 @@ export function StaffLogin({ next }: { next: string }) {
         Console d’administration
       </h1>
       <p className="text-sm text-ink-muted">Réservée au personnel d’IvoireCovoit. Chaque action est journalisée.</p>
-      {testLogin && (
+      {testLogin.enabled && (
         <div className="grid gap-2 rounded-[var(--radius-control)] bg-warning-soft px-3 py-2 text-sm">
-          <p>Mode essai (ordinateur local) : entrée directe, sans mot de passe ni code, avec un compte d’essai.</p>
-          <button type="button" className="btn-primary" disabled={busy} onClick={() => void enterTest()}>
-            Entrer sans mot de passe
+          <p>
+            {testLogin.needsCode
+              ? 'Mode essai : entrée avec le code d’essai affiché dans la fenêtre de l’API sur le PC.'
+              : 'Mode essai (ordinateur local) : entrée directe, sans mot de passe ni code, avec un compte d’essai.'}
+          </p>
+          {testLogin.needsCode && (
+            <label className="grid gap-1 font-medium">
+              Code d’essai
+              <input className="field tabular-nums" autoComplete="off" value={testCode} onChange={(e) => setTestCode(e.target.value)} />
+            </label>
+          )}
+          <button
+            type="button"
+            className="btn-primary"
+            disabled={busy || (testLogin.needsCode && testCode.trim().length < 8)}
+            onClick={() => void enterTest()}
+          >
+            {testLogin.needsCode ? 'Entrer avec le code d’essai' : 'Entrer sans mot de passe'}
           </button>
         </div>
       )}

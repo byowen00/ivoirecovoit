@@ -241,11 +241,7 @@ describe('Entrée directe dans la console pour les essais en local', () => {
   it('ouvre une session SUPER_ADMIN sans mot de passe ni code, sur le même compte d’essai', async () => {
     const t = await createTestApp([], { STAFF_TEST_LOGIN: 'true' });
     try {
-      await t.http().get('/api/v1/auth/staff/test-login').expect(200, { enabled: true });
-      // Depuis Internet (tunnel Cloudflare, ou nom d'hôte public relayé par le site) : fermé.
-      await t.http().get('/api/v1/auth/staff/test-login').set('Cf-Connecting-Ip', '203.0.113.5').expect(200, { enabled: false });
-      await t.http().post('/api/v1/auth/staff/test-login').set('Cf-Connecting-Ip', '203.0.113.5').expect(404);
-      await t.http().post('/api/v1/auth/staff/test-login').set('X-Forwarded-Host', 'abc.trycloudflare.com').expect(404);
+      await t.http().get('/api/v1/auth/staff/test-login').expect(200, { enabled: true, needsCode: false });
       const first = await t.http().post('/api/v1/auth/staff/test-login').expect(200);
       expect(first.body.staff).toMatchObject({ email: 'admin.essai@ivoirecovoit.test', roles: ['SUPER_ADMIN'] });
       const again = await t.http().post('/api/v1/auth/staff/test-login').expect(200);
@@ -256,12 +252,34 @@ describe('Entrée directe dans la console pour les essais en local', () => {
     }
   });
 
+  it('depuis Internet (lien Cloudflare), demande le code d’essai', async () => {
+    const t = await createTestApp([], { STAFF_TEST_LOGIN: 'true', STAFF_TEST_LOGIN_CODE: 'essai-2026' });
+    try {
+      const remote = { 'Cf-Connecting-Ip': '203.0.113.5' };
+      await t.http().get('/api/v1/auth/staff/test-login').set(remote).expect(200, { enabled: true, needsCode: true });
+      await t.http().post('/api/v1/auth/staff/test-login').set(remote).expect(401);
+      await t.http().post('/api/v1/auth/staff/test-login').set(remote).send({ code: 'mauvais-code' }).expect(401);
+      // Le site relaie une requête venue d'Internet avec X-IC-Remote : le code reste exigé.
+      await t.http().post('/api/v1/auth/staff/test-login').set('X-IC-Remote', '1').expect(401);
+      await t.http().post('/api/v1/auth/staff/test-login').set('X-Forwarded-Host', 'abc.trycloudflare.com').expect(401);
+      const ok = await t.http().post('/api/v1/auth/staff/test-login').set(remote).send({ code: 'essai-2026' }).expect(200);
+      expect(ok.body.staff.roles).toEqual(['SUPER_ADMIN']);
+      // 10 essais par 15 minutes au plus, même avec le bon code ensuite.
+      for (let i = 0; i < 5; i++) await t.http().post('/api/v1/auth/staff/test-login').set(remote).send({ code: 'x' });
+      await t.http().post('/api/v1/auth/staff/test-login').set(remote).send({ code: 'essai-2026' }).expect(429);
+    } finally {
+      await t.redis.flushdb();
+      await t.app.close();
+      delete process.env.STAFF_TEST_LOGIN_CODE;
+    }
+  });
+
   it('reste fermée quand elle est désactivée ou hors développement', async () => {
     const cases: Record<string, string>[] = [{ STAFF_TEST_LOGIN: 'false' }, { STAFF_TEST_LOGIN: 'true', NODE_ENV: 'staging' }];
     for (const env of cases) {
       const t = await createTestApp([], env);
       try {
-        await t.http().get('/api/v1/auth/staff/test-login').expect(200, { enabled: false });
+        await t.http().get('/api/v1/auth/staff/test-login').expect(200, { enabled: false, needsCode: false });
         await t.http().post('/api/v1/auth/staff/test-login').expect(404);
       } finally {
         await t.app.close();

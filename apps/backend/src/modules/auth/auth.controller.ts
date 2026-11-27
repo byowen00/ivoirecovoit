@@ -123,16 +123,19 @@ export class AuthController {
   @Get('staff/test-login')
   @ApiOperation({ summary: 'Essais en local : l’entrée directe dans la console est-elle ouverte ?' })
   staffTestLoginStatus(@Req() req: AppRequest) {
-    return { enabled: this.staff.testLoginEnabled && isLocalRequest(req) };
+    return { enabled: this.staff.testLoginEnabled, needsCode: !isLocalRequest(req) };
   }
 
   @Public()
   @Post('staff/test-login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Essais en local : entrée directe dans la console, sans mot de passe ni code' })
-  staffTestLogin(@Req() req: AppRequest) {
-    // Jamais depuis Internet (tunnel Cloudflare ouvert pour les essais) : seulement depuis l'ordinateur ou le Wi-Fi.
-    if (!isLocalRequest(req)) throw new ApiError(HttpStatus.NOT_FOUND, 'NOT_FOUND', 'Ressource introuvable.');
+  async staffTestLogin(@Req() req: AppRequest, @Body() body: unknown) {
+    // Depuis Internet (lien Cloudflare des essais) : code d'essai obligatoire. Depuis le PC ou le Wi-Fi : rien.
+    if (!isLocalRequest(req)) {
+      const code = typeof body === 'object' && body && 'code' in body && typeof body.code === 'string' ? body.code : undefined;
+      await this.staff.checkRemoteCode(code);
+    }
     return this.staff.testLogin(requestContext(req));
   }
 }

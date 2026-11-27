@@ -1,5 +1,5 @@
-import { HttpStatus, Inject, Injectable, type OnModuleInit } from '@nestjs/common';
-import { randomBytes } from 'node:crypto';
+import { HttpStatus, Inject, Injectable, Logger, type OnModuleInit } from '@nestjs/common';
+import { createHash, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
 import { ApiError } from '../../common/api-error';
 import { ENV, type Env } from '../../config/env';
 import { DB, type Db } from '../../database/database.module';
@@ -30,6 +30,8 @@ const invalidCredentials = () =>
 @Injectable()
 export class StaffAuthService implements OnModuleInit {
   private dummyHash = '';
+  private remoteTestCode = '';
+  private readonly logger = new Logger('Console (essais)');
 
   constructor(
     @Inject(DB) private readonly db: Db,
@@ -42,6 +44,10 @@ export class StaffAuthService implements OnModuleInit {
   async onModuleInit(): Promise<void> {
     // Empreinte factice : un e-mail inconnu coûte le même temps qu'un mot de passe faux.
     this.dummyHash = await hashPassword(randomBytes(16).toString('hex'));
+    this.remoteTestCode = this.env.STAFF_TEST_LOGIN_CODE ?? String(randomInt(10_000_000, 100_000_000));
+    if (this.testLoginEnabled && !this.env.STAFF_TEST_LOGIN_CODE && this.env.NODE_ENV === 'development') {
+      this.logger.warn(`Code d'essai de la console /admin par le lien Cloudflare : ${this.remoteTestCode}`);
+    }
   }
 
   async login(email: string, password: string, totp: string, ctx: RequestContext): Promise<TokenPair & { staff: StaffView }> {
@@ -96,6 +102,16 @@ export class StaffAuthService implements OnModuleInit {
     return (
       this.env.STAFF_TEST_LOGIN && this.env.OTP_TEST_MODE && (this.env.NODE_ENV === 'development' || this.env.NODE_ENV === 'test')
     );
+  }
+
+  /** Depuis Internet, le code d'essai est exigé (10 essais par 15 minutes pour tout le monde). */
+  async checkRemoteCode(code: string | undefined): Promise<void> {
+    if (!this.testLoginEnabled) throw new ApiError(HttpStatus.NOT_FOUND, 'NOT_FOUND', 'Ressource introuvable.');
+    await this.rateLimit.consumeOrThrow([{ key: 'staff-test-login-remote', limit: 10, windowS: 15 * 60 }]);
+    const digest = (v: string) => createHash('sha256').update(v).digest();
+    if (!code || !timingSafeEqual(digest(code.trim()), digest(this.remoteTestCode))) {
+      throw new ApiError(HttpStatus.UNAUTHORIZED, 'INVALID_CREDENTIALS', 'Code d’essai incorrect.');
+    }
   }
 
   async testLogin(ctx: RequestContext): Promise<TokenPair & { staff: StaffView }> {

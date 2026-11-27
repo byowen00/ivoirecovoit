@@ -49,6 +49,9 @@ export const envSchema = z
       .enum(['true', 'false'])
       .default('true')
       .transform((v) => v === 'true'),
+    // Code d'essai demandé pour cette entrée directe quand on passe par Internet (lien Cloudflare). Absent : un code
+    // aléatoire est tiré au démarrage et affiché dans la fenêtre de l'API.
+    STAFF_TEST_LOGIN_CODE: z.string().trim().min(8).max(64).optional(),
     // Prestataire de paiement. « sandbox » : bac à sable interne, aucun argent réel (interdit en production).
     // « aggregator » : squelette d'adaptateur, pas encore intégré (contrat et documentation à obtenir).
     PAYMENT_PROVIDER: z.enum(['sandbox', 'aggregator']).default('sandbox'),
