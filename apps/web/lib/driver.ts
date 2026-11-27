@@ -1,5 +1,6 @@
 import { send, type SignedUpload } from './account';
 import { fileMeta, putSigned } from './upload';
+import type { ComfortClass } from './comfort';
 
 export type VerificationStatus = 'NOT_SUBMITTED' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED';
 export type DriverDocType = 'NATIONAL_ID' | 'PASSPORT' | 'CONSULAR_CARD' | 'DRIVING_LICENSE';
@@ -41,6 +42,8 @@ export interface VehicleView {
   year: number | null;
   plateNumber: string;
   seatsCapacity: number;
+  comfortClass?: ComfortClass;
+  airConditioning?: boolean;
   status: VerificationStatus;
   rejectionReason: string | null;
   submittedAt: string | null;
@@ -58,6 +61,8 @@ export interface VehicleInput {
   year?: number | null;
   plateNumber: string;
   seatsCapacity: number;
+  comfortClass?: ComfortClass;
+  airConditioning?: boolean;
 }
 
 type UploadUrl = { documentId: string; upload: SignedUpload };

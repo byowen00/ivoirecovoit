@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { formatDistance, formatDuration, formatXof } from '@/lib/format';
+import { BADGE_LABEL, COMFORT } from '@/lib/comfort';
 import type { SearchResult } from '@/lib/trips';
 
 const time = new Intl.DateTimeFormat('fr-CI', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Abidjan' });
@@ -59,7 +60,13 @@ export function TripCard({ trip, seats }: { trip: SearchResult; seats: number })
           </span>
         </div>
         <div className="flex flex-wrap gap-1.5">
+          {trip.driver.badge && <span className="chip chip-success">{BADGE_LABEL[trip.driver.badge]}</span>}
           {trip.driver.verified && <span className="chip chip-success">Vérifié</span>}
+          {trip.vehicle.comfortClass && (
+            <span className="chip chip-neutral">
+              {COMFORT[trip.vehicle.comfortClass].icon} {COMFORT[trip.vehicle.comfortClass].label}
+            </span>
+          )}
           {trip.acceptanceMode === 'AUTO' && <span className="chip chip-brand">Réservation immédiate</span>}
           <span className={`chip ${trip.seatsAvailable <= 1 ? 'bg-danger-soft text-danger' : 'chip-neutral'}`}>
             {trip.seatsAvailable} place{trip.seatsAvailable > 1 ? 's' : ''} libre{trip.seatsAvailable > 1 ? 's' : ''}
@@ -70,6 +77,7 @@ export function TripCard({ trip, seats }: { trip: SearchResult; seats: number })
       <p className="-mt-2 flex flex-wrap gap-x-3 text-xs text-ink-muted">
         <span>
           {trip.vehicle.make} {trip.vehicle.model}
+          {trip.vehicle.airConditioning ? ', climatisée' : ''}
         </span>
         <span>{trip.stopsCount === 0 ? 'Direct' : `${trip.stopsCount} arrêt${trip.stopsCount > 1 ? 's' : ''}`}</span>
         {trip.estimatedDistanceM !== null && <span>{formatDistance(trip.estimatedDistanceM)} (estimation)</span>}

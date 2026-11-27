@@ -9,6 +9,7 @@ import { type MapPoint, TripMap } from '@/components/TripMap';
 import { ApiRequestError } from '@/lib/api';
 import { formatXof } from '@/lib/format';
 import { publicTrips, type SearchParams, type SearchResponse, type SearchResult, type TripKind } from '@/lib/trips';
+import { COMFORT, COMFORT_CLASSES, type ComfortClass } from '@/lib/comfort';
 
 type Sort = NonNullable<SearchParams['sort']>;
 type Period = 'all' | 'morning' | 'afternoon' | 'evening';
@@ -58,6 +59,7 @@ export function SearchResults() {
   const [period, setPeriod] = useState<Period>('all');
   const [maxPrice, setMaxPrice] = useState('');
   const [directOnly, setDirectOnly] = useState(false);
+  const [comfort, setComfort] = useState<ComfortClass | undefined>(undefined);
   const [view, setView] = useState<'list' | 'map'>('list');
 
   const [results, setResults] = useState<SearchResult[] | null>(null);
@@ -81,8 +83,9 @@ export function SearchResults() {
       directOnly,
       maxPriceXof: maxPrice && Number.isInteger(price) && price > 0 ? price : undefined,
       kind,
+      comfort,
     };
-  }, [from, to, date, seats, sort, period, maxPrice, directOnly, fromPoint, nowWindow, kind]);
+  }, [from, to, date, seats, sort, period, maxPrice, directOnly, fromPoint, nowWindow, kind, comfort]);
 
   useEffect(() => {
     if (!query) return;
@@ -178,6 +181,26 @@ export function SearchResults() {
             </button>
           ))}
         </div>
+      </div>
+
+      <div role="radiogroup" aria-label="Gamme du véhicule" className="flex gap-2 overflow-x-auto pb-1">
+        {([undefined, ...COMFORT_CLASSES] as (ComfortClass | undefined)[]).map((c) => (
+          <button
+            key={c ?? 'all'}
+            type="button"
+            role="radio"
+            aria-checked={comfort === c}
+            onClick={() => setComfort(c)}
+            className={`flex min-w-24 shrink-0 flex-col items-center gap-1 rounded-[var(--radius-control)] border px-3 py-2 text-sm font-semibold ${
+              comfort === c ? 'border-night bg-night text-white' : 'border-line bg-surface'
+            }`}
+          >
+            <span className="text-2xl" aria-hidden>
+              {c ? COMFORT[c].icon : '🚘'}
+            </span>
+            {c ? COMFORT[c].label : 'Toutes gammes'}
+          </button>
+        ))}
       </div>
 
       <details className="card md:open:block" open>

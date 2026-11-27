@@ -1,6 +1,7 @@
 import { send } from './account';
 import { apiGet } from './api';
 import { newIdempotencyKey } from './trips';
+import type { ReviewCriteria } from './comfort';
 
 // ------------------------------------------------------------------ notifications (écran 13)
 
@@ -206,8 +207,8 @@ export const trust = {
   conversation: (bookingId: string) => send<Conversation>(`/bff/api/bookings/${bookingId}/messages`, 'GET'),
   sendMessage: (bookingId: string, body: string) => send<ChatMessage>(`/bff/api/bookings/${bookingId}/messages`, 'POST', { body }),
   reviewStatus: (bookingId: string) => send<ReviewStatus>(`/bff/api/bookings/${bookingId}/review`, 'GET'),
-  review: (bookingId: string, rating: number, comment?: string) =>
-    send<ReviewStatus>(`/bff/api/bookings/${bookingId}/reviews`, 'POST', comment ? { rating, comment } : { rating }),
+  review: (bookingId: string, rating: number, comment?: string, criteria?: ReviewCriteria) =>
+    send<ReviewStatus>(`/bff/api/bookings/${bookingId}/reviews`, 'POST', { rating, ...(comment ? { comment } : {}), ...(criteria ? { criteria } : {}) }),
   publicReviews: (userId: string) => apiGet<PublicReviews>(`/users/${userId}/reviews`),
   report: (input: { targetType: ReportTarget; targetId: string; bookingId?: string; category: ReportCategory; description: string }) =>
     send<{ id: string }>('/bff/api/reports', 'POST', input, idem()),

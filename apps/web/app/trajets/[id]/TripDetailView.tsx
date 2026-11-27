@@ -9,6 +9,7 @@ import { type MapPoint, TripMap } from '@/components/TripMap';
 import { ApiRequestError } from '@/lib/api';
 import { formatDistance, formatDuration, formatXof } from '@/lib/format';
 import { type Availability, LUGGAGE_LABEL, publicTrips, routeSourceNote, TRIP_STATUS_LABEL, type TripDetail } from '@/lib/trips';
+import { BADGE_LABEL, COMFORT } from '@/lib/comfort';
 
 /** Écran 6 : détail d'un trajet, choix du segment, prix et places pour ce segment. */
 export function TripDetailView({ id }: { id: string }) {
@@ -139,6 +140,8 @@ export function TripDetailView({ id }: { id: string }) {
             <li>
               Véhicule : {trip.vehicle.make} {trip.vehicle.model}, {trip.vehicle.color}
               {trip.vehicle.plateNumber && ` · ${trip.vehicle.plateNumber}`}
+              {trip.vehicle.comfortClass && ` · ${COMFORT[trip.vehicle.comfortClass].icon} ${COMFORT[trip.vehicle.comfortClass].label}`}
+              {trip.vehicle.airConditioning && ' · climatisée'}
             </li>
             <li>Bagages : {LUGGAGE_LABEL[trip.luggagePolicy]}</li>
             <li>{trip.acceptanceMode === 'AUTO' ? 'Réservation confirmée immédiatement' : 'Le conducteur accepte chaque demande'}</li>
@@ -227,7 +230,9 @@ export function TripDetailView({ id }: { id: string }) {
                   {trip.driver.displayName} <span className="text-sm text-success">✓ vérifié</span>
                 </p>
                 <p className="text-sm text-ink-muted">
+                  {trip.driver.badge && <span className="chip chip-success mr-1">{BADGE_LABEL[trip.driver.badge]}</span>}
                   {trip.driver.ratingAvg !== null ? `★ ${trip.driver.ratingAvg.toFixed(1)} · ${trip.driver.ratingCount} avis` : 'Pas encore d’avis'} ·{' '}
+                  {trip.driver.criteria?.driving !== undefined && `conduite ${Number(trip.driver.criteria.driving).toFixed(1)}/5 · `}
                   {trip.driver.completedTripsCount} trajet{trip.driver.completedTripsCount > 1 ? 's' : ''}
                 </p>
               </div>

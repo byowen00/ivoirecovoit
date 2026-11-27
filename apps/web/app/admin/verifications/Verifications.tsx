@@ -47,6 +47,8 @@ interface Detail {
   year?: number | null;
   plateNumber?: string | null;
   seatsCapacity?: number;
+  comfortClass?: string;
+  airConditioning?: boolean;
 }
 
 const DOC_LABEL: Record<string, string> = {
@@ -161,6 +163,7 @@ function VerificationDetail({ item, onDone }: { item: Item; onDone: () => void }
                 ['Véhicule', `${data.make} ${data.model}, ${data.color}${data.year ? `, ${data.year}` : ''}`],
                 ['Immatriculation', data.plateNumber ?? '—'],
                 ['Places', String(data.seatsCapacity ?? '—')],
+                ['Gamme déclarée (à vérifier sur les photos)', `${data.comfortClass ?? '—'}${data.airConditioning ? ', climatisée' : ''}`],
               ] as [string, React.ReactNode][])),
           ...(data.rejectionReason ? ([['Dernier refus', data.rejectionReason]] as [string, React.ReactNode][]) : []),
         ]}

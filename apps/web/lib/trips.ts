@@ -1,6 +1,7 @@
 import type { BookingStatus } from './bookings';
 import { send } from './account';
 import { apiGet } from './api';
+import type { ComfortClass, DriverBadge } from './comfort';
 
 export type TripKind = 'URBAN' | 'INTERCITY';
 export type TripStatus = 'DRAFT' | 'PUBLISHED' | 'FULL' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
@@ -23,6 +24,8 @@ export interface SearchParams {
   sort?: 'departure' | 'price' | 'distance' | 'rating';
   /** Menu « En ville » / « Interurbain » ; absent : les deux. */
   kind?: TripKind;
+  /** Gamme du véhicule ; absent : toutes. */
+  comfort?: ComfortClass;
   cursor?: string;
 }
 
@@ -38,8 +41,8 @@ export interface SearchResult {
   unitPriceXof: number;
   seatsAvailable: number;
   acceptanceMode: 'AUTO' | 'MANUAL';
-  driver: { id: string; displayName: string; ratingAvg: number | null; ratingCount: number; verified: boolean };
-  vehicle: { make: string; model: string; color: string };
+  driver: { id: string; displayName: string; ratingAvg: number | null; ratingCount: number; verified: boolean; badge?: DriverBadge };
+  vehicle: { make: string; model: string; color: string; comfortClass?: ComfortClass; airConditioning?: boolean };
   stopsCount: number;
   isDemo: boolean;
 }
@@ -90,8 +93,10 @@ export interface TripDetail {
     verified: boolean;
     memberSince: string;
     preferences: Record<string, unknown>;
+    badge?: DriverBadge;
+    criteria?: { driving?: number; punctuality?: number; comfort?: number; courtesy?: number; n: number } | null;
   } | null;
-  vehicle: { make: string; model: string; color: string; plateNumber: string | null };
+  vehicle: { make: string; model: string; color: string; plateNumber: string | null; comfortClass?: ComfortClass; airConditioning?: boolean };
   acceptanceMode: 'AUTO' | 'MANUAL';
   cancellationPolicy: { code: string; label: string; rules: unknown };
   allowsCash: boolean;

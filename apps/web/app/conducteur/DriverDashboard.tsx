@@ -19,6 +19,7 @@ import {
 } from '@/lib/driver';
 import { formatDateTime } from '@/lib/format';
 import { newIdempotencyKey } from '@/lib/trips';
+import { COMFORT, COMFORT_CLASSES, type ComfortClass } from '@/lib/comfort';
 
 const message = (err: unknown) => (err instanceof ApiRequestError ? err.message : 'Une erreur est survenue. Réessayez.');
 
@@ -309,6 +310,8 @@ function VehicleItem({ vehicle: v, onChanged }: { vehicle: VehicleView; onChange
       <div className="mt-3 grid gap-2">
         <p className="text-sm text-ink-muted">
           {v.color} · {v.seatsCapacity} place{v.seatsCapacity > 1 ? 's' : ''} passagers{v.year ? ` · ${v.year}` : ''}
+          {v.comfortClass ? ` · ${COMFORT[v.comfortClass].icon} ${COMFORT[v.comfortClass].label}` : ''}
+          {v.airConditioning ? ' · climatisée' : ''}
         </p>
         {v.status === 'REJECTED' && v.rejectionReason && <p className="text-sm text-danger">Motif du refus : {v.rejectionReason}</p>}
         <DocumentUpload label="Carte grise" current={doc('VEHICLE_REGISTRATION')} disabled={!editable} onUpload={upload('VEHICLE_REGISTRATION')} />
@@ -333,7 +336,7 @@ function VehicleItem({ vehicle: v, onChanged }: { vehicle: VehicleView; onChange
 }
 
 function VehicleForm({ onDone, onCancel }: { onDone: () => Promise<void>; onCancel?: () => void }) {
-  const [form, setForm] = useState({ make: '', model: '', color: '', year: '', plateNumber: '', seatsCapacity: '3' });
+  const [form, setForm] = useState({ make: '', model: '', color: '', year: '', plateNumber: '', seatsCapacity: '3', comfortClass: 'ECONOMIQUE' as ComfortClass, airConditioning: false });
   const [fields, setFields] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -354,6 +357,8 @@ function VehicleForm({ onDone, onCancel }: { onDone: () => Promise<void>; onCanc
           year: form.year ? Number(form.year) : null,
           plateNumber: form.plateNumber,
           seatsCapacity: Number(form.seatsCapacity),
+          comfortClass: form.comfortClass,
+          airConditioning: form.airConditioning,
         },
         key,
       );
@@ -366,7 +371,7 @@ function VehicleForm({ onDone, onCancel }: { onDone: () => Promise<void>; onCanc
     }
   }
 
-  const input = (id: keyof typeof form, label: string, props: React.InputHTMLAttributes<HTMLInputElement> = {}) => (
+  const input = (id: 'make' | 'model' | 'color' | 'year' | 'plateNumber', label: string, props: React.InputHTMLAttributes<HTMLInputElement> = {}) => (
     <div>
       <label htmlFor={`v-${id}`} className="mb-1 block text-sm font-medium">
         {label}
@@ -399,6 +404,24 @@ function VehicleForm({ onDone, onCancel }: { onDone: () => Promise<void>; onCanc
           {fields.seatsCapacity && <p className="mt-1 text-sm text-danger">{fields.seatsCapacity}</p>}
         </div>
       </div>
+      <fieldset className="grid gap-2">
+        <legend className="mb-1 text-sm font-medium">Gamme du véhicule (vérifiée sur les photos)</legend>
+        {COMFORT_CLASSES.map((c) => (
+          <label key={c} className="flex items-start gap-2">
+            <input type="radio" name="comfort" className="mt-1" checked={form.comfortClass === c} onChange={() => setForm({ ...form, comfortClass: c })} />
+            <span>
+              <span className="font-medium">
+                {COMFORT[c].icon} {COMFORT[c].label}
+              </span>
+              <span className="block text-sm text-ink-muted">{COMFORT[c].hint}</span>
+            </span>
+          </label>
+        ))}
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={form.airConditioning} onChange={(e) => setForm({ ...form, airConditioning: e.target.checked })} />
+          <span>Climatisation</span>
+        </label>
+      </fieldset>
       {error && <p role="alert" className="text-sm text-danger">{error}</p>}
       <div className="flex gap-2">
         <button type="submit" className="btn-primary" disabled={busy}>

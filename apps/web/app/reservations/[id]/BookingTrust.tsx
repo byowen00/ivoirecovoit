@@ -9,6 +9,7 @@ import { ApiRequestError } from '@/lib/api';
 import type { Booking } from '@/lib/bookings';
 import { useNow } from '@/lib/use-now';
 import { type DisputeEligibility, DISPUTE_STATUS_LABEL, type DisputeStatus, type ReviewStatus, shareMessage, type ShareLink, trust } from '@/lib/trust';
+import { REVIEW_CRITERIA, type ReviewCriteria } from '@/lib/comfort';
 
 const message = (err: unknown) => (err instanceof ApiRequestError ? err.message : 'Une erreur est survenue. Réessayez.');
 
@@ -134,6 +135,7 @@ function ReviewBlock({ b, onChange }: { b: Booking; onChange: () => void }) {
   const [status, setStatus] = useState<ReviewStatus | null>(null);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
+  const [criteria, setCriteria] = useState<Partial<ReviewCriteria>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
@@ -146,7 +148,9 @@ function ReviewBlock({ b, onChange }: { b: Booking; onChange: () => void }) {
     setBusy(true);
     setError(null);
     try {
-      setStatus(await trust.review(b.id, rating, comment.trim() || undefined));
+      // Notes détaillées envoyées seulement si les quatre critères sont remplis.
+      const full = REVIEW_CRITERIA.every((c) => criteria[c.key]) ? (criteria as ReviewCriteria) : undefined;
+      setStatus(await trust.review(b.id, rating, comment.trim() || undefined, status?.subjectRole === 'DRIVER' ? full : undefined));
       onChange();
     } catch (err) {
       setError(message(err));
@@ -173,6 +177,21 @@ function ReviewBlock({ b, onChange }: { b: Booking; onChange: () => void }) {
       ) : (
         <form onSubmit={(e) => void submit(e)} className="grid gap-2">
           <StarRating value={rating} onChange={setRating} />
+          {status.subjectRole === 'DRIVER' && (
+            <div className="grid gap-2 rounded-[var(--radius-control)] bg-surface-muted p-3">
+              <p className="text-sm font-medium">Le trajet en détail (facultatif) : ces notes classent les meilleurs conducteurs.</p>
+              {REVIEW_CRITERIA.map((c) => (
+                <StarRating
+                  key={c.key}
+                  small
+                  name={`crit-${c.key}`}
+                  legend={c.label}
+                  value={criteria[c.key] ?? 0}
+                  onChange={(v) => setCriteria({ ...criteria, [c.key]: v })}
+                />
+              ))}
+            </div>
+          )}
           <label htmlFor="review-comment" className="text-sm font-medium">
             Commentaire (facultatif, public)
           </label>
