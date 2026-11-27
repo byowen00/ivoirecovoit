@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/nav.dart';
 import '../../core/server_address.dart';
 import '../../core/api_client.dart';
 import '../../core/theme.dart';
@@ -29,7 +30,7 @@ class AccountScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(authControllerProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Mon compte')),
+      appBar: AppBar(leading: homeLeading(context), title: const Text('Mon compte')),
       body: SafeArea(
         child: auth.when(
           loading: () => const Center(child: CircularProgressIndicator()),

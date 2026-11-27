@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api_client.dart';
+import '../../core/nav.dart';
 import '../../core/theme.dart';
 import '../../providers.dart';
 import 'auth_controller.dart';
@@ -90,7 +91,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
       ref.read(authControllerProvider.notifier).setMe(me);
       if (!mounted) return;
       if (me.profileComplete) {
-        context.go(widget.args.next);
+        goWithHome(context, widget.args.next);
       } else {
         context.go('/inscription/profil?next=${Uri.encodeComponent(widget.args.next)}');
       }

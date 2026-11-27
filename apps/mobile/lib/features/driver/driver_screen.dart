@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../core/nav.dart';
 import '../../core/api_client.dart';
 import '../../core/format.dart';
 import '../../core/theme.dart';
@@ -116,7 +117,7 @@ class _DriverScreenState extends ConsumerState<DriverScreen> {
   Widget build(BuildContext context) {
     final p = _profile;
     return Scaffold(
-      appBar: AppBar(title: const Text('Espace conducteur')),
+      appBar: AppBar(leading: homeLeading(context), title: const Text('Espace conducteur')),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null

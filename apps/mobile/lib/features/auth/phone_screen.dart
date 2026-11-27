@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/api_client.dart';
 import '../../core/config.dart';
+import '../../core/nav.dart';
 import '../../core/theme.dart';
 import '../../core/server_address.dart';
 import '../../providers.dart';
@@ -53,7 +54,11 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
       final me = await repo.verifyOtp(otp.id, code, deviceLabel());
       ref.read(authControllerProvider.notifier).setMe(me);
       if (!mounted) return;
-      context.go(me.profileComplete ? widget.next : '/inscription/profil?next=${Uri.encodeComponent(widget.next)}');
+      if (me.profileComplete) {
+        goWithHome(context, widget.next);
+      } else {
+        context.go('/inscription/profil?next=${Uri.encodeComponent(widget.next)}');
+      }
     } on ApiException catch (e) {
       setState(() => _error = e.message);
     } finally {

@@ -36,6 +36,7 @@ void main() {
     final router = GoRouter(initialLocation: '/code', routes: [
       GoRoute(path: '/code', builder: (_, _) => OtpScreen(args: args, clock: () => now)),
       GoRoute(path: '/inscription/profil', builder: (_, _) => const Text('ÉCRAN PROFIL')),
+      GoRoute(path: '/', builder: (_, _) => const Text('ÉCRAN ACCUEIL')),
       GoRoute(path: '/compte', builder: (_, _) => const Text('ÉCRAN COMPTE')),
     ]);
     return ProviderScope(
@@ -137,6 +138,7 @@ void main() {
     });
     final router = GoRouter(initialLocation: '/connexion', routes: [
       GoRoute(path: '/connexion', builder: (_, _) => const PhoneScreen()),
+      GoRoute(path: '/', builder: (_, _) => const Text('ÉCRAN ACCUEIL')),
       GoRoute(path: '/compte', builder: (_, _) => const Text('ÉCRAN COMPTE')),
     ]);
     await tester.pumpWidget(ProviderScope(
@@ -150,6 +152,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(calls.where((p) => p.endsWith('/otp/verify')), hasLength(1));
     expect(find.text('ÉCRAN COMPTE'), findsOneWidget);
+    // L'accueil reste dessous : la flèche de retour y ramène.
+    expect(router.canPop(), isTrue);
     expect(store.token, 'R');
   });
 }

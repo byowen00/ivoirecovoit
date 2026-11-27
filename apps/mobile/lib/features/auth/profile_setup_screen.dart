@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../core/api_client.dart';
+import '../../core/nav.dart';
 import '../../core/theme.dart';
 import '../../providers.dart';
 import 'auth_controller.dart';
@@ -52,7 +52,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         me = await repo.consent(c.type, c.version, true);
       }
       ref.read(authControllerProvider.notifier).setMe(me);
-      if (mounted) context.go(widget.next);
+      if (mounted) goWithHome(context, widget.next);
     } on ApiException catch (e) {
       setState(() {
         _fields = e.fields;

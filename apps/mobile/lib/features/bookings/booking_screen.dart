@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/api_client.dart';
 import '../../core/format.dart';
+import '../../core/nav.dart';
 import '../../core/theme.dart';
 import '../../providers.dart';
 import '../trips/trips_repository.dart';
@@ -103,7 +104,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
             cash: _cash,
             promoCode: _quote?.promoCode,
           );
-      if (mounted) context.go('/reservations/${b.id}');
+      if (mounted) goWithHome(context, '/reservations/${b.id}');
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {

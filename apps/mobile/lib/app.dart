@@ -174,8 +174,9 @@ class _RequireMe extends ConsumerWidget {
     final me = ref.watch(authControllerProvider);
     return me.when(
       loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
-      error: (_, _) => const PhoneScreen(),
-      data: (m) => m == null ? const PhoneScreen() : builder(m),
+      // Après connexion, retour à l'écran demandé (et non à « Mon compte »).
+      error: (_, _) => PhoneScreen(next: safeNext(GoRouterState.of(context).uri.toString())),
+      data: (m) => m == null ? PhoneScreen(next: safeNext(GoRouterState.of(context).uri.toString())) : builder(m),
     );
   }
 }
