@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../core/api_client.dart';
 import '../../core/theme.dart';
+import 'map_picker.dart';
 import 'places_repository.dart';
 
 /// Champ de saisie d'un lieu avec suggestions (ville, commune, quartier).
@@ -96,6 +98,37 @@ class _PlaceFieldState extends State<PlaceField> {
     }
   }
 
+  /// Choisir sur la carte : le point est rattaché au lieu connu le plus proche.
+  Future<void> _pickOnMap() async {
+    FocusScope.of(context).unfocus();
+    final s = _selected;
+    final point = await Navigator.of(context).push<LatLng>(
+      MaterialPageRoute(
+        builder: (_) => MapPickerScreen(title: widget.label, initial: s == null ? null : LatLng(s.lat, s.lng)),
+      ),
+    );
+    if (point == null || !mounted) return;
+    final id = ++_requestId;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final place = await widget.repository.reverse(point.latitude, point.longitude);
+      if (!mounted || id != _requestId) return;
+      if (place == null) {
+        setState(() => _error = 'Aucun lieu connu près de ce point. Choisissez un point plus proche d’une ville.');
+      } else {
+        _select(place);
+      }
+    } on ApiException catch (e) {
+      if (!mounted || id != _requestId) return;
+      setState(() => _error = e.message);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
   void _select(Place place) {
     _timer?.cancel();
     _requestId++;
@@ -128,7 +161,12 @@ class _PlaceFieldState extends State<PlaceField> {
                     padding: EdgeInsets.all(14),
                     child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
                   )
-                : null,
+                : IconButton(
+                    key: Key('map-pick-${widget.label}'),
+                    tooltip: 'Choisir sur la carte',
+                    icon: const Icon(Icons.map_outlined),
+                    onPressed: _pickOnMap,
+                  ),
           ),
         ),
         if (_error != null)

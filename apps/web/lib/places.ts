@@ -24,3 +24,10 @@ export const PLACE_KIND_LABEL: Record<PlaceSuggestion['kind'], string> = {
   LANDMARK: 'Lieu',
   STATION: 'Gare',
 };
+
+/** Lieu connu le plus proche d'un point (20 km au plus), ou null. */
+export async function reversePlace(lat: number, lng: number): Promise<PlaceSuggestion | null> {
+  const params = new URLSearchParams({ lat: String(lat), lng: String(lng) });
+  const res = await apiGet<{ data: PlaceSuggestion | null }>(`/places/reverse?${params}`, { retries: 1 });
+  return res.data;
+}

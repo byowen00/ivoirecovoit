@@ -32,6 +32,9 @@ class Place {
 
 abstract class PlacesRepository {
   Future<List<Place>> autocomplete(String query);
+
+  /// Lieu connu le plus proche d'un point (20 km au plus), ou null.
+  Future<Place?> reverse(double lat, double lng);
 }
 
 class ApiPlacesRepository implements PlacesRepository {
@@ -42,5 +45,12 @@ class ApiPlacesRepository implements PlacesRepository {
   Future<List<Place>> autocomplete(String query) async {
     final res = await _api.get('/places/autocomplete', query: {'q': query, 'limit': '6'}, retries: 1);
     return (res['data'] as List<dynamic>).map((e) => Place.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  @override
+  Future<Place?> reverse(double lat, double lng) async {
+    final res = await _api.get('/places/reverse', query: {'lat': '$lat', 'lng': '$lng'}, retries: 1);
+    final data = res['data'];
+    return data == null ? null : Place.fromJson(data as Map<String, dynamic>);
   }
 }

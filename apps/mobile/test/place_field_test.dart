@@ -17,6 +17,16 @@ class FakePlaces implements PlacesRepository {
       Place(id: 'p1', kind: 'CITY', label: 'Yamoussoukro', lat: 6.83, lng: -5.29, isApproximate: true),
     ];
   }
+
+  final reversed = <(double, double)>[];
+  Place? nearest =
+      const Place(id: 'p2', kind: 'NEIGHBORHOOD', label: 'Cocody, Abidjan', lat: 5.35, lng: -3.99, isApproximate: false);
+
+  @override
+  Future<Place?> reverse(double lat, double lng) async {
+    reversed.add((lat, lng));
+    return nearest;
+  }
 }
 
 Widget wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
@@ -58,5 +68,30 @@ void main() {
     await tester.enterText(find.byType(TextField), 'bouake');
     await tester.pumpAndSettle();
     expect(find.textContaining('Connexion impossible'), findsOneWidget);
+  });
+
+  testWidgets('choisir sur la carte retient le lieu connu le plus proche', (tester) async {
+    final repo = FakePlaces();
+    Place? selected;
+    await tester.pumpWidget(wrap(PlaceField(label: 'Départ', repository: repo, onSelected: (p) => selected = p)));
+    await tester.tap(find.byKey(const Key('map-pick-Départ')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('map-pick-confirm')));
+    await tester.pumpAndSettle();
+    expect(repo.reversed, hasLength(1));
+    expect(selected?.id, 'p2');
+    expect(find.text('Cocody, Abidjan'), findsOneWidget);
+  });
+
+  testWidgets('point loin de tout lieu connu : message clair, rien de choisi', (tester) async {
+    final repo = FakePlaces()..nearest = null;
+    Place? selected;
+    await tester.pumpWidget(wrap(PlaceField(label: 'Arrivée', repository: repo, onSelected: (p) => selected = p)));
+    await tester.tap(find.byKey(const Key('map-pick-Arrivée')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('map-pick-confirm')));
+    await tester.pumpAndSettle();
+    expect(selected, isNull);
+    expect(find.textContaining('Aucun lieu connu près de ce point'), findsOneWidget);
   });
 }

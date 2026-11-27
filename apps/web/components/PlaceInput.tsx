@@ -2,7 +2,8 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import { ApiRequestError } from '@/lib/api';
-import { PLACE_KIND_LABEL, type PlaceSuggestion, searchPlaces } from '@/lib/places';
+import { PLACE_KIND_LABEL, type PlaceSuggestion, reversePlace, searchPlaces } from '@/lib/places';
+import { MapPicker } from './MapPicker';
 
 interface Props {
   label: string;
@@ -27,6 +28,28 @@ export function PlaceInput({ label, placeholder, value, onChange, debounceMs = 2
   const [active, setActive] = useState(-1);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inflight = useRef<AbortController | null>(null);
+  const [mapOpen, setMapOpen] = useState(false);
+  const [locating, setLocating] = useState(false);
+
+  async function pickOnMap(point: { lat: number; lng: number }) {
+    setLocating(true);
+    setError(null);
+    try {
+      const place = await reversePlace(point.lat, point.lng);
+      if (place) {
+        select(place);
+        setMapOpen(false);
+      } else {
+        setStatus('error');
+        setError('Aucun lieu connu près de ce point. Choisissez un point plus proche d’une ville.');
+      }
+    } catch (err) {
+      setStatus('error');
+      setError(err instanceof ApiRequestError ? err.message : 'Lieu introuvable pour le moment.');
+    } finally {
+      setLocating(false);
+    }
+  }
 
   function cancelPending() {
     if (timer.current) clearTimeout(timer.current);
@@ -92,9 +115,14 @@ export function PlaceInput({ label, placeholder, value, onChange, debounceMs = 2
 
   return (
     <div className="relative">
-      <label htmlFor={id} className="mb-1 block text-sm font-medium text-ink">
-        {label}
-      </label>
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <label htmlFor={id} className="block text-sm font-medium text-ink">
+          {label}
+        </label>
+        <button type="button" className="text-sm font-semibold text-brand" aria-expanded={mapOpen} onClick={() => setMapOpen((o) => !o)}>
+          🗺 Choisir sur la carte
+        </button>
+      </div>
       <input
         id={id}
         type="text"
@@ -112,6 +140,17 @@ export function PlaceInput({ label, placeholder, value, onChange, debounceMs = 2
         onBlur={() => setTimeout(() => setOpen(false), 150)}
         className="h-12 w-full rounded-[var(--radius-control)] border border-line bg-surface px-3 text-base text-ink placeholder:text-ink-muted"
       />
+      {mapOpen && (
+        <div className="mt-2">
+          <MapPicker
+            label={label}
+            initial={value ? { lat: value.lat, lng: value.lng } : null}
+            busy={locating}
+            onPick={(p) => void pickOnMap(p)}
+            onCancel={() => setMapOpen(false)}
+          />
+        </div>
+      )}
       <div aria-live="polite" className="min-h-5 pt-1 text-sm">
         {status === 'loading' && <span className="text-ink-muted">Recherche…</span>}
         {status === 'error' && <span className="text-danger">{error}</span>}
