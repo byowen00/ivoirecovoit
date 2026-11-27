@@ -19,6 +19,8 @@ void main() {
       expect(localMobileDigits('+225 05 44 33 22 11'), '0544332211');
       expect(localMobileDigits('27 22 44 55 66'), isNull);
       expect(localMobileDigits('09 12 34 56 78'), isNull);
+      expect(localMobileDigits('00 00 00 00 01'), '0000000001');
+      expect(localMobileDigits('00 12 34 56 78'), isNull);
     });
 
     test('formate par paires', () {

@@ -107,10 +107,11 @@ class SessionInfo {
 }
 
 /// « 07 07 07 07 07 », « +225 0707070707 » → « 0707070707 » si mobile ivoirien (01, 05, 07), sinon null.
+/// Les numéros de démonstration 00 00 00 00 xx passent aussi : l'API ne les accepte qu'en mode test.
 String? localMobileDigits(String input) {
   var digits = input.replaceAll(RegExp(r'\D'), '');
   if (digits.length == 13 && digits.startsWith('225')) digits = digits.substring(3);
-  return RegExp(r'^0[157]\d{8}$').hasMatch(digits) ? digits : null;
+  return RegExp(r'^(0[157]\d{8}|00000000\d{2})$').hasMatch(digits) ? digits : null;
 }
 
 /// « 0707070707 » → « 07 07 07 07 07 »

@@ -6,11 +6,12 @@ describe('saisie du téléphone', () => {
     ['07 07 07 07 07', '0707070707'],
     ['+225 05 44 33 22 11', '0544332211'],
     ['0102030405', '0102030405'],
+    ['00 00 00 00 01', '0000000001'],
   ])('accepte « %s »', (input, expected) => {
     expect(localMobileDigits(input)).toBe(expected);
   });
 
-  it.each(['27 22 44 55 66', '07 07 07', '09 12 34 56 78'])('refuse « %s »', (input) => {
+  it.each(['27 22 44 55 66', '07 07 07', '09 12 34 56 78', '00 12 34 56 78'])('refuse « %s »', (input) => {
     expect(localMobileDigits(input)).toBeNull();
   });
 

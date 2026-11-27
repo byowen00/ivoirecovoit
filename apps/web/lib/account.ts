@@ -134,10 +134,13 @@ export const auth = {
     send<{ user: Me; isNewUser: boolean }>('/bff/auth/otp/verify', 'POST', { otpRequestId, code, deviceLabel }),
 };
 
-/** « 0707070707 » ou « 07 07 07 07 07 » → 10 chiffres, ou null. Contrôle de forme seulement : l'API tranche. */
+/**
+ * « 0707070707 » ou « 07 07 07 07 07 » → 10 chiffres, ou null. Contrôle de forme seulement : l'API tranche
+ * (les numéros de démonstration 00 00 00 00 xx ne sont acceptés par l'API qu'en mode test).
+ */
 export function localMobileDigits(input: string): string | null {
   const digits = input.replace(/\D/g, '').replace(/^225(?=\d{10}$)/, '');
-  return /^0[157]\d{8}$/.test(digits) ? digits : null;
+  return /^(0[157]\d{8}|00000000\d{2})$/.test(digits) ? digits : null;
 }
 
 export function formatLocalPhone(digits: string): string {
