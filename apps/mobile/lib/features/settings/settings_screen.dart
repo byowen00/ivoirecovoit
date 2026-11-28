@@ -277,7 +277,7 @@ class _PhoneCardState extends ConsumerState<_PhoneCard> {
 class _AppearanceCard extends ConsumerWidget {
   const _AppearanceCard();
 
-  static final _sizes = {1.0: 'Normal', 1.15: 'Grand', 1.3: 'Très grand'};
+  static final _sizes = {0.85: 'Petit', 1.0: 'Normal', 1.15: 'Grand', 1.3: 'Très grand'};
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -319,7 +319,11 @@ class _AppearanceCard extends ConsumerWidget {
             const Text('Taille du texte'),
             const SizedBox(height: 8),
             SegmentedButton<double>(
-              segments: [for (final e in _sizes.entries) ButtonSegment(value: e.key, label: Text(e.value))],
+              showSelectedIcon: false,
+              segments: [
+                for (final e in _sizes.entries)
+                  ButtonSegment(value: e.key, label: Text(e.value, maxLines: 1, overflow: TextOverflow.fade, softWrap: false)),
+              ],
               selected: {_sizes.containsKey(mine.textScale) ? mine.textScale : 1.0},
               onSelectionChanged: (s) => notifier.setTextScale(s.first),
             ),
