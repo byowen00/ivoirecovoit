@@ -9,11 +9,11 @@ import { fallbackEstimate, type LatLng } from '../../modules/routing/haversine';
  * Les positions sont SIMULÉES par run-live-demo.ts le long d'un tracé à vol d'oiseau : ce ne sont pas des GPS.
  */
 
-const NAMES = [
+export const NAMES = [
   ['Ibrahim', 'Koné'], ['Adjoua', 'Yao'], ['Serge', 'Kouadio'], ['Nadège', 'Aka'], ['Moussa', 'Sylla'],
   ['Christelle', 'Brou'], ['Lassina', 'Coulibaly'], ['Prisca', 'Kassi'], ['Hervé', 'Gbagbo'], ['Salimata', 'Touré'],
 ] as const;
-const PASSENGERS = [
+export const PASSENGERS = [
   ['Kevin', 'Assi'], ['Rokia', 'Doumbia'], ['Patrick', 'Ehui'], ['Mariette', 'Kra'], ['Souleymane', 'Cissé'],
   ['Estelle', 'Amani'], ['Didier', 'Zadi'], ['Assita', 'Sanogo'], ['Franck', 'Loba'], ['Bintou', 'Fofana'],
 ] as const;
@@ -30,9 +30,9 @@ const ROUTES: [string, string, number][] = [
 ];
 
 export const LIVE_DEMO_DRIVER_PHONES = NAMES.map((_, i) => `+22500000000${21 + i}`);
-const passengerPhone = (i: number) => `+22500000000${31 + i}`;
+export const passengerPhone = (i: number) => `+22500000000${31 + i}`;
 
-async function place(client: Client, name: string): Promise<{ id: string } & LatLng> {
+export async function place(client: Client, name: string): Promise<{ id: string } & LatLng> {
   const { rows } = await client.query<{ id: string; lat: number; lng: number }>(
     `SELECT id, ST_Y(location::geometry) AS lat, ST_X(location::geometry) AS lng FROM places WHERE name = $1 ORDER BY kind LIMIT 1`,
     [name],
@@ -41,7 +41,7 @@ async function place(client: Client, name: string): Promise<{ id: string } & Lat
   return rows[0];
 }
 
-async function user(client: Client, phone: string, first: string, last: string): Promise<string> {
+export async function user(client: Client, phone: string, first: string, last: string): Promise<string> {
   const found = await client.query<{ id: string }>('SELECT id FROM users WHERE phone_e164 = $1', [phone]);
   if (found.rows[0]) return found.rows[0].id;
   const id = uuidv7();

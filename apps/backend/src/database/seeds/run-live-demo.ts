@@ -3,6 +3,7 @@ import { Client } from 'pg';
 import { loadDatabaseEnv } from '../../config/env';
 import type { LatLng } from '../../modules/routing/haversine';
 import { pointAlong, seedLiveDemo } from './live-demo';
+import { seedOffersDemo } from './offers-demo';
 
 /*
  * pnpm demo:live — crée (si besoin) 10 conducteurs et 10 passagers [DEMO] en trajet dans Abidjan, puis fait
@@ -17,8 +18,10 @@ async function main(): Promise<void> {
   await client.query('BEGIN');
   try {
     const summary = await seedLiveDemo(client);
+    const offers = await seedOffersDemo(client);
     await client.query('COMMIT');
     console.warn(`Comptes [DEMO] prêts : ${summary.drivers} conducteurs, ${summary.passengers} passagers ; ${summary.trips} trajet(s) démarré(s).`);
+    console.warn(`${offers.trips} trajet(s) proposé(s) ajouté(s) (ville et interurbain, Économique / Confort / Luxe), ${offers.requests} demande(s) de passager à traiter.`);
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;

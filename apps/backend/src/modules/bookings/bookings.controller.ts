@@ -62,6 +62,12 @@ export class BookingsController {
     return this.bookings.mine(auth.userId, query);
   }
 
+  @Get('bookings/requests')
+  @ApiOperation({ summary: 'Conducteur : demandes de passagers en attente de réponse, tous trajets confondus' })
+  requests(@CurrentAuth() auth: AuthContext) {
+    return this.bookings.driverRequests(auth.userId);
+  }
+
   @Get('bookings/:id')
   @ApiOperation({ summary: 'Détail et historique (passager ou conducteur du trajet ; 404 pour tout autre compte)' })
   detail(@CurrentAuth() auth: AuthContext, @Param('id', new ParseUUIDPipe()) id: string) {

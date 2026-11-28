@@ -14,6 +14,7 @@ import 'features/auth/profile_setup_screen.dart';
 import 'features/bookings/booking_detail_screen.dart';
 import 'features/bookings/booking_screen.dart';
 import 'features/bookings/my_bookings_screen.dart';
+import 'features/driver/driver_home_screen.dart';
 import 'features/driver/driver_screen.dart';
 import 'features/payments/payment_history_screen.dart';
 import 'features/payments/payment_screen.dart';
@@ -42,7 +43,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: prefs.getBool(onboardingDoneKey) == true ? '/' : '/bienvenue',
     routes: [
-      GoRoute(path: '/', builder: (_, _) => const HomeScreen()),
+      GoRoute(path: '/', builder: (_, _) => const _Home()),
       GoRoute(path: '/bienvenue', builder: (_, _) => const WelcomeScreen()),
       GoRoute(path: '/statut', builder: (_, _) => const StatusScreen()),
       GoRoute(path: '/historique', builder: (_, _) => const HistoryScreen()),
@@ -163,6 +164,17 @@ final routerProvider = Provider<GoRouter>((ref) {
     ],
   );
 });
+
+/// Accueil passager ou accueil conducteur, selon le mode choisi (connecté seulement).
+class _Home extends ConsumerWidget {
+  const _Home();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final signedIn = ref.watch(authControllerProvider).value != null;
+    return signedIn && ref.watch(driverModeProvider) ? const DriverHomeScreen() : const HomeScreen();
+  }
+}
 
 /// Affiche l'écran demandé si une personne est connectée, sinon l'invite à se connecter.
 class _RequireMe extends ConsumerWidget {

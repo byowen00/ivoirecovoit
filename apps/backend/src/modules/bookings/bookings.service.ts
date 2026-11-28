@@ -523,6 +523,42 @@ export class BookingsService {
     return { trip, b: b! };
   }
 
+  /** Espace conducteur : demandes des passagers en attente de réponse, sur tous ses trajets à venir. */
+  async driverRequests(driverId: string, now = new Date()) {
+    const rows = await this.db
+      .selectFrom('bookings')
+      .innerJoin('trips', 'trips.id', 'bookings.trip_id')
+      .innerJoin('trip_stops as p', 'p.id', 'bookings.pickup_stop_id')
+      .innerJoin('trip_stops as d', 'd.id', 'bookings.dropoff_stop_id')
+      .innerJoin('users as pax', 'pax.id', 'bookings.passenger_id')
+      .select([
+        'bookings.id', 'bookings.reference', 'bookings.seats', 'bookings.driver_net_xof', 'bookings.hold_expires_at', 'bookings.is_demo',
+        'trips.id as trip_id', 'trips.kind', 'trips.departure_at', 'p.label as pickup_label', 'd.label as dropoff_label',
+        'pax.display_name as passenger_name',
+      ])
+      .where('trips.driver_id', '=', driverId)
+      .where('bookings.status', '=', 'PENDING_ACCEPTANCE')
+      .where('trips.status', 'in', ['PUBLISHED', 'FULL'])
+      .where((eb) => eb.or([eb('bookings.hold_expires_at', 'is', null), eb('bookings.hold_expires_at', '>', now)]))
+      .orderBy('bookings.hold_expires_at', 'asc')
+      .limit(100)
+      .execute();
+    return {
+      data: rows.map((r) => ({
+        id: r.id,
+        reference: r.reference,
+        seats: r.seats,
+        driverNetXof: Number(r.driver_net_xof),
+        answerBefore: r.hold_expires_at,
+        isDemo: r.is_demo,
+        passengerName: r.passenger_name,
+        trip: { id: r.trip_id, kind: r.kind, departureAt: r.departure_at },
+        pickup: r.pickup_label,
+        dropoff: r.dropoff_label,
+      })),
+    };
+  }
+
   async accept(driverId: string, bookingId: string, ctx: RequestContext) {
     const rules = await this.rules();
     const expired = await this.db.transaction().execute(async (trx) => {

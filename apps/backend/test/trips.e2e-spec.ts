@@ -7,6 +7,7 @@ import { bearer, createTestApp, loginActive, type TestApp } from './test-app';
 import { staffToken } from './staff-helpers';
 import { connectTestDb } from './test-db';
 import { pointAlong, seedLiveDemo } from '../src/database/seeds/live-demo';
+import { seedOffersDemo } from '../src/database/seeds/offers-demo';
 
 const DAY = 86_400_000;
 
@@ -405,12 +406,37 @@ describe('Trajets : publication, modification, cycle de vie', () => {
           WHERE t.status = 'IN_PROGRESS' AND t.description LIKE '[DEMO] Essai de la carte%'`,
       );
       expect(rows[0]).toEqual({ trips: 10, bookings: 10, demo: true });
+      // 20 trajets proposés (ville et interurbain) en Économique, Confort et Luxe ; demandes sur les trajets « sur acceptation ».
+      expect(await seedOffersDemo(db)).toEqual({ trips: 20, requests: 10 });
+      expect(await seedOffersDemo(db)).toEqual({ trips: 0, requests: 0 });
+      const offers = await db.query(
+        `SELECT t.kind, v.comfort_class, count(*)::int AS n FROM trips t JOIN vehicles v ON v.id = t.vehicle_id
+          WHERE t.status = 'PUBLISHED' AND t.description LIKE '[DEMO] Trajet proposé%' GROUP BY 1, 2 ORDER BY t.kind::text, v.comfort_class::text`,
+      );
+      expect(offers.rows).toEqual([
+        { kind: 'INTERCITY', comfort_class: 'CONFORT', n: 3 }, { kind: 'INTERCITY', comfort_class: 'ECONOMIQUE', n: 4 },
+        { kind: 'INTERCITY', comfort_class: 'LUXE', n: 3 }, { kind: 'URBAN', comfort_class: 'CONFORT', n: 3 },
+        { kind: 'URBAN', comfort_class: 'ECONOMIQUE', n: 4 }, { kind: 'URBAN', comfort_class: 'LUXE', n: 3 },
+      ]);
     } finally {
       await db.query('ROLLBACK');
     }
     const line = [{ lat: 0, lng: 0 }, { lat: 1, lng: 1 }];
     expect(pointAlong(line, 0.5)).toMatchObject({ lat: 0.5, lng: 0.5, heading: 45 });
     expect(pointAlong(line, 2)).toMatchObject({ lat: 1, lng: 1 });
+  });
+
+  it('espace conducteur : demandes des passagers à traiter, sur tous ses trajets', async () => {
+    const d = await approvedDriver(t, db);
+    const trip = (await createTrip(d, { publish: true }).expect(201)).body;
+    const passenger = await createUser(db);
+    const pending = await createBooking(db, asFixture(trip, d), passenger, { status: 'PENDING_ACCEPTANCE' });
+    await createBooking(db, asFixture(trip, d), await createUser(db), { status: 'CONFIRMED' });
+    const res = await t.http().get('/api/v1/bookings/requests').set(bearer(d.token)).expect(200);
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.data[0]).toMatchObject({ id: pending, seats: 1, driverNetXof: 4500, trip: { id: trip.id } });
+    const other = await loginActive(t);
+    expect((await t.http().get('/api/v1/bookings/requests').set(bearer(other.accessToken)).expect(200)).body.data).toEqual([]);
   });
 
   it('annulation (idempotente) et onglets « mes trajets »', async () => {

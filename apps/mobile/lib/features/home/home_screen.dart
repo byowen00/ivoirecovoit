@@ -13,6 +13,7 @@ import '../../core/location.dart';
 import '../../core/theme.dart';
 import '../../core/ui.dart';
 import '../../core/vehicle_marker.dart';
+import '../driver/driver_home_screen.dart' show ModeSwitch;
 import '../trust/notifications_screen.dart';
 import '../../providers.dart';
 import '../places/place_field.dart';
@@ -221,6 +222,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)),
                       ),
                     ),
+                    // Bascule vers l'accueil conducteur (demandes des passagers, trajets, gains).
+                    if (signedIn) ...[
+                      Material(
+                        color: AppColors.night,
+                        borderRadius: BorderRadius.circular(22),
+                        child: const Padding(padding: EdgeInsets.all(4), child: ModeSwitch()),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     ComfortMenu(value: _comfort, onChanged: (c) => setState(() => _comfort = c)),
                     const SizedBox(height: 12),
                     Row(
