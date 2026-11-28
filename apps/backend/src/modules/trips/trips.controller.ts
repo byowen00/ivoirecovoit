@@ -9,6 +9,8 @@ import { type AppRequest, type AuthContext, requestContext } from '../auth/reque
 import { LiveLocationService } from './live-location.service';
 import { SearchService } from './search.service';
 import {
+  upcomingQuery,
+  type UpcomingQuery,
   type AvailabilityQuery,
   availabilityQuery,
   type CancelInput,
@@ -50,6 +52,14 @@ export class TripsController {
   async searchTrips(@Query(new ZodValidationPipe(searchQuery)) query: SearchQuery, @Req() req: AppRequest) {
     await this.rateLimit.consumeOrThrow([{ key: `search:${req.ip}`, limit: 120, windowS: 60 }]);
     return this.search.search(query);
+  }
+
+  @Public()
+  @Get('upcoming')
+  @ApiOperation({ summary: 'Prochains trajets proposés (14 jours), sans lieu demandé' })
+  async upcomingTrips(@Query(new ZodValidationPipe(upcomingQuery)) query: UpcomingQuery, @Req() req: AppRequest) {
+    await this.rateLimit.consumeOrThrow([{ key: `search:${req.ip}`, limit: 120, windowS: 60 }]);
+    return this.search.upcoming(query);
   }
 
   @Get('mine')

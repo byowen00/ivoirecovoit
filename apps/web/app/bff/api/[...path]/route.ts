@@ -21,7 +21,7 @@ const ALLOWED_ROUTES = [
   'vehicles(/.*)?',
   `documents/${ID}/download-url`,
   'trips',
-  'trips/(mine|preview)',
+  'trips/(mine|preview|upcoming)',
   `trips/${ID}(/(manage|publish|duplicate|cancel|start|complete|location))?`,
   'routing/estimate',
   'bookings',

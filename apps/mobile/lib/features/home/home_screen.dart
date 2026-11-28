@@ -23,6 +23,11 @@ import '../trips/models.dart';
 import '../trips/search_results_screen.dart';
 import '../trips/trips_repository.dart';
 
+/// Prochains trajets proposés, selon le type et la gamme choisis sur l'accueil.
+final upcomingTripsProvider = FutureProvider.autoDispose.family<List<SearchResult>, (String?, String?)>(
+  (ref, f) => ref.watch(tripsRepositoryProvider).upcoming(kind: f.$1, comfort: f.$2),
+);
+
 final popularRoutesProvider = FutureProvider.autoDispose<List<PopularRoute>>(
   (ref) => ref.watch(tripsRepositoryProvider).popularRoutes().catchError((_) => <PopularRoute>[]),
 );
@@ -445,6 +450,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         style: TextStyle(fontSize: 13),
                       ),
                     ),
+                  const SectionTitle('Trajets proposés'),
+                  const SizedBox(height: 12),
+                  ref
+                      .watch(upcomingTripsProvider((_kind.code, _comfort.code)))
+                      .when(
+                        loading: () => const LinearProgressIndicator(),
+                        error: (_, _) => const Text(
+                          'Impossible de charger les trajets proposés pour le moment.',
+                          style: TextStyle(color: AppColors.textMuted),
+                        ),
+                        data: (trips) => trips.isEmpty
+                            ? const Text(
+                                'Aucun trajet proposé dans les 14 prochains jours pour ce choix.',
+                                style: TextStyle(color: AppColors.textMuted),
+                              )
+                            : Column(
+                                key: const Key('upcoming-trips'),
+                                children: [
+                                  for (final r in trips)
+                                    TripResultCard(
+                                      result: r,
+                                      onTap: () => context.push(
+                                        Uri(
+                                          path: '/trajets/${r.tripId}',
+                                          queryParameters: {'pickup': r.pickupStopId, 'dropoff': r.dropoffStopId, 'seats': '1'},
+                                        ).toString(),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                      ),
+                  const SizedBox(height: 16),
                   if (look.showPopularRoutes) ...[
                   const SectionTitle('Trajets fréquents'),
                   const SizedBox(height: 12),

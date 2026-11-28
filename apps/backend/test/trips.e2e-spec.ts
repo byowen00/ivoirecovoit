@@ -426,6 +426,19 @@ describe('Trajets : publication, modification, cycle de vie', () => {
     expect(pointAlong(line, 2)).toMatchObject({ lat: 1, lng: 1 });
   });
 
+  it('accueil : prochains trajets proposés sans lieu demandé, filtrables', async () => {
+    const d = await approvedDriver(t, db);
+    const trip = (await createTrip(d, { publish: true }).expect(201)).body;
+    const all = await t.http().get('/api/v1/trips/upcoming?limit=50').expect(200);
+    const mine = all.body.data.find((r: { tripId: string }) => r.tripId === trip.id);
+    expect(mine).toMatchObject({ kind: trip.kind, seatsAvailable: expect.any(Number), driver: { verified: true } });
+    expect(mine.pickup.label).toBeTruthy();
+    const other = trip.kind === 'URBAN' ? 'INTERCITY' : 'URBAN';
+    const filtered = await t.http().get(`/api/v1/trips/upcoming?kind=${other}&limit=50`).expect(200);
+    expect(filtered.body.data.some((r: { tripId: string }) => r.tripId === trip.id)).toBe(false);
+    await t.http().get('/api/v1/trips/upcoming?limit=500').expect(400);
+  });
+
   it('espace conducteur : demandes des passagers à traiter, sur tous ses trajets', async () => {
     const d = await approvedDriver(t, db);
     const trip = (await createTrip(d, { publish: true }).expect(201)).body;

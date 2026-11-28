@@ -163,34 +163,7 @@ export class SearchService {
 
     const page = rows.slice(0, q.limit);
     return {
-      data: page.map((r) => ({
-        tripId: r.trip_id,
-        publicRef: r.public_ref,
-        kind: r.kind,
-        pickup: {
-          stopId: r.p_id,
-          label: r.p_label,
-          plannedAt: r.p_planned,
-          distanceFromQueryM: r.p_dist,
-          lat: roundCoord(r.p_lat),
-          lng: roundCoord(r.p_lng),
-        },
-        dropoff: { stopId: r.d_id, label: r.d_label, plannedAt: r.d_planned, distanceFromQueryM: r.d_dist },
-        estimatedDurationS: Math.round((r.d_planned.getTime() - r.p_planned.getTime()) / 1000),
-        // Distance à vol d'oiseau entre arrêts du segment : ordre de grandeur, pas une distance routière.
-        estimatedDistanceM: r.segment_distance_m,
-        isEstimate: true,
-        unitPriceXof: r.unit_price,
-        seatsAvailable: r.seats_available,
-        acceptanceMode: r.acceptance_mode,
-        driver: {
-          id: r.driver_id, displayName: r.display_name, ratingAvg: r.rating_avg, ratingCount: r.rating_count, verified: true,
-          badge: driverBadge(r.rating_avg, r.rating_count, r.criteria_avg),
-        },
-        vehicle: { make: r.make, model: r.model, color: r.color, comfortClass: r.comfort_class, airConditioning: r.air_conditioning },
-        stopsCount: r.d_seq - r.p_seq - 1,
-        isDemo: r.is_demo,
-      })),
+      data: page.map((r) => this.toResult(r)),
       nextCursor: rows.length > q.limit ? encodeOffset(offset + q.limit) : null,
       query: {
         from: { label: from.label, lat: from.lat, lng: from.lng },
@@ -198,6 +171,79 @@ export class SearchService {
         seats: q.seats,
         date: q.date ?? null,
       },
+    };
+  }
+
+  /**
+   * Prochains trajets proposés, sans lieu demandé (accueil « Trajets proposés ») : départ de l'origine vers le dernier
+   * arrêt, dans les 14 jours, triés par heure de départ. Même forme que la recherche.
+   */
+  async upcoming(q: { kind?: 'URBAN' | 'INTERCITY'; comfort?: VehicleComfort; limit: number }) {
+    const minMinutes = (await this.settings.get<number>('booking.min_minutes_before_departure')) ?? 30;
+    const notBefore = new Date(Date.now() + minMinutes * 60_000);
+    const until = new Date(Date.now() + 14 * 86_400_000);
+    const { rows } = await sql<SearchRow>`
+      WITH cand AS (
+        SELECT tr.id AS trip_id, tr.public_ref, tr.kind, tr.status, tr.acceptance_mode, tr.seats_offered, tr.driver_id,
+               tr.vehicle_id, tr.is_demo, tr.route_source,
+               p.id AS p_id, p.seq AS p_seq, p.label AS p_label, p.planned_at AS p_planned,
+               ST_Y(p.location::geometry) AS p_lat, ST_X(p.location::geometry) AS p_lng, 0 AS p_dist,
+               d.id AS d_id, d.seq AS d_seq, d.label AS d_label, d.planned_at AS d_planned, 0 AS d_dist,
+               (d.price_from_origin_xof - p.price_from_origin_xof)::int AS unit_price
+          FROM trips tr
+          JOIN trip_stops p ON p.trip_id = tr.id AND p.seq = 0 AND p.is_pickup
+          JOIN LATERAL (SELECT * FROM trip_stops x WHERE x.trip_id = tr.id AND x.is_dropoff ORDER BY x.seq DESC LIMIT 1) d ON true
+         WHERE tr.status IN ('PUBLISHED','FULL')
+           AND (${q.kind ?? null}::text IS NULL OR tr.kind::text = ${q.kind ?? null}::text)
+           AND p.planned_at >= ${notBefore} AND p.planned_at <= ${until}
+      ),
+      scored AS (
+        SELECT c.*, c.seats_offered - trip_max_occupancy(c.trip_id, c.p_seq, c.d_seq) AS seats_available,
+               (SELECT sum(ST_Distance(a.location, b.location))::int FROM trip_stops a
+                  JOIN trip_stops b ON b.trip_id = a.trip_id AND b.seq = a.seq + 1
+                 WHERE a.trip_id = c.trip_id AND a.seq >= c.p_seq AND b.seq <= c.d_seq) AS segment_distance_m
+          FROM cand c
+      )
+      SELECT s.*, u.display_name, dp.rating_avg, dp.rating_count, dp.criteria_avg, v.make, v.model, v.color, v.comfort_class, v.air_conditioning
+        FROM scored s
+        JOIN users u ON u.id = s.driver_id AND u.status = 'ACTIVE'
+        JOIN driver_profiles dp ON dp.user_id = s.driver_id AND dp.verification_status = 'APPROVED'
+        JOIN vehicles v ON v.id = s.vehicle_id
+       WHERE s.seats_available >= 1
+         AND (${q.comfort ?? null}::text IS NULL OR v.comfort_class::text = ${q.comfort ?? null}::text)
+       ORDER BY s.p_planned ASC, s.trip_id
+       LIMIT ${q.limit}`.execute(this.db);
+    return { data: rows.map((r) => this.toResult(r)) };
+  }
+
+  private toResult(r: SearchRow) {
+    return {
+      tripId: r.trip_id,
+      publicRef: r.public_ref,
+      kind: r.kind,
+      pickup: {
+        stopId: r.p_id,
+        label: r.p_label,
+        plannedAt: r.p_planned,
+        distanceFromQueryM: r.p_dist,
+        lat: roundCoord(r.p_lat),
+        lng: roundCoord(r.p_lng),
+      },
+      dropoff: { stopId: r.d_id, label: r.d_label, plannedAt: r.d_planned, distanceFromQueryM: r.d_dist },
+      estimatedDurationS: Math.round((r.d_planned.getTime() - r.p_planned.getTime()) / 1000),
+      // Distance à vol d'oiseau entre arrêts du segment : ordre de grandeur, pas une distance routière.
+      estimatedDistanceM: r.segment_distance_m,
+      isEstimate: true,
+      unitPriceXof: r.unit_price,
+      seatsAvailable: r.seats_available,
+      acceptanceMode: r.acceptance_mode,
+      driver: {
+        id: r.driver_id, displayName: r.display_name, ratingAvg: r.rating_avg, ratingCount: r.rating_count, verified: true,
+        badge: driverBadge(r.rating_avg, r.rating_count, r.criteria_avg),
+      },
+      vehicle: { make: r.make, model: r.model, color: r.color, comfortClass: r.comfort_class, airConditioning: r.air_conditioning },
+      stopsCount: r.d_seq - r.p_seq - 1,
+      isDemo: r.is_demo,
     };
   }
 

@@ -98,6 +98,9 @@ abstract class TripsRepository {
   Future<Availability> availability(String id, String pickupStopId, String dropoffStopId);
   Future<PublicDriver> driver(String id);
   Future<List<PopularRoute>> popularRoutes();
+
+  /// Prochains trajets proposés (14 jours), sans lieu demandé.
+  Future<List<SearchResult>> upcoming({String? kind, String? comfort});
 }
 
 /// Clé d'idempotence aléatoire (format UUID v4) : une création rejouée ne crée rien en double.
@@ -134,6 +137,13 @@ class ApiTripsRepository implements TripsRepository {
 
   @override
   Future<PublicDriver> driver(String id) async => PublicDriver.fromJson(await _api.get('/drivers/$id'));
+
+  @override
+  Future<List<SearchResult>> upcoming({String? kind, String? comfort}) async => [
+    for (final r in (await _api.get('/trips/upcoming', query: {'kind': ?kind, 'comfort': ?comfort, 'limit': '10'}, retries: 1))['data']
+        as List)
+      SearchResult.fromJson(r as Map<String, dynamic>),
+  ];
 
   @override
   Future<List<PopularRoute>> popularRoutes() async => [

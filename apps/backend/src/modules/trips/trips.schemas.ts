@@ -170,3 +170,10 @@ export function decodeOffset(cursor: string | undefined): number {
 export function encodeOffset(offset: number): string {
   return Buffer.from(String(offset)).toString('base64url');
 }
+
+export const upcomingQuery = z.object({
+  kind: z.enum(['URBAN', 'INTERCITY']).optional(),
+  comfort: z.enum(['ECONOMIQUE', 'CONFORT', 'LUXE']).optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+});
+export type UpcomingQuery = z.infer<typeof upcomingQuery>;

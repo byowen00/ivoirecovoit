@@ -73,6 +73,8 @@ class FakeTrips implements TripsRepository {
   Future<PublicDriver> driver(String id) => throw UnimplementedError();
   @override
   Future<List<PopularRoute>> popularRoutes() async => [];
+  @override
+  Future<List<SearchResult>> upcoming({String? kind, String? comfort}) async => [];
 }
 
 Place place(String id) => Place(id: id, kind: 'CITY', label: 'Lieu $id', lat: 5.3, lng: -4.0, isApproximate: false);
