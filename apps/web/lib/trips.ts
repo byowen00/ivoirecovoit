@@ -158,6 +158,11 @@ export const publicTrips = {
       retries: 1,
     }),
   driver: (id: string, signal?: AbortSignal) => apiGet<PublicDriver>(`/drivers/${encodeURIComponent(id)}`, { signal }),
+  upcoming: (f: { kind?: TripKind; comfort?: string }, signal?: AbortSignal) =>
+    apiGet<{ data: SearchResult[] }>(
+      `/trips/upcoming?${new URLSearchParams({ limit: '12', ...(f.kind ? { kind: f.kind } : {}), ...(f.comfort ? { comfort: f.comfort } : {}) })}`,
+      { signal, retries: 1 },
+    ),
   popularRoutes: (signal?: AbortSignal) => apiGet<{ data: PopularRoute[] }>('/places/popular-routes', { signal, retries: 1 }),
 };
 

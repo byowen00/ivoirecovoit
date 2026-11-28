@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { PopularRoutes } from '@/components/PopularRoutes';
 import { SearchForm } from '@/components/SearchForm';
+import { UpcomingTrips } from '@/components/UpcomingTrips';
 
 /** Écran 4 : accueil et recherche. */
 export default async function HomePage() {
@@ -27,6 +28,8 @@ export default async function HomePage() {
           <PopularRoutes />
         </section>
       </div>
+
+      <UpcomingTrips />
 
       <section aria-label="Pourquoi IvoireCovoit" className="grid gap-4 sm:grid-cols-3">
         <div className="card grid gap-2">
