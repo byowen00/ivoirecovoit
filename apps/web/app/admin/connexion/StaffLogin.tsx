@@ -79,6 +79,7 @@ export function StaffLogin({ next }: { next: string }) {
           </button>
         </div>
       )}
+      {testLogin.enabled && <p className="text-xs text-ink-muted">Ou, avec un vrai compte du personnel :</p>}
       <label className="grid gap-1 text-sm font-medium">
         Adresse e-mail
         <input type="email" autoComplete="username" required className="field" value={email} onChange={(e) => setEmail(e.target.value)} />
