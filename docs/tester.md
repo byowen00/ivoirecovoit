@@ -128,3 +128,18 @@ brancher le téléphone en USB (débogage USB activé) et lancer depuis `apps/mo
 | Remettre les données à zéro | `docker compose -f infrastructure/docker-compose.yml down -v`, puis les commandes de la section 2 |
 
 Pour noter les modifications à faire : une ligne par point, avec l'écran concerné et, si possible, une capture.
+
+## Essai de la carte en temps réel de la console
+
+Avec l'API lancée, dans une autre fenêtre PowerShell, dans le dossier du projet :
+
+```powershell
+pnpm demo:live
+```
+
+La commande crée, si besoin, 10 conducteurs et 10 passagers fictifs « [DEMO] », vérifiés, chacun dans un trajet en
+cours dans Abidjan avec un passager confirmé (sans paiement). Elle fait ensuite avancer les voitures toutes les
+5 secondes. Ouvrir la console, menu **Carte en temps réel** (`/admin/carte`). Les positions sont **simulées**
+(ligne droite entre deux quartiers), ce ne sont pas des GPS. Ctrl+C pour arrêter : les voitures disparaissent de la
+carte au bout de 2 minutes. Les comptes de conducteurs d'essai se connectent avec les numéros 00 00 00 00 21 à 30,
+les passagers avec 00 00 00 00 31 à 40 (mode test seulement).

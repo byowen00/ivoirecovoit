@@ -16,6 +16,7 @@ const NAV: { href: string; label: string; perms: string[] }[] = [
   { href: '/admin/verifications', label: 'Vérifications', perms: ['verifications.read'] },
   { href: '/admin/utilisateurs', label: 'Utilisateurs', perms: ['users.read'] },
   { href: '/admin/trajets', label: 'Trajets', perms: ['trips.read'] },
+  { href: '/admin/carte', label: 'Carte en temps réel', perms: ['trips.read'] },
   { href: '/admin/reservations', label: 'Réservations', perms: ['bookings.read'] },
   { href: '/admin/paiements', label: 'Paiements', perms: ['payments.read'] },
   { href: '/admin/finance/remboursements', label: 'Remboursements', perms: ['refunds.create', 'refunds.create.capped', 'refunds.approve', 'finance.read'] },

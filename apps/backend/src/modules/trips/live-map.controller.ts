@@ -3,7 +3,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { z } from 'zod';
 import { latitude, longitude } from '../../common/geo';
 import { ZodValidationPipe } from '../../common/zod-validation.pipe';
-import { Public } from '../auth/decorators';
+import { Public, StaffOnly } from '../auth/decorators';
 import { resolveAppearance } from '../users/appearance';
 import { resolveDynamicPricing, trafficInfo } from './price-factors';
 import { SettingsService } from '../users/settings.service';
@@ -41,5 +41,19 @@ export class TrafficController {
   @ApiOperation({ summary: 'Embouteillages signalés par l’équipe et heures de pointe habituelles' })
   async traffic() {
     return trafficInfo(resolveDynamicPricing(await this.settings.get('pricing.dynamic')));
+  }
+}
+
+/** Console : carte en temps réel des trajets en cours (positions exactes des conducteurs, passagers confirmés). */
+@ApiTags('admin')
+@Controller('admin/live')
+export class AdminLiveController {
+  constructor(private readonly live: LiveLocationService) {}
+
+  @StaffOnly('trips.read')
+  @Get()
+  @ApiOperation({ summary: 'Trajets en cours : position du conducteur et passagers à bord' })
+  overview() {
+    return this.live.adminOverview();
   }
 }

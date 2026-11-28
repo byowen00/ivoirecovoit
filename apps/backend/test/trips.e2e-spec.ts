@@ -4,7 +4,9 @@ import { bookingReference } from '../src/common/ids';
 import { addApprovedVehicle, type ApprovedDriver, approvedDriver } from './driver-helpers';
 import { createBooking, createUser, ensureFeeRule, type TripFixture } from './fixtures';
 import { bearer, createTestApp, loginActive, type TestApp } from './test-app';
+import { staffToken } from './staff-helpers';
 import { connectTestDb } from './test-db';
+import { pointAlong, seedLiveDemo } from '../src/database/seeds/live-demo';
 
 const DAY = 86_400_000;
 
@@ -370,6 +372,14 @@ describe('Trajets : publication, modification, cycle de vie', () => {
     expect(mine.lat).not.toBe(5.3364);
     expect(Math.abs(mine.lat - 5.3364)).toBeLessThan(0.003);
     expect(JSON.stringify(mine)).not.toMatch(/driver|name|phone|heading|accuracy/i);
+    // Console : position exacte, conducteur et passagers confirmés ; réservé au personnel.
+    const { token: staff } = await staffToken(t, db, 'SUPER_ADMIN');
+    const admin = await t.http().get('/api/v1/admin/live').set(bearer(staff)).expect(200);
+    const row = admin.body.data.find((x: { tripId: string }) => x.tripId === trip.id);
+    expect(row).toMatchObject({ stale: false, position: { lat: 5.3364, lng: -4.0267 } });
+    expect(row.passengers).toHaveLength(1);
+    expect(admin.body.counts.sharing).toBeGreaterThanOrEqual(1);
+    await t.http().get('/api/v1/admin/live').set(bearer(passenger.accessToken)).expect(403);
     const far = await t.http().get('/api/v1/live/drivers?lat=7.69&lng=-5.03').expect(200); // Bouaké
     expect(far.body.data.some((x: { tripId: string }) => x.tripId === trip.id)).toBe(false);
 
@@ -382,6 +392,25 @@ describe('Trajets : publication, modification, cycle de vie', () => {
     await t.http().post(`/api/v1/trips/${trip.id}/complete`).set(bearer(d.token)).expect(200);
     const after = await t.http().get(`/api/v1/trips/${trip.id}/location`).set(bearer(passenger.accessToken)).expect(200);
     expect(after.body).toMatchObject({ status: 'COMPLETED', position: null });
+  });
+
+  it('essai de la carte : 10 conducteurs et 10 passagers [DEMO] en trajet, relance sans doublon', async () => {
+    await db.query('BEGIN');
+    try {
+      expect(await seedLiveDemo(db)).toEqual({ drivers: 10, passengers: 10, trips: 10 });
+      expect((await seedLiveDemo(db)).trips).toBe(0); // trajets encore en cours : gardés
+      const { rows } = await db.query(
+        `SELECT count(DISTINCT t.id)::int AS trips, count(b.id)::int AS bookings, bool_and(t.is_demo AND b.is_demo) AS demo
+           FROM trips t JOIN bookings b ON b.trip_id = t.id AND b.status = 'CONFIRMED' AND b.payment_status = 'NOT_REQUIRED'
+          WHERE t.status = 'IN_PROGRESS' AND t.description LIKE '[DEMO] Essai de la carte%'`,
+      );
+      expect(rows[0]).toEqual({ trips: 10, bookings: 10, demo: true });
+    } finally {
+      await db.query('ROLLBACK');
+    }
+    const line = [{ lat: 0, lng: 0 }, { lat: 1, lng: 1 }];
+    expect(pointAlong(line, 0.5)).toMatchObject({ lat: 0.5, lng: 0.5, heading: 45 });
+    expect(pointAlong(line, 2)).toMatchObject({ lat: 1, lng: 1 });
   });
 
   it('annulation (idempotente) et onglets « mes trajets »', async () => {

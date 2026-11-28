@@ -43,13 +43,16 @@ interface Props {
   className?: string;
   /** Légende sous la carte. */
   caption?: string;
+  /** Carte rafraîchie en continu : cadrer une seule fois, pour ne pas annuler le zoom de la personne. */
+  fitOnce?: boolean;
 }
 
 /**
  * Carte Leaflet chargée à la demande (pas de rendu serveur). L'itinéraire affiché est une estimation :
  * la légende le rappelle, et la liste textuelle reste la référence pour les lecteurs d'écran.
  */
-export function TripMap({ points, route = [], label, onSelect, className = 'h-72', caption = 'Tracé indicatif, ce n’est pas un suivi GPS.' }: Props) {
+export function TripMap({ points, route = [], label, onSelect, className = 'h-72', caption = 'Tracé indicatif, ce n’est pas un suivi GPS.', fitOnce = false }: Props) {
+  const fitted = useRef(false);
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<LeafletMap | null>(null);
   const layer = useRef<LayerGroup | null>(null);
@@ -88,13 +91,15 @@ export function TripMap({ points, route = [], label, onSelect, className = 'h-72
         if (onSelect && p.id) m.on('click', () => onSelect(p.id!));
       }
       const all: [number, number][] = [...points.map((p) => [p.lat, p.lng] as [number, number]), ...route];
+      if (fitOnce && fitted.current) return;
+      if (all.length) fitted.current = true;
       if (all.length === 1) map.current.setView(all[0]!, 13);
       else if (all.length > 1) map.current.fitBounds(L.latLngBounds(all), { padding: [24, 24], maxZoom: 14 });
     });
     return () => {
       cancelled = true;
     };
-  }, [ready, points, route, onSelect]);
+  }, [ready, points, route, onSelect, fitOnce]);
 
   if (failed) return <p className="card text-sm text-ink-muted">Carte indisponible. Les informations du trajet restent ci-dessous.</p>;
   return (

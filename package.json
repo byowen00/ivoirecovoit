@@ -13,6 +13,7 @@
     "db:migrate": "pnpm --filter @ivoirecovoit/backend db:migrate",
     "db:seed": "pnpm --filter @ivoirecovoit/backend db:seed",
     "db:seed:demo": "pnpm --filter @ivoirecovoit/backend db:seed:demo",
+    "demo:live": "pnpm --filter @ivoirecovoit/backend demo:live",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",

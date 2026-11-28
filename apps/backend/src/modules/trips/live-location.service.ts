@@ -109,6 +109,64 @@ export class LiveLocationService {
     return { data, approximateM: 500 };
   }
 
+  /**
+   * Console : tous les trajets en cours, avec la dernière position exacte du conducteur et ses passagers confirmés.
+   * Réservé au personnel (droit « trips.read ») ; les passagers ne partagent pas leur position, seul le conducteur.
+   */
+  async adminOverview(now = new Date()) {
+    const trips = await this.db
+      .selectFrom('trips')
+      .innerJoin('users as d', 'd.id', 'trips.driver_id')
+      .leftJoin('vehicles as v', 'v.id', 'trips.vehicle_id')
+      .select([
+        'trips.id', 'trips.public_ref', 'trips.kind', 'trips.is_demo', 'trips.started_at', 'trips.departure_at',
+        'd.id as driver_id', 'd.first_name', 'd.last_name', 'v.make', 'v.model', 'v.color', 'v.plate_number',
+      ])
+      .select((eb) => [
+        eb.selectFrom('trip_stops').select('label').whereRef('trip_stops.trip_id', '=', 'trips.id').orderBy('seq', 'asc').limit(1).as('from_label'),
+        eb.selectFrom('trip_stops').select('label').whereRef('trip_stops.trip_id', '=', 'trips.id').orderBy('seq', 'desc').limit(1).as('to_label'),
+      ])
+      .where('trips.status', '=', 'IN_PROGRESS')
+      .orderBy('trips.started_at', 'desc')
+      .limit(500)
+      .execute();
+    if (!trips.length) return { data: [], counts: { trips: 0, sharing: 0, passengers: 0 } };
+    const bookings = await this.db
+      .selectFrom('bookings')
+      .innerJoin('users as p', 'p.id', 'bookings.passenger_id')
+      .innerJoin('trip_stops as a', 'a.id', 'bookings.pickup_stop_id')
+      .innerJoin('trip_stops as b', 'b.id', 'bookings.dropoff_stop_id')
+      .select(['bookings.trip_id', 'bookings.reference', 'bookings.seats', 'p.first_name', 'p.last_name', 'a.label as pickup', 'b.label as dropoff'])
+      .where('bookings.trip_id', 'in', trips.map((t) => t.id))
+      .where('bookings.status', '=', 'CONFIRMED')
+      .execute();
+    const raws = await this.redis.mget(trips.map((t) => key(t.id)));
+    let sharing = 0;
+    const data = trips.map((t, i) => {
+      const p = raws[i] ? (JSON.parse(raws[i]!) as LivePosition) : null;
+      const ageS = p ? Math.max(0, Math.round((now.getTime() - Date.parse(p.recordedAt)) / 1000)) : null;
+      if (p && ageS !== null && ageS <= LIVE_STALE_AFTER_S) sharing++;
+      return {
+        tripId: t.id,
+        reference: t.public_ref,
+        kind: t.kind,
+        isDemo: t.is_demo,
+        startedAt: t.started_at,
+        fromLabel: t.from_label,
+        toLabel: t.to_label,
+        driver: { id: t.driver_id, name: [t.first_name, t.last_name].filter(Boolean).join(' ') || 'Conducteur' },
+        vehicle: t.make ? { label: `${t.make} ${t.model} ${t.color ?? ''}`.trim(), plate: t.plate_number } : null,
+        position: p ? { lat: p.lat, lng: p.lng, heading: p.heading, recordedAt: p.recordedAt } : null,
+        ageS,
+        stale: ageS !== null && ageS > LIVE_STALE_AFTER_S,
+        passengers: bookings
+          .filter((b) => b.trip_id === t.id)
+          .map((b) => ({ reference: b.reference, name: [b.first_name, b.last_name].filter(Boolean).join(' '), seats: b.seats, pickup: b.pickup, dropoff: b.dropoff })),
+      };
+    });
+    return { data, counts: { trips: data.length, sharing, passengers: bookings.reduce((s, b) => s + b.seats, 0) } };
+  }
+
   /** Fin ou annulation du trajet : la position est effacée tout de suite. */
   async clear(tripId: string): Promise<void> {
     await this.redis.del(key(tripId));

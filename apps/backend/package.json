@@ -12,6 +12,7 @@
     "db:migrate": "tsx --env-file-if-exists=../../.env src/database/migrate.ts",
     "db:seed": "tsx --env-file-if-exists=../../.env src/database/seeds/run-seed.ts reference",
     "db:seed:demo": "tsx --env-file-if-exists=../../.env src/database/seeds/run-seed.ts demo",
+    "demo:live": "tsx --env-file-if-exists=../../.env src/database/seeds/run-live-demo.ts",
     "db:migrate:prod": "node dist/database/migrate.js",
     "db:seed:prod": "node dist/database/seeds/run-seed.js reference",
     "staff:create": "tsx --env-file-if-exists=../../.env src/scripts/create-staff.ts",
