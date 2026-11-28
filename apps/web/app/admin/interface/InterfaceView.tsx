@@ -5,12 +5,26 @@ import { adminCall, can } from '@/lib/admin';
 import { apiGet } from '@/lib/api';
 import type { Appearance, AppearanceValue, ThemeName } from '@/lib/appearance';
 import { useStaff } from '../_components/AdminShell';
+import { vehicleMarker } from '@/lib/vehicle-marker';
 import { Loading, Notice, PageTitle, ReasonAction, Section, useAdmin } from '../_components/ui';
 
 const LAYOUTS: { value: AppearanceValue['homeLayout']; label: string; hint: string }[] = [
   { value: 'CARTE', label: 'Carte avec la position', hint: 'L’accueil de l’appli s’ouvre sur une carte centrée sur la personne.' },
   { value: 'CLASSIQUE', label: 'Classique', hint: 'En-tête sombre avec le nom de l’appli, sans carte.' },
 ];
+const ICONS: { value: AppearanceValue['vehicleIcon']; label: string }[] = [
+  { value: 'AUTO', label: 'Selon le trajet (voiture en ville, minibus en interurbain)' },
+  { value: 'VOITURE', label: 'Voiture' },
+  { value: 'TAXI', label: 'Taxi' },
+  { value: 'MINIBUS', label: 'Minibus' },
+  { value: 'POINT', label: 'Simple point' },
+];
+const SIZES: { value: AppearanceValue['vehicleSize']; label: string }[] = [
+  { value: 'PETIT', label: 'Petit' },
+  { value: 'MOYEN', label: 'Moyen' },
+  { value: 'GRAND', label: 'Grand' },
+];
+
 const KINDS: { value: AppearanceValue['defaultTripKind']; label: string }[] = [
   { value: 'ALL', label: 'Tous' },
   { value: 'URBAN', label: '🏙 En ville' },
@@ -26,7 +40,8 @@ export function InterfaceView() {
   if (!current.data) return <Loading error={current.error} />;
   const a = current.data;
   // Tant que rien n'est modifié, le brouillon est la valeur enregistrée.
-  const draft: AppearanceValue = edit ?? { theme: a.theme, homeLayout: a.homeLayout, defaultTripKind: a.defaultTripKind, showPopularRoutes: a.showPopularRoutes, liveDrivers: a.liveDrivers ?? true };
+  const draft: AppearanceValue = edit ?? { theme: a.theme, homeLayout: a.homeLayout, defaultTripKind: a.defaultTripKind, showPopularRoutes: a.showPopularRoutes, liveDrivers: a.liveDrivers ?? true,
+    vehicleIcon: a.vehicleIcon ?? 'AUTO', vehicleColor: a.vehicleColor ?? 'MARQUE', vehicleSize: a.vehicleSize ?? 'MOYEN' };
   const themes = current.data.themes;
   const c = themes[draft.theme];
   const writer = can(me, 'settings.write');
@@ -82,6 +97,51 @@ export function InterfaceView() {
               </span>
             </span>
           </label>
+        </div>
+      </Section>
+      <Section title="Véhicules sur la carte">
+        <p className="text-sm text-ink-muted">
+          Icône des voitures en circulation sur les cartes de l’appli (accueil, suivi du trajet pour le passager et le conducteur), du site et de la console.
+        </p>
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="grid gap-1 text-sm">
+            <span>Icône</span>
+            <select className="field" value={draft.vehicleIcon} onChange={(e) => set('vehicleIcon', e.target.value as AppearanceValue['vehicleIcon'])}>
+              {ICONS.map((i) => (
+                <option key={i.value} value={i.value}>{i.label}</option>
+              ))}
+            </select>
+          </label>
+          <label className="grid gap-1 text-sm">
+            <span>Couleur</span>
+            <select className="field" value={draft.vehicleColor} onChange={(e) => set('vehicleColor', e.target.value as AppearanceValue['vehicleColor'])}>
+              {Object.entries(a.vehicleColors ?? { MARQUE: { label: 'Couleur de la palette', hex: null } }).map(([k, v]) => (
+                <option key={k} value={k}>{v.label}</option>
+              ))}
+            </select>
+          </label>
+          <label className="grid gap-1 text-sm">
+            <span>Taille</span>
+            <select className="field" value={draft.vehicleSize} onChange={(e) => set('vehicleSize', e.target.value as AppearanceValue['vehicleSize'])}>
+              {SIZES.map((x) => (
+                <option key={x.value} value={x.value}>{x.label}</option>
+              ))}
+            </select>
+          </label>
+          <span className="flex items-center gap-3 rounded border border-line bg-[#dfe7dc] px-3 py-2" aria-label="Aperçu des véhicules">
+            {(['URBAN', 'INTERCITY'] as const).map((k) => (
+              <span
+                key={k}
+                // Aperçu : même rendu que sur la carte.
+                dangerouslySetInnerHTML={{
+                  __html: vehicleMarker(
+                    { icon: draft.vehicleIcon, size: draft.vehicleSize, hex: a.vehicleColors?.[draft.vehicleColor]?.hex ?? c.brand },
+                    k,
+                  ).html,
+                }}
+              />
+            ))}
+          </span>
         </div>
       </Section>
       <Section title="Menu de recherche">

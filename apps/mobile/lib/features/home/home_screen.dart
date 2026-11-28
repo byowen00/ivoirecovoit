@@ -12,6 +12,7 @@ import '../../core/config.dart';
 import '../../core/location.dart';
 import '../../core/theme.dart';
 import '../../core/ui.dart';
+import '../../core/vehicle_marker.dart';
 import '../trust/notifications_screen.dart';
 import '../../providers.dart';
 import '../places/place_field.dart';
@@ -850,25 +851,14 @@ class _HomeMapState extends ConsumerState<_HomeMap> {
                         for (final d in _drivers)
                           Marker(
                             point: d.point,
-                            width: 34,
-                            height: 34,
+                            width: 52,
+                            height: 52,
                             child: Tooltip(
                               message: d.toLabel == null ? 'Trajet en cours' : 'En route vers ${d.toLabel}',
                               child: GestureDetector(
                                 key: Key('live-driver-${d.tripId}'),
                                 onTap: () => context.push('/trajets/${d.tripId}'),
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: AppColors.night,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(color: Colors.white, width: 2),
-                                  ),
-                                  child: Icon(
-                                    d.kind == 'INTERCITY' ? Icons.airport_shuttle : Icons.directions_car_filled,
-                                    size: 18,
-                                    color: AppColors.accent,
-                                  ),
-                                ),
+                                child: VehicleMapMarker(kind: d.kind),
                               ),
                             ),
                           ),

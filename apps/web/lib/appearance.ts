@@ -14,10 +14,16 @@ export interface AppearanceValue {
   defaultTripKind: 'ALL' | 'URBAN' | 'INTERCITY';
   showPopularRoutes: boolean;
   liveDrivers: boolean;
+  vehicleIcon: 'AUTO' | 'VOITURE' | 'TAXI' | 'MINIBUS' | 'POINT';
+  vehicleColor: 'MARQUE' | 'NUIT' | 'VERT' | 'ORANGE' | 'BLEU' | 'ROUGE';
+  vehicleSize: 'PETIT' | 'MOYEN' | 'GRAND';
 }
 export interface Appearance extends AppearanceValue {
   colors: ThemeColors;
   themes: Record<ThemeName, ThemeColors & { label: string }>;
+  /** Couleur effective du véhicule sur les cartes. */
+  vehicleHex?: string;
+  vehicleColors?: Record<AppearanceValue['vehicleColor'], { label: string; hex: string | null }>;
 }
 
 const HEX = /^#[0-9a-f]{6}$/i;

@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ivoirecovoit/core/appearance.dart';
 import 'package:ivoirecovoit/core/theme.dart';
 import 'package:ivoirecovoit/core/ui.dart';
+import 'package:ivoirecovoit/core/vehicle_marker.dart';
 
 void main() {
   test('apparence réglée par l’admin : palette, accueil et menu par défaut', () {
@@ -25,5 +26,16 @@ void main() {
     Appearance.fromJson({'colors': {'brand': '#c0560a', 'night': '#11181c'}}).applyColors();
     expect(AppColors.brand, before);
     expect(const Appearance().mapHome, isTrue);
+  });
+
+  test('véhicules sur la carte : icône, couleur et taille réglées par l’admin', () {
+    final look = Appearance.fromJson({'vehicleIcon': 'TAXI', 'vehicleColor': 'VERT', 'vehicleHex': '#0b6b45', 'vehicleSize': 'GRAND'});
+    expect(vehicleIconData(look.vehicleIcon), Icons.local_taxi);
+    expect(vehicleMarkerColor(look), const Color(0xFF0B6B45));
+    expect(vehicleMarkerSize(look.vehicleSize), 44);
+    expect(Appearance.fromJson(look.toJson()).vehicleIcon, 'TAXI');
+    expect(vehicleIconData('AUTO', kind: 'INTERCITY'), Icons.airport_shuttle);
+    expect(vehicleIconData('POINT'), isNull);
+    expect(vehicleMarkerColor(const Appearance()), AppColors.brand); // couleur de la palette
   });
 }

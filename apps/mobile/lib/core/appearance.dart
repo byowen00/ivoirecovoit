@@ -21,6 +21,10 @@ class Appearance {
     this.liveDrivers = true,
     this.colors,
     this.themes = const {},
+    this.vehicleIcon = 'AUTO',
+    this.vehicleHex,
+    this.vehicleColor = 'MARQUE',
+    this.vehicleSize = 'MOYEN',
   });
 
   factory Appearance.fromJson(Map<String, dynamic> j) {
@@ -32,6 +36,10 @@ class Appearance {
       showPopularRoutes: j['showPopularRoutes'] as bool? ?? true,
       liveDrivers: j['liveDrivers'] as bool? ?? true,
       colors: c is Map ? {for (final e in c.entries) '${e.key}': '${e.value}'} : null,
+      vehicleIcon: j['vehicleIcon'] as String? ?? 'AUTO',
+      vehicleHex: j['vehicleHex'] as String?,
+      vehicleColor: j['vehicleColor'] as String? ?? 'MARQUE',
+      vehicleSize: j['vehicleSize'] as String? ?? 'MOYEN',
       themes: {
         if (j['themes'] case final Map t)
           for (final e in t.entries)
@@ -49,6 +57,12 @@ class Appearance {
   final bool liveDrivers;
   final Map<String, String>? colors;
 
+  /// Véhicules sur les cartes (« Interface et design ») : AUTO, VOITURE, TAXI, MINIBUS ou POINT ; couleur ; taille.
+  final String vehicleIcon;
+  final String? vehicleHex;
+  final String vehicleColor;
+  final String vehicleSize;
+
   /// Palettes proposées (avec leur libellé), pour le choix personnel dans « Paramètres ».
   final Map<String, Map<String, String>> themes;
 
@@ -63,6 +77,10 @@ class Appearance {
     'liveDrivers': liveDrivers,
     'colors': ?colors,
     if (themes.isNotEmpty) 'themes': themes,
+    'vehicleIcon': vehicleIcon,
+    'vehicleHex': ?vehicleHex,
+    'vehicleColor': vehicleColor,
+    'vehicleSize': vehicleSize,
   };
 
   /// Applique la palette aux couleurs de l'appli ; une couleur mal formée garde la valeur actuelle.

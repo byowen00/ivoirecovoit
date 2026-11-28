@@ -13,6 +13,17 @@ export const THEMES = {
 } as const;
 export type ThemeName = keyof typeof THEMES;
 
+/** Couleurs possibles du véhicule sur la carte ; MARQUE suit la palette choisie. */
+export const VEHICLE_COLORS = {
+  MARQUE: { label: 'Couleur de la palette', hex: null },
+  NUIT: { label: 'Noir', hex: '#11181c' },
+  VERT: { label: 'Vert', hex: '#0b6b45' },
+  ORANGE: { label: 'Orange', hex: '#c0560a' },
+  BLEU: { label: 'Bleu', hex: '#1d4ed8' },
+  ROUGE: { label: 'Rouge', hex: '#b42318' },
+} as const;
+export type VehicleColor = keyof typeof VEHICLE_COLORS;
+
 export const appearanceSchema = z
   .object({
     /** Palette de couleurs. */
@@ -25,16 +36,27 @@ export const appearanceSchema = z
     showPopularRoutes: z.boolean(),
     /** Carte des conducteurs en circulation (positions approximatives) sur l'accueil. */
     liveDrivers: z.boolean(),
+    /** Icône des véhicules sur les cartes : selon le type de trajet (AUTO), voiture, taxi, minibus ou simple point. */
+    vehicleIcon: z.enum(['AUTO', 'VOITURE', 'TAXI', 'MINIBUS', 'POINT']),
+    /** Couleur du pastille du véhicule (couleurs prédéfinies lisibles sur la carte). */
+    vehicleColor: z.enum(Object.keys(VEHICLE_COLORS) as [VehicleColor, ...VehicleColor[]]),
+    vehicleSize: z.enum(['PETIT', 'MOYEN', 'GRAND']),
   })
   .strict();
 export type Appearance = z.infer<typeof appearanceSchema>;
 
-export const DEFAULT_APPEARANCE: Appearance = { theme: 'ORANGE', homeLayout: 'CARTE', defaultTripKind: 'ALL', showPopularRoutes: true, liveDrivers: true };
+export const DEFAULT_APPEARANCE: Appearance = { theme: 'ORANGE', homeLayout: 'CARTE', defaultTripKind: 'ALL', showPopularRoutes: true, liveDrivers: true,
+  vehicleIcon: 'AUTO', vehicleColor: 'MARQUE', vehicleSize: 'MOYEN' };
 
 /** Valeur enregistrée complétée par les valeurs par défaut ; une valeur illisible retombe sur le défaut. */
 export function resolveAppearance(stored: unknown) {
   const merged = appearanceSchema.safeParse({ ...DEFAULT_APPEARANCE, ...(typeof stored === 'object' && stored ? stored : {}) });
   const value = merged.success ? merged.data : DEFAULT_APPEARANCE;
   const t = THEMES[value.theme];
-  return { ...value, colors: { brand: t.brand, brandStrong: t.brandStrong, brandSoft: t.brandSoft, accent: t.accent, night: t.night } };
+  return {
+    ...value,
+    colors: { brand: t.brand, brandStrong: t.brandStrong, brandSoft: t.brandSoft, accent: t.accent, night: t.night },
+    /** Couleur effective du véhicule sur les cartes. */
+    vehicleHex: VEHICLE_COLORS[value.vehicleColor].hex ?? t.brand,
+  };
 }

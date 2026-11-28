@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../../core/config.dart';
 import '../../core/theme.dart';
+import '../../core/vehicle_marker.dart';
 
 enum PointTone { origin, destination, stop, result, vehicle }
 
@@ -88,13 +89,13 @@ class TripMap extends StatelessWidget {
                       for (final p in points)
                         Marker(
                           point: p.point,
-                          width: 28,
-                          height: 28,
+                          width: p.tone == PointTone.vehicle ? 52 : 28,
+                          height: p.tone == PointTone.vehicle ? 52 : 28,
                           child: GestureDetector(
                             onTap: p.id != null && onSelect != null ? () => onSelect!(p.id!) : null,
                             child: Tooltip(
                               message: p.label,
-                              child: Center(
+                              child: p.tone == PointTone.vehicle ? const VehicleMapMarker() : Center(
                                 child: Container(
                                   width: switch (p.tone) {
                                     PointTone.stop => 14,

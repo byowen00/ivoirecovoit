@@ -4,6 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import type { LayerGroup, Map as LeafletMap } from 'leaflet';
 import { useEffect, useRef, useState } from 'react';
 import type { LatLng } from '@/lib/trips';
+import { useVehicleStyle, vehicleMarker } from '@/lib/vehicle-marker';
 
 export interface MapPoint {
   lat: number;
@@ -12,6 +13,9 @@ export interface MapPoint {
   /** Couleur selon le rôle : départ, arrivée, arrêt intermédiaire, résultat de recherche, voiture suivie. */
   tone: 'origin' | 'destination' | 'stop' | 'result' | 'vehicle';
   id?: string;
+  /** Véhicule : type de trajet (icône AUTO) et mise en évidence. */
+  kind?: 'URBAN' | 'INTERCITY';
+  highlight?: boolean;
 }
 
 // Tuiles configurables (fournisseur sous contrat en production). Par défaut, OpenStreetMap avec son attribution.
@@ -53,6 +57,7 @@ interface Props {
  */
 export function TripMap({ points, route = [], label, onSelect, className = 'h-72', caption = 'Tracé indicatif, ce n’est pas un suivi GPS.', fitOnce = false }: Props) {
   const fitted = useRef(false);
+  const vehicle = useVehicleStyle();
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<LeafletMap | null>(null);
   const layer = useRef<LayerGroup | null>(null);
@@ -85,7 +90,14 @@ export function TripMap({ points, route = [], label, onSelect, className = 'h-72
       layer.current.clearLayers();
       if (route.length > 1) L.polyline(route, { color: '#b85400', weight: 4, opacity: 0.8, dashArray: '6 6' }).addTo(layer.current);
       for (const p of points) {
-        const m = L.circleMarker([p.lat, p.lng], { radius: p.tone === 'stop' ? 6 : p.tone === 'vehicle' ? 11 : 8, color: '#fff', weight: 2, fillColor: TONE[p.tone], fillOpacity: 1 })
+        if (p.tone === 'vehicle') {
+          const v = vehicleMarker(vehicle, p.kind, p.highlight);
+          const icon = L.divIcon({ html: v.html, className: '', iconSize: [v.size, v.size], iconAnchor: [v.size / 2, v.size / 2] });
+          const vm = L.marker([p.lat, p.lng], { icon, title: p.label, zIndexOffset: p.highlight ? 1000 : 500 }).bindTooltip(p.label).addTo(layer.current);
+          if (onSelect && p.id) vm.on('click', () => onSelect(p.id!));
+          continue;
+        }
+        const m = L.circleMarker([p.lat, p.lng], { radius: p.tone === 'stop' ? 6 : 8, color: '#fff', weight: 2, fillColor: TONE[p.tone], fillOpacity: 1 })
           .bindTooltip(p.label)
           .addTo(layer.current);
         if (onSelect && p.id) m.on('click', () => onSelect(p.id!));
@@ -99,7 +111,7 @@ export function TripMap({ points, route = [], label, onSelect, className = 'h-72
     return () => {
       cancelled = true;
     };
-  }, [ready, points, route, onSelect, fitOnce]);
+  }, [ready, points, route, onSelect, fitOnce, vehicle]);
 
   if (failed) return <p className="card text-sm text-ink-muted">Carte indisponible. Les informations du trajet restent ci-dessous.</p>;
   return (
